@@ -1,0 +1,16 @@
+[project]
+name = "haverscript"
+version = "0.1.0"
+description = "Library for managing LLM interactions."
+authors = [{ name = "Andy Gill", email = "andygillku@gmail.com" }]
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.9"
+dependencies = [
+    "ollama>=0.3.2",
+    "colorama>=0.4.6"
+]
+
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
