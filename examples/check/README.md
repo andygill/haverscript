@@ -1,18 +1,18 @@
-This this example, we use `.check()` several times.
+In this example, we use `.check()` several times.
 
 ```python
-import haverscript as hs
+from haverscript import connect, fresh, valid_json
 import json
 
-model = hs.model("mistral").echo()
+model = connect("mistral").echo()
 session = model.chat("In one sentence, why is the sky blue?").check(
-    hs.fresh
+    fresh
 )  # will ignore cache if cache enabled
 session = session.chat("Rewrite the above sentence in the style of Yoda")
 session = session.chat("How many questions did I ask?")
 
 # only accept short replies
-session = session.check(lambda pred: len(pred.reply) < 100, limit=10)
+session = session.check(lambda pred: len(pred.reply) < 100)
 print(f"{len(session.reply)} characters")
 
 # turn off echo
@@ -23,13 +23,14 @@ colors = json.loads(
     .chat(
         "Return a map from primary colors to their hex codes. The map should be called colors. Reply using JSON, and only JSON."
     )
-    .check(hs.valid_json)
+    .check(valid_json) # Ensures that the reply is valid JSON before proceeding
     .reply
 )
 
 
 print(json.dumps(colors, indent=2))
 ```
+Note: The response is regenerated multiple times due to different formatting or length checks.
 
 ```markdown
 > In one sentence, why is the sky blue?
@@ -87,6 +88,9 @@ You asked three questions in this conversation.
   }
 }
 ```
+
+This example demonstrates how to validate multiple criteria in responses and
+extract structured data from LLM outputs.
 
 ----
 

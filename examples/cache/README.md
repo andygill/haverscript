@@ -1,12 +1,11 @@
-Here is an example of using the cache. We use SQLite, and files by convension
-use a `.db` suffix. Not we do not turn on echo here, but store the replies
-instead.
+Here is an example of using the cache. We use SQLite, and files by convention
+use a `.db` suffix. Note that we do not turn on `echo` here but store the replies instead.
 
 ```python
-import haverscript as hs
+from haverscript import connect
 import time
 
-model = hs.model("mistral").cache("cache.db")
+model = connect("mistral").cache("cache.db")
 
 prompt = "In one sentence, why is the sky blue?"
 times = []
@@ -16,7 +15,7 @@ replies.append(model.chat(prompt).reply)
 times.append(time.time())
 replies.append(model.chat(prompt).reply)
 times.append(time.time())
-replies.append(model.chat(prompt).check(hs.fresh).reply)
+replies.append(model.chat(prompt).check(fresh).reply)
 times.append(time.time())
 
 for i, (t1, t2, r) in enumerate(zip(times, times[1:], replies)):
@@ -29,7 +28,7 @@ print(len(model.children(prompt)), "replies are cached")
 
 ```
 
-First time called give:
+The first run produces:
 
 ```
 chat #0
@@ -49,7 +48,7 @@ time: 1.51861
 
  * chat #0 is generated
  * chat #1 is pulled from the cache
- * chat #2 is pulled from the cache, rejected because it is not fresh, and the regenerated.
+ * chat #2 is pulled from the cache, rejected because it is not fresh, and then regenerated.
  * The cache contains 2 possible replies to the prompt
 
 Second time, with the cache intact inside "cache.db", gives:
@@ -73,10 +72,10 @@ time: 1.18642
  * chat #0 is pulled from the cache
  * chat #1 is pulled from the cache
  * chat #2 is pulled from the cache, rejected because it is not fresh, and the regenerated as a fresh result.
- * The now cache contains 3 possible replies to the prompt
+ * The cache now contains 3 possible replies to the prompt
 
 
-There are two cached values at the start of the run, so we use the most up to date reply is used.
+There are two cached values at the start of the run, so we use the most up-to-date reply.
 
 ----
 

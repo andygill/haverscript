@@ -1,16 +1,17 @@
 ```python
-import haverscript as hs
+from haverscript import connect
 
-model = hs.model("mistral").echo().options(num_ctx=4 * 1024, temperature=1.8, seed=1234)
+model = connect("mistral").echo().options(num_ctx=4 * 1024, temperature=1.8, seed=12345)
 
 model.chat("In one sentence, why is the sky blue?")
 model.chat("In one sentence, why is the sky blue?")
-model.options(seed=34567).chat("In one sentence, why is the sky blue?")
+# turn off the seed for this call.
+model.options(seed=None).chat("In one sentence, why is the sky blue?")
 ```
 
 `options` is a method that sets ollama options internally inside a `Model` (or `Response`).
 
-Running the above code give the following output:
+Running the above code gives the following output:
 
 ```
 > In one sentence, why is the sky blue?
@@ -30,11 +31,14 @@ atmosphere, more specifically scattering of shorter wavelengths (blue and violet
 than longer wavelengths (red, orange, and yellow).
 ```
 
-Note that because we use `seed=12345`, we get the same result for the first two calls to the LLM.
-
-The following a known options, as used by the [Ollama REST API](https://github.com/ollama/ollama/blob/main/docs/api.md).
+Note that since we use `seed=12345`, the first two calls to the LLM produce the same result.
 
 
+The following are known options, as used by the [Ollama REST
+API](https://github.com/ollama/ollama/blob/main/docs/api.md).
+
+
+```
     num_ctx: int
     num_keep: int
     seed: int
@@ -53,6 +57,7 @@ The following a known options, as used by the [Ollama REST API](https://github.c
     mirostat_eta: float
     penalize_newline: bool
     stop: Sequence[str]
+```
 
 ----
 

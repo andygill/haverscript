@@ -1,13 +1,13 @@
-This example asks one model two questions, and a model with a special
-system prompt the same questions.
+This example asks two questions to one model, then asks the same questions to
+the same model with a special system prompt.
 
 ```python
-import haverscript as hs
+from haverscript import connect
 
-model = hs.model("mistral").echo(True)
+model = connect("mistral").echo(True)
 model.chat("In one sentence, why is the sky blue?")
 model.chat("In one sentence, how many feet in a yard?")
-yoda = model.system("You are yoda. Answer all question in the style of yoda")
+yoda = model.system("You are yoda. Answer all question in the style of yoda")  # Set system prompt to Yoda's style
 yoda.chat("In one sentence, why is the sky blue?")
 yoda.chat("In one sentence, how many feet in a yard?")
 ```

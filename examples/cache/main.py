@@ -1,7 +1,7 @@
-import haverscript as hs
+from haverscript import connect, fresh
 import time
 
-model = hs.model("mistral").cache("cache.db")
+model = connect("mistral").cache("cache.db")
 
 prompt = "In one sentence, why is the sky blue?"
 times = []
@@ -11,7 +11,7 @@ replies.append(model.chat(prompt).reply)
 times.append(time.time())
 replies.append(model.chat(prompt).reply)
 times.append(time.time())
-replies.append(model.chat(prompt).check(hs.fresh).reply)
+replies.append(model.chat(prompt).check(fresh).reply)
 times.append(time.time())
 
 for i, (t1, t2, r) in enumerate(zip(times, times[1:], replies)):

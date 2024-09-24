@@ -1,23 +1,20 @@
 # Haverscript
 
 Haverscript is a lightweight Python library designed to manage LLM interactions,
-built on top of the popular [Ollama](https://ollama.com) application,
-and its [Python
-API](https://github.com/ollama/ollama-python).
-
-Haverscript streamlines LLM interactions by focusing on immutability, automating
-retries, and utilizing built-in SQLite caching. This ensures efficient,
-reliable, and repeatable outcomes while reducing the complexity of managing LLM
-workflows.
+built on top of [Ollama](https://ollama.com), and its [Python
+API](https://github.com/ollama/ollama-python). Haverscript streamlines LLM
+interactions by focusing on immutability, automating retries, and utilizing
+SQLite caching. This ensures efficient, reliable, and repeatable outcomes while
+reducing the complexity of managing LLM workflows.
 
 ## First Example
 
-Here is a first example of Haverscript,
-using the [mistral model](https://mistral.ai/news/announcing-mistral-7b/).
+Here’s a basic example demonstrating how to use Haverscript,
+with the [mistral](https://mistral.ai/news/announcing-mistral-7b/) model.
 
 ```python
-import haverscript as hs
-session = hs.model("mistral").echo(True)
+from haverscript import connect
+session = connect("mistral").echo()
 session = session.chat("In one sentence, why is the sky blue?")
 session = session.chat("Rewrite the above sentence in the style of Yoda")
 session = session.chat("How many questions did I ask?")
@@ -26,7 +23,6 @@ session = session.chat("How many questions did I ask?")
 This will give the following output.
 
 ```markdown
-
 > In one sentence, why is the sky blue?
 
 The sky appears blue due to scattering of shorter wavelengths (blue and violet)
@@ -46,16 +42,26 @@ confirming how many questions you had asked.
 
 The [examples](examples/README.md) directory contains several examples.
 
+The [DSL Design](DSL_DESIGN.md) page compares Haverscript to other LLM APIs,
+and gives rationale behind the design.
+
 ## Installing Haverscript
 
 Haverscript is available on GitHub: <https://github.com/andygill/haverscript>.
 While it is currently in alpha and considered experimental, it is ready to use
 out of the box.
 
+### Prerequisites
+
+You need to have [Ollama](https://ollama.com) already installed, or
+have access to an an Ollama compatible API end-point. 
+
 ### Installation
 
 You can install Haverscript directly from the GitHub repository using `pip`.
-Here's how to set it up:
+
+
+Here's how to set up Haverscript:
 
 1. First, create and activate a Python virtual environment if you haven’t already:
 
@@ -70,51 +76,8 @@ source venv/bin/activate  # On Windows: .\venv\Scripts\activate
 pip install git+https://github.com/andygill/haverscript.git@v0.1.0
 ```
 
-In the future, if there’s enough interest, I plan to release Haverscript to PyPI
+In the future, if there’s enough interest, I plan to push Haverscript to PyPI
 for easier installation.
-
-## Principles of Haverscript
-
-Haverscript is built around five core principles:
-
-**LLM Interactions as String-to-String Operations**
-
-Interactions with LLMs in Haverscript are fundamentally string-based. Python’s
-robust string formatting tools, such as .format and f-strings, are used
-directly. Prompts can be crafted using f-strings with explicit `{...}` notation
-for injection. The `chat` method accepts this string and returns a result that
-can be seamlessly used in other f-strings, or through the `.reply` attribute.
-This makes the "string plumbing" for prompt-based applications an integral part
-of the Haverscript domain-specific design.
-
-**Immutable Core Structures**
-
-The primary classes in Haverscript are immutable, similar to Python strings or
-tuples. Managing state is as simple as assigning names to things. For example,
-running the same prompt multiple times on the same context is straightforward
-because there is no hidden state that might be updated.
-
-**LLM Call Caching**
-
-All LLM calls can be cached in a [SQLite](https://www.sqlite.org/) database. If
-a query with identical context and parameters has been generated before, the
-cached result can be reused. This allows for deep scripting, efficient session
-management, and instant replay of interactions.
-
-**Response Rejection and Reruns**
-
-Rejecting a specific response and rerunning an LLM request is built-in, using
-the post-condition hook `check`. This hook interacts with the cache,
-allowing for cache invalidation when necessary. check predicates are simply
-Python functions that return a bool, making it easy to assert specific
-conditions and re-execute when needed.
-
-**Echo Mode for Interactive Use and Debugging**
-
-Haverscript includes an echo mode, which prints interactions in markdown-style
-format, enabling real-time debugging. This allows a Haverscript program to
-function similarly to a traditional LLM chat session, making it a useful tool
-for both development and live interaction.
 
 ## Documentation
 
@@ -194,13 +157,13 @@ Key Points:
 
 ### The `Model` Class
 
-The `model(...)` function is the main entry point of the library, allowing you
+The `connect(...)` function is the main entry point of the library, allowing you
 to create and access an initial model. This function always requires a model
 name and can optionally accept a hostname (which is typically omitted when
 running Ollama locally).
 
 ```python
-def model(modelname: str, hostname: str = None):
+def connect(modelname: str, hostname: str = None):
     ...
 ```
 
@@ -208,19 +171,17 @@ To create and use a model, follow the idiomatic approach of naming the model and
 then using that name:
 
 ```python
-import haverscript as hs
-model = hs.model("mistral")
+from haverscript import connect
+model = connect("mistral")
 response = model.chat("In one sentence, why is the sky blue?")
 print(f"Response: {response}")
 ```
 
 You can create multiple models, including duplicates of the same model, without
-any issues. No external actions are triggered until the `chat` method is called.
+any issues. No external actions are triggered until the `chat` method is called;
+the external `connect` is deferred until needed.
 
-
-Here’s the improved version for clarity and flow:
-
-### Setting Parameters in Haverscript
+### Setting Parameters
 
 How do we modify a `Model` or `Response` if everything is immutable? Instead of
 modifying them directly, we create new versions with the desired changes,
@@ -332,9 +293,11 @@ satisfied for the process to continue.
 There are three predicate functions provided:
 
 ```python
-  response.check(hs.fresh)  # Ensures the response is freshly generated (not cached).
-  response.check(hs.accept)  # Asks the user to confirm if the response is acceptable.
-  response.check(hs.valid_json)  # Check to see if the response reply is valid JSON.
+from haverscript import fresh, accept, valid_json
+
+  response.check(fresh)  # Ensures the response is freshly generated (not cached).
+  response.check(accept)  # Asks the user to confirm if the response is acceptable.
+  response.check(valid_json)  # Check to see if the response reply is valid JSON.
 ```
 
 For examples, see [post-conditions](examples/check/README.md).
@@ -350,7 +313,8 @@ model = model.options(num_ctx=16 * 1024)
 
 Q: What is "haver"?
 
-A: It's a Scottish term that means to talk without necessarily making sense.
+A: It's a Scottish term that means to talk aimlessly or without necessarily
+making sense.
 
 ## Generative AI Usage
 
@@ -361,17 +325,18 @@ writing.
 
 Models
 
-* Add support for the OpenAI API.
+* Add support for the OpenAI API, and other APIs.
 * Introduce pseudo-models for tasks such as random selection.
 
 External Artifacts
+
 * Enable image input for multi-modal models during chats.
-* Provide an API for tool integration.
+* Provide an API for LLM-based function calls.
 * Incorporate Retrieval-Augmented Generation (RAG) capabilities.
 
 Interface
 
-* Develop a Gradio interface for replaying scripts and monitoring LLM usage.
+* Develop a [gradio](https://www.gradio.app/) interface for replaying scripts and monitoring LLM usage.
 
 LLM Hacking
 
