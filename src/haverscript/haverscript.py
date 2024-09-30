@@ -222,13 +222,15 @@ class Model(ABC):
             _predicates=[],
         )
 
-    def children(self, prompt: str):
+    def children(self, prompt: str = None):
         """Return all already cached replies to this prompt."""
         if self.settings.cache is None:
             return []
         cache = services.cache(self.settings.cache)
         replies = cache.lookup(self.configuration, prompt)
-        return [self.response(prompt, prose, fresh=False) for prose in replies]
+        return [
+            self.response(prompt_, prose, fresh=False) for prompt_, prose in replies
+        ]
 
     def copy(self, **update):
         return Model(
@@ -423,15 +425,26 @@ class Cache:
         )
         self.conn.commit()
 
-    def lookup(self, configuration: Configuration, prompt: str) -> list[str]:
-        # Query to get the response by prompt
-        return [
-            row[0]
-            for row in self.conn.execute(
-                "SELECT reply FROM interactions WHERE configuration=? AND prompt=? ORDER BY id",
-                (self.to_json(configuration), prompt),
-            ).fetchall()
-        ]
+    def lookup(
+        self, configuration: Configuration, prompt: str = None
+    ) -> list[(str, str)]:
+        """Query to get the responses with this configuration, with optional prompt"""
+        if prompt is None:
+            return [
+                (row[0], row[1])
+                for row in self.conn.execute(
+                    "SELECT prompt, reply FROM interactions WHERE configuration=? ORDER BY id",
+                    (self.to_json(configuration),),
+                ).fetchall()
+            ]
+        else:
+            return [
+                (prompt, row[0])
+                for row in self.conn.execute(
+                    "SELECT reply FROM interactions WHERE configuration=? AND prompt=? ORDER BY id",
+                    (self.to_json(configuration), prompt),
+                ).fetchall()
+            ]
 
 
 class Services:
