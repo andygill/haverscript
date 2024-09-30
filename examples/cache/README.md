@@ -77,6 +77,10 @@ time: 1.18642
 
 There are two cached values at the start of the run, so we use the most up-to-date reply.
 
+The cache can be access using `model.children()`, which will return a list of all possible
+`Response` values that are cached, or `model.children(prompt)`, which  which will return 
+all cached `Response` values that were a response to the given `prompt`.
+
 ----
 
 ```mermaid

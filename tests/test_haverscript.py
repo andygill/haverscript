@@ -4,6 +4,13 @@ import sys
 import json
 import re
 
+# Note that these tests break the haverscript API at points specifically
+# for testing purposes.
+#
+# Specifically:
+#   * We fake the LLM (so tests run without needing ollama).
+#   * We override some fields when doing equality in the cache testing.
+
 test_model_name = "test-model"
 test_model_host = "remote.address"
 
@@ -236,19 +243,52 @@ def test_fresh(sample_model):
 def test_cache(sample_model, tmp_path):
     temp_file = tmp_path / "cache.db"
     model = sample_model.cache(temp_file)
+    assert len(model.children("Hello")) == 0
+    assert len(model.children()) == 0
+
     reply = model.chat("Hello")
     assert reply.fresh == True
+    assert len(model.children("Hello")) == 1
+    assert len(model.children()) == 1
+    context = [{"role": "user", "content": "Hello"}]
+    assert model.children("Hello")[0] == reply.copy(fresh=False)
+
     reply = model.chat("Hello")
     assert reply.fresh == False
+    assert len(model.children("Hello")) == 1
+    assert len(model.children()) == 1
+    assert model.children("Hello")[0] == reply
+
+    reply = model.chat("World")
+    assert reply.fresh == True
+    assert len(model.children("World")) == 1
+    assert len(model.children()) == 2
+    assert model.children("World")[0] == reply.copy(fresh=False)
+
+    reply = model.chat("World")
+    assert reply.fresh == False
+    assert len(model.children("World")) == 1
+    assert len(model.children()) == 2
+    assert model.children("World")[0] == reply
+
+    reply = model.chat("###")
+    assert reply.fresh == True
+    assert len(model.children("###")) == 1
+    assert len(model.children()) == 3
+    assert model.children("###")[0] == reply.copy(fresh=False)
+
+    reply = model.chat("###").check(fresh)
+    assert reply.fresh == True
+    assert len(model.children("###")) == 2
+    assert len(model.children()) == 4
+    assert model.children("###")[-1] == reply.copy(fresh=False, _predicates=[])
 
 
 def test_check(sample_model):
     # simple check
-    print(
-        repr(
-            sample_model.chat("Squirrel").check(lambda reply: "Squirrel" in reply.reply)
-        )
-    )
+    assert repr(
+        sample_model.chat("Squirrel").check(lambda reply: "Squirrel" in reply.reply)
+    ).startswith("Response")
 
     # failing check
     with pytest.raises(RuntimeError, match="exceeded the count limit"):
