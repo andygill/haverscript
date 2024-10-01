@@ -316,6 +316,17 @@ class Response(Model):
         assert len(self.configuration.context) > 0
         return self.configuration.context[-1][1]
 
+    @property
+    def value(self) -> str:
+        """return a value of the reply in its requested format"""
+        if self.configuration.json:
+            try:
+                return json.loads(self.reply)
+            except json.JSONDecodeError as e:
+                return None
+
+        return self.reply
+
     def copy(self, **update):
         return Response(
             **{
@@ -364,11 +375,7 @@ def fresh(response):
 
 def valid_json(response):
     """Check to see if the response reply is valid JSON."""
-    try:
-        json.loads(response.reply)
-        return True
-    except json.JSONDecodeError:
-        return False
+    return response.value is not None
 
 
 def accept(response):

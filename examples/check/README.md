@@ -18,18 +18,18 @@ print(f"{len(session.reply)} characters")
 # turn off echo
 model = model.echo(False)
 
-colors = json.loads(
+colors = (
     model.json()
     .chat(
         "Return a map from primary colors to their hex codes. The map should be called colors. Reply using JSON, and only JSON."
     )
-    .check(valid_json) # Ensures that the reply is valid JSON before proceeding
-    .reply
+    .check(valid_json)  # Ensures that the reply is valid JSON before proceeding
+    .value  # read the JSON value (returns None if not valid JSON))
 )
-
 
 print(json.dumps(colors, indent=2))
 ```
+
 Note: The response is regenerated multiple times due to different formatting or length checks.
 
 ```markdown
