@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.1] - 2024-XX-YY
 ### Added
-- Documented, and added tests for the `children` method.
+- Added `response.value`, which return the JSON `dict` of the reply, or `None`.
 ### Fixed
 ### Changed
 - Updated `children` method to return all children when no prompt is supplied.

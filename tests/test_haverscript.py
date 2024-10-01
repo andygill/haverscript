@@ -233,6 +233,11 @@ def test_json(sample_model):
         assert reply.reply == llm(
             None, test_model_name, context, {}, "json" if ix == 1 else ""
         )
+        if ix == 1:
+            assert reply.value is not None
+            assert reply.value == json.loads(
+                llm(None, test_model_name, context, {}, "json" if ix == 1 else "")
+            )
 
 
 def test_fresh(sample_model):
