@@ -10,77 +10,85 @@ from itertools import tee
 from typing import Callable, Optional, Self, Tuple
 
 import ollama
-from colorama import Fore, Style
 
 logger = logging.getLogger(__name__)
 
 
-def wrap(stream, width=78, prefix=""):
+@dataclass(frozen=True)
+class Echo:
+    width: int = 78
 
-    line_width = 0  # the size of the commited line so far
-    spaces = 0
+    def prompt(self, prompt: str):
+        print()
+        print("\n".join([f"> {line}" for line in prompt.splitlines()]))
+        print()
 
-    newline = "\n" + prefix
+    def reply(self, tokens, fresh: bool):
+        for word in self.wrap(tokens):
+            print(word, end="", flush=True)
+        print()  # finish with a newline
 
-    prequel = ""
+    def regenerating(self):
+        print()
+        print("[Regenerating response]")
+        print()
 
-    for s in stream:
+    def wrap(self, stream):
 
-        # print("s", [s])
-        for t in re.split(r"(\n|\S+)", s):
+        line_width = 0  # the size of the commited line so far
+        spaces = 0
+        newline = "\n"
+        prequel = ""
 
-            if t == "":
-                continue
+        for s in stream:
 
-            # print("t", [t])
-            if t.isspace():
-                if line_width + spaces + len(prequel) > width:
-                    yield newline  # injected newline
-                    line_width = 0
+            for t in re.split(r"(\n|\S+)", s):
+
+                if t == "":
+                    continue
+
+                if t.isspace():
+                    if line_width + spaces + len(prequel) > self.width:
+                        yield newline  # injected newline
+                        line_width = 0
+                        spaces = 0
+
+                    if spaces > 0 and line_width > 0:
+                        yield " " * spaces
+                        line_width += spaces
+
                     spaces = 0
+                    line_width += spaces + len(prequel)
+                    yield prequel
+                    prequel = ""
 
-                if spaces > 0 and line_width > 0:
-                    yield " " * spaces
-                    line_width += spaces
-
-                spaces = 0
-                line_width += spaces + len(prequel)
-                yield prequel
-                prequel = ""
-
-                if t == "\n":
-                    line_width = 0
-                    yield newline  # actual newline
+                    if t == "\n":
+                        line_width = 0
+                        yield newline  # actual newline
+                    else:
+                        spaces += len(t)
                 else:
-                    spaces += len(t)
-            else:
-                prequel += t
+                    prequel += t
 
-            # print(
-            #     line_width + spaces + len(prequel), [line_width, spaces, len(prequel)]
-            # )
+        if prequel != "":
+            if line_width + spaces + len(prequel) > self.width:
+                yield newline
+                line_width = 0
+                spaces = 0
 
-    if prequel != "":
-        if line_width + spaces + len(prequel) > width:
-            yield newline
-            line_width = 0
-            spaces = 0
+            if spaces > 0 and line_width > 0:
+                yield " " * spaces
 
-        if spaces > 0 and line_width > 0:
-            yield " " * spaces
+            yield prequel
 
-        yield prequel
-
-    return
+        return
 
 
 @dataclass(frozen=True)
 class Settings:
     """Local settings."""
 
-    echo: bool = False
-    colorize: str = None
-    width: int = 78
+    echo: Optional[Echo] = None
 
     cache: str = None
 
@@ -124,7 +132,7 @@ class Configuration:
 
         response = services.ollama(self.host).chat(
             self.model,
-            stream=settings.echo,
+            stream=settings.echo is not None,
             messages=messages,
             options=options,
             format="json" if self.json else "",
@@ -133,9 +141,7 @@ class Configuration:
         try:
             if settings.echo:
                 tokens, results = tee(chunk["message"]["content"] for chunk in response)
-                for word in wrap(tokens, width=settings.width):
-                    print(word, end="", flush=True)
-                print()  # finish with a newline
+                settings.echo.reply(tokens, fresh=True)
                 text = "".join(results)
             else:
                 text = response["message"]["content"]
@@ -188,19 +194,15 @@ class Model(ABC):
 
         logger.info(f"chat prompt {prompt}")
         if self.settings.echo:
-            print("" if self.settings.colorize is None else self.settings.colorize)
-            print("\n".join([f"> {line}" for line in prompt.splitlines()]))
-            print("" if self.settings.colorize is None else Style.RESET_ALL)
+            self.settings.echo.prompt(prompt)
 
         children = self.children(prompt)
         if len(children) > 0:
             response = children[-1]
             if self.settings.echo:
-                for token in wrap(
-                    re.split(r"(\S+)", response.reply), width=self.settings.width
-                ):
-                    print(token, end="")
-                print()
+                self.settings.echo.reply(
+                    re.split(r"(\S+)", response.reply), fresh=False
+                )
             return response
 
         return self.invoke(prompt)
@@ -240,21 +242,18 @@ class Model(ABC):
             }
         )
 
-    def echo(
-        self, echo: bool = True, colorize: Optional[str] = None, width: int = 78
-    ) -> Self:
-        """echo prompts and responses to stdout.
+    def echo(self, echo: Optional[bool | Echo] = True, width: int = 78) -> Self:
+        """echo prompts and responses to stdout."""
+        if echo == True:
+            echo = Echo(width=width)
+        elif echo == False:
+            echo = None
 
-        The color of the prompt can be set using colorize. valid colors are
-        'BLACK', 'BLUE', 'CYAN', 'GREEN',  'MAGENTA', 'RED', 'WHITE', 'YELLOW',
-        and 'LIGHT' + color + '_EX'.
-        """
-        if colorize:
-            hasattr(Fore, colorize.upper())
-            colorize = getattr(Fore, colorize.upper())
-        return self.copy(
-            settings=self.settings.copy(echo=echo, colorize=colorize, width=width)
-        )
+        assert echo is None or isinstance(
+            echo, Echo
+        ), "echo() take a bool, or an Echo class"
+
+        return self.copy(settings=self.settings.copy(echo=echo))
 
     def outdent(self, outdent: bool = True) -> Self:
         return self.copy(settings=self.settings.copy(outdent=outdent))
@@ -357,9 +356,7 @@ class Response(Model):
                     )
                 limit -= 1
             if self.settings.echo:
-                print()
-                print("[Regenerating response]")
-                print()
+                self.settings.echo.regenerating()
             session = session.redo()
 
         return session.copy(_predicates=predicates)
