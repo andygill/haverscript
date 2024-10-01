@@ -1,5 +1,5 @@
 import pytest
-from haverscript import connect, Model, Response, valid_json, fresh
+from haverscript import connect, Model, Response, valid_json, fresh, Echo
 import sys
 import json
 import re
@@ -133,24 +133,27 @@ def test_echo(sample_model, capfd):
     capfd.readouterr()
     model = sample_model.echo()
     assert type(model) is Model
-    assert model.settings.echo == True
+    assert model.settings.echo == Echo(width=78)
     model = sample_model.echo(True)
     assert type(model) is Model
-    assert model.settings.echo == True
+    assert model.settings.echo == Echo(width=78)
+    model = sample_model.echo(True, width=99)
+    assert type(model) is Model
+    assert model.settings.echo == Echo(width=99)
     model = sample_model.echo(False)
     assert type(model) is Model
-    assert model.settings.echo == False
+    assert model.settings.echo is None
 
     root_resp = sample_model.chat("Hello")
     resp = root_resp.echo()
     assert type(resp) is Response
-    assert resp.settings.echo == True
+    assert resp.settings.echo == Echo(width=78)
     resp = root_resp.echo(True)
     assert type(resp) is Response
-    assert resp.settings.echo == True
+    assert resp.settings.echo == Echo(width=78)
     resp = root_resp.echo(False)
     assert type(resp) is Response
-    assert resp.settings.echo == False
+    assert resp.settings.echo is None
 
     resp = sample_model.chat("Hello")
     assert capfd.readouterr().out == ""
