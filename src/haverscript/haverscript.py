@@ -7,7 +7,7 @@ import textwrap
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass, field, fields
 from itertools import tee
-from typing import Callable, Optional, Self, Tuple
+from typing import AnyStr, Callable, Optional, Self, Tuple
 
 import ollama
 
@@ -112,22 +112,29 @@ class Configuration:
     options: dict = field(default_factory=dict)
     json: bool = False
     system: Optional[str] = None
-    context: Tuple[  # list (using a tuple) of prompt response pairs
-        Tuple[str, str], ...
+    context: Tuple[  # list (using a tuple) of prompt+images response triples
+        Tuple[str, Tuple[str, ...], str], ...
     ] = ()
+    images: Tuple[str, ...] = ()  # tuple of images
 
     def invoke(self, prompt: str, settings: Settings) -> str:
         messages = []
         if self.system:
             messages.append({"role": "system", "content": self.system})
-        for exchange in self.context:
-            messages.append({"role": "user", "content": exchange[0]})
-            messages.append({"role": "assistant", "content": exchange[1]})
-        messages.append({"role": "user", "content": prompt})
+        for pmt, imgs, resp in self.context:
+            messages.append(
+                {"role": "user", "content": pmt}
+                | ({"images": list(imgs)} if imgs else {})
+            )
+            messages.append({"role": "assistant", "content": resp})
+        messages.append(
+            {"role": "user", "content": prompt}
+            | ({"images": list(self.images)} if self.images else {})
+        )
         options = copy.deepcopy(self.options)
 
         logging.info(
-            f"Calling ollama chat with model={self.model}, stream={settings.echo}, messages={messages}, options={options}, json={self.json}"
+            f"Calling ollama chat with model={self.model}, stream={settings.echo}, messages={messages}, options={options}, json={self.json}, len(images)={len(self.images)}"
         )
 
         response = services.ollama(self.host).chat(
@@ -163,7 +170,9 @@ class Configuration:
         )
 
     def add_context(self, prompt: str, response: str):
-        return self.copy(context=self.context + ((prompt, response),))
+        return self.copy(
+            context=self.context + ((prompt, self.images, response),), images=()
+        )
 
     def add_options(self, **options):
         return self.copy(
@@ -173,6 +182,9 @@ class Configuration:
                 if value is not None
             }
         )
+
+    def add_image(self, image):
+        return self.copy(images=self.images + (image,))
 
 
 @dataclass(frozen=True)
@@ -297,6 +309,10 @@ class Model(ABC):
         """
         return self.copy(configuration=self.configuration.add_options(**kwargs))
 
+    def image(self, image: AnyStr):
+        """image must be bytes, path-like object, or file-like object"""
+        return self.copy(configuration=self.configuration.add_image(image))
+
 
 @dataclass(frozen=True)
 class Response(Model):
@@ -313,7 +329,7 @@ class Response(Model):
     @property
     def reply(self) -> str:
         assert len(self.configuration.context) > 0
-        return self.configuration.context[-1][1]
+        return self.configuration.context[-1][2]
 
     @property
     def value(self) -> str:

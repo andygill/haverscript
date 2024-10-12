@@ -1,3 +1,4 @@
+from pathlib import Path
 import pytest
 from haverscript import connect, Model, Response, valid_json, fresh, Echo
 import sys
@@ -323,3 +324,20 @@ def test_check_chaining(sample_model):
     )
 
     assert json.loads(reply.reply)["extra"] == 8
+
+
+def test_image(sample_model):
+    image_src = f"{Path(__file__).parent}/../examples/images/edinburgh.png"
+    prompt = "Describe this image"
+    resp = sample_model.image(image_src).chat(prompt)
+    context = [{"role": "user", "content": prompt, "images": [image_src]}]
+    reply = resp.reply
+    assert reply == llm(None, test_model_name, context, {}, "")
+    prompt2 = "Follow on question"
+    resp = resp.chat(prompt2)
+    context = [
+        {"role": "user", "content": prompt, "images": [image_src]},
+        {"role": "assistant", "content": reply},
+        {"role": "user", "content": prompt2},
+    ]
+    assert resp.reply == llm(None, test_model_name, context, {}, "")
