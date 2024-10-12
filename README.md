@@ -330,7 +330,7 @@ Models
 
 External Artifacts
 
-* Enable image input for multi-modal models during chats.
+* ~~Enable image input for multi-modal models during chats~~.
 * Provide an API for LLM-based function calls.
 * Incorporate Retrieval-Augmented Generation (RAG) capabilities.
 
