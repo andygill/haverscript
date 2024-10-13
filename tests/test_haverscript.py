@@ -1,9 +1,22 @@
 from pathlib import Path
 import pytest
-from haverscript import connect, Model, Response, valid_json, fresh, Echo
 import sys
 import json
 import re
+import sys
+
+import pytest
+
+from haverscript import (
+    Configuration,
+    Echo,
+    ServiceProvider,
+    Model,
+    Response,
+    connect,
+    fresh,
+    valid_json,
+)
 
 # Note that these tests break the haverscript API at points specifically
 # for testing purposes.
@@ -34,6 +47,11 @@ class _TestClient:
         self._host = host
         self._count = 1
 
+    def streaming(self, reply):
+        yield from [
+            {"message": {"content": token}} for token in re.findall(r"\S+|\s+", reply)
+        ]
+
     def chat(self, model, stream, messages, options, format):
         assert format == "json" or format == ""
         extra = None
@@ -42,18 +60,19 @@ class _TestClient:
             self._count += 1
         reply = llm(self._host, model, messages, options, format, extra)
         if stream:
-            return [
-                {"message": {"content": token}}
-                for token in re.findall(r"\S+|\s+", reply)
-            ]
+            return self.streaming(reply)
         else:
             return {"message": {"content": reply}}
 
 
 # inject the TestClient
-ollama = sys.modules["haverscript.haverscript"].services._ollama
-ollama[None] = _TestClient(None)
-ollama[test_model_host] = _TestClient(test_model_host)
+models = sys.modules["haverscript.haverscript"].services._model_providers
+models["ollama@local"] = sys.modules["haverscript.haverscript"].Ollama(None)
+models["ollama@local"].client = _TestClient(None)
+models[f"ollama@{test_model_host}"] = sys.modules["haverscript.haverscript"].Ollama(
+    test_model_host
+)
+models[f"ollama@{test_model_host}"].client = _TestClient(test_model_host)
 
 
 @pytest.fixture
@@ -80,7 +99,7 @@ def check_model(model, host):
     config = model.configuration
     assert hasattr(config, "model")
     assert config.model == test_model_name
-    assert config.host == host
+    assert config.service == "ollama@" + (host or "local")
 
     context = []
     session = model
@@ -92,6 +111,40 @@ def check_model(model, host):
         assert isinstance(session.reply, str)
         assert session.reply == llm(host, test_model_name, context, {}, "")
         context.append({"role": "assistant", "content": session.reply})
+
+
+class UserService(ServiceProvider):
+    def __init__(self, hostname) -> None:
+        self.hostname = hostname
+
+    def name(self):
+        return f"myhost@{self.hostname}"
+
+    def chat(self, configuration: Configuration, prompt: str, stream: bool):
+        return f"I reject your {len(prompt.split())} word prompt, and replace it with my own."
+
+
+@pytest.fixture
+def sample_user_model():
+    return connect(service=UserService)
+
+
+def test_user_model(sample_user_model):
+    model = sample_user_model
+    assert type(model) is Model
+    assert hasattr(model, "configuration")
+    config = model.configuration
+    assert hasattr(config, "model")
+    assert config.model is None
+    assert config.service == "myhost@None"
+    context = []
+    session = model
+    message = "Three word prompt"
+    context.append({"role": "user", "content": message})
+    session = session.chat(message)
+    assert type(session) is Response
+    assert isinstance(session.reply, str)
+    assert session.reply == "I reject your 3 word prompt, and replace it with my own."
 
 
 reply_to_hello = """

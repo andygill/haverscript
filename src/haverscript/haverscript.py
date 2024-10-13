@@ -5,8 +5,10 @@ import re
 import sqlite3
 import textwrap
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
 from dataclasses import asdict, dataclass, field, fields
 from itertools import tee
+from types import GeneratorType
 from typing import AnyStr, Callable, Optional, Self, Tuple
 
 import ollama
@@ -107,7 +109,7 @@ class Settings:
 class Configuration:
     """Full Context and other arguments for the LLM."""
 
-    host: str = None
+    service: str = None
     model: str = None
     options: dict = field(default_factory=dict)
     json: bool = False
@@ -116,50 +118,6 @@ class Configuration:
         Tuple[str, Tuple[str, ...], str], ...
     ] = ()
     images: Tuple[str, ...] = ()  # tuple of images
-
-    def invoke(self, prompt: str, settings: Settings) -> str:
-        messages = []
-        if self.system:
-            messages.append({"role": "system", "content": self.system})
-        for pmt, imgs, resp in self.context:
-            messages.append(
-                {"role": "user", "content": pmt}
-                | ({"images": list(imgs)} if imgs else {})
-            )
-            messages.append({"role": "assistant", "content": resp})
-        messages.append(
-            {"role": "user", "content": prompt}
-            | ({"images": list(self.images)} if self.images else {})
-        )
-        options = copy.deepcopy(self.options)
-
-        logging.info(
-            f"Calling ollama chat with model={self.model}, stream={settings.echo}, messages={messages}, options={options}, json={self.json}, len(images)={len(self.images)}"
-        )
-
-        response = services.ollama(self.host).chat(
-            self.model,
-            stream=settings.echo is not None,
-            messages=messages,
-            options=options,
-            format="json" if self.json else "",
-        )
-
-        try:
-            if settings.echo:
-                tokens, results = tee(chunk["message"]["content"] for chunk in response)
-                settings.echo.reply(tokens, fresh=True)
-                text = "".join(results)
-            else:
-                text = response["message"]["content"]
-            return text
-        except Exception as e:
-            # Slighty better messages. Should really have a type of reply for failure.
-            if "ConnectError" in str(type(e)):
-                print("Connection error (Check if ollama is running)")
-            if "not found, try pulling it first":
-                print(f"model not found (check ollama has {self.model} installed)")
-            raise e
 
     def copy(self, **update):
         return Configuration(
@@ -220,7 +178,29 @@ class Model(ABC):
         return self.invoke(prompt)
 
     def invoke(self, prompt: str) -> "Response":
-        reply = self.configuration.invoke(prompt, settings=self.settings)
+
+        settings = self.settings
+
+        response = services.model(self.configuration.service).chat(
+            configuration=self.configuration,
+            prompt=prompt,
+            stream=settings.echo is not None,
+        )
+
+        if isinstance(response, Iterator):
+            if settings.echo:
+                tokens, response = tee(response)
+                settings.echo.reply(tokens, fresh=True)
+            reply = "".join([r for r in response])
+        elif isinstance(response, str):
+            if settings.echo:
+                settings.echo.reply(response, fresh=True)
+            reply = response
+        else:
+            assert (
+                False
+            ), f"response from a chat was type '{type(response)}', expecting 'str' or 'Iterator'"
+
         if self.settings.cache is not None:
             services.cache(self.settings.cache).insert(
                 self.configuration, prompt, reply
@@ -467,17 +447,42 @@ class Cache:
             ]
 
 
+class ServiceProvider(ABC):
+
+    @abstractmethod
+    def chat(
+        self, configuration: Configuration, prompt: str, stream: bool
+    ) -> str | Iterator[str]:
+        """Call the chat method of an LLM.
+
+        prompt is the main text
+        configuration is (structured) context
+        stream, if true, is a request for a streamed reply
+        """
+        pass
+
+    @abstractmethod
+    def name(self) -> str:
+        pass
+
+
 class Services:
     """Internal class with lazy instantiation of services"""
 
     def __init__(self) -> None:
-        self._ollama = {}
+        self._model_providers = {}
         self._cache = {}
 
-    def ollama(self, host=None):
-        if host not in self._ollama:
-            self._ollama[host] = ollama.Client(host)
-        return self._ollama[host]
+    def connect(self, service: ServiceProvider):
+        assert isinstance(service, ServiceProvider)
+        name = service.name()
+        if name not in self._model_providers:
+            self._model_providers[name] = service
+        return name
+
+    def model(self, service) -> ServiceProvider:
+        assert service in self._model_providers
+        return self._model_providers[service]
 
     def cache(self, filename):
         if filename not in self._cache:
@@ -488,8 +493,78 @@ class Services:
 services = Services()
 
 
-def connect(modelname: str, hostname: str = None) -> Model:
+class Ollama(ServiceProvider):
+    def __init__(self, hostname) -> None:
+        self.hostname = hostname
+        self.client = ollama.Client(hostname)
+
+    def name(self):
+        return f"ollama@{self.hostname or "local"}"
+
+    def _suggestions(self, e: Exception):
+        # Slighty better message. Should really have a type of reply for failure.
+        if "ConnectError" in str(type(e)):
+            print("Connection error (Check if ollama is running)")
+        return e
+
+    def _streaming(self, response):
+        try:
+            yield from (chunk["message"]["content"] for chunk in response)
+        except Exception as e:
+            raise self._suggestions(e)
+
+    def chat(self, configuration: Configuration, prompt: str, stream: bool):
+        messages = []
+
+        if configuration.system:
+            messages.append({"role": "system", "content": configuration.system})
+
+        for pmt, imgs, resp in configuration.context:
+            messages.append(
+                {"role": "user", "content": pmt}
+                | ({"images": list(imgs)} if imgs else {})
+            )
+            messages.append({"role": "assistant", "content": resp})
+
+        messages.append(
+            {"role": "user", "content": prompt}
+            | ({"images": list(configuration.images)} if configuration.images else {})
+        )
+
+        try:
+            response = self.client.chat(
+                configuration.model,
+                stream=stream,
+                messages=messages,
+                options=copy.deepcopy(configuration.options),
+                format="json" if configuration.json else "",
+            )
+
+            if isinstance(response, GeneratorType):
+                return self._streaming(response)
+            else:
+                return response["message"]["content"]
+
+        except Exception as e:
+            raise self._suggestions(e)
+
+
+def connect(
+    modelname: str | None = None,
+    hostname: str | None = None,
+    service: ServiceProvider | None = Ollama,
+) -> Model:
     """return a model that uses the given model name."""
+
+    hyrated_service = service(hostname)
+
+    assert isinstance(
+        hyrated_service, ServiceProvider
+    ), "service needs to be of type Host"
+
+    service = services.connect(hyrated_service)
+
     return Model(
-        configuration=Configuration(model=modelname, host=hostname), settings=Settings()
+        configuration=Configuration(model=modelname, service=service),
+        settings=Settings(),
     )
