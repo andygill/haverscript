@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Generalized `echo()` to accept an `Echo` class.
 - Added `image(...)` method to `Model`, for multi-modal models.
 - Added `response.value`, which return the JSON `dict` of the reply, or `None`.
+- Added new `host` argument to `connect`, which allows for user "virtual" models.
 ### Fixed
 ### Changed
 - Updated `children` method to return all children when no prompt is supplied.
