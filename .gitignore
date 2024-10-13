@@ -162,3 +162,5 @@ cython_debug/
 #.idea/
 
 venv/
+.DS_Store
+*.db
