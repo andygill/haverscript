@@ -16,6 +16,7 @@ from haverscript import (
     connect,
     fresh,
     valid_json,
+    list_models,
 )
 
 # Note that these tests break the haverscript API at points specifically
@@ -42,10 +43,13 @@ def llm(host, model, messages, options, format, extra=None):
     )
 
 
-class _TestClient:
+class _TestClient(ServiceProvider):
     def __init__(self, host) -> None:
         self._host = host
         self._count = 1
+
+    def name(self):
+        return f"myhost@{self._host}"
 
     def streaming(self, reply):
         yield from [
@@ -63,6 +67,9 @@ class _TestClient:
             return self.streaming(reply)
         else:
             return {"message": {"content": reply}}
+
+    def list(self):
+        return ["A", "B", "C", "D"]
 
 
 # inject the TestClient
@@ -123,6 +130,9 @@ class UserService(ServiceProvider):
     def chat(self, configuration: Configuration, prompt: str, stream: bool):
         return f"I reject your {len(prompt.split())} word prompt, and replace it with my own."
 
+    def list(self):
+        return ["A", "B", "C"]
+
 
 @pytest.fixture
 def sample_user_model():
@@ -145,6 +155,10 @@ def test_user_model(sample_user_model):
     assert type(session) is Response
     assert isinstance(session.reply, str)
     assert session.reply == "I reject your 3 word prompt, and replace it with my own."
+
+
+def test_list_models():
+    assert list_models(service=UserService) == ["A", "B", "C"]
 
 
 reply_to_hello = """

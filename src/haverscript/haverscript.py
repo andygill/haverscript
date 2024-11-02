@@ -181,7 +181,7 @@ class Model(ABC):
 
         settings = self.settings
 
-        response = services.model(self.configuration.service).chat(
+        response = services.provider(self.configuration.service).chat(
             configuration=self.configuration,
             prompt=prompt,
             stream=settings.echo is not None,
@@ -465,6 +465,10 @@ class ServiceProvider(ABC):
     def name(self) -> str:
         pass
 
+    @abstractmethod
+    def list(self) -> list[str]:
+        pass
+
 
 class Services:
     """Internal class with lazy instantiation of services"""
@@ -480,7 +484,7 @@ class Services:
             self._model_providers[name] = service
         return name
 
-    def model(self, service) -> ServiceProvider:
+    def provider(self, service) -> ServiceProvider:
         assert service in self._model_providers
         return self._model_providers[service]
 
@@ -500,6 +504,11 @@ class Ollama(ServiceProvider):
 
     def name(self):
         return f"ollama@{self.hostname or "local"}"
+
+    def list(self):
+        models = self.client.list()
+        assert "models" in models
+        return [model["name"] for model in models["models"]]
 
     def _suggestions(self, e: Exception):
         # Slighty better message. Should really have a type of reply for failure.
@@ -568,3 +577,19 @@ def connect(
         configuration=Configuration(model=modelname, service=service),
         settings=Settings(),
     )
+
+
+def list_models(
+    hostname: str | None = None,
+    service: ServiceProvider | None = Ollama,
+) -> Model:
+    """return a model that uses the given model name."""
+
+    hyrated_service = service(hostname)
+
+    assert isinstance(
+        hyrated_service, ServiceProvider
+    ), "service needs to be of type ServiceProvider"
+
+    name = services.connect(hyrated_service)
+    return services.provider(name).list()

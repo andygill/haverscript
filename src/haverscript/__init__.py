@@ -8,6 +8,7 @@ from .haverscript import (
     connect,
     fresh,
     valid_json,
+    list_models,
 )
 
 __all__ = [
@@ -20,4 +21,5 @@ __all__ = [
     "connect",
     "fresh",
     "valid_json",
+    "list_models",
 ]
