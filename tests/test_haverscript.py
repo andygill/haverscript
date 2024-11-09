@@ -43,17 +43,15 @@ def llm(host, model, messages, options, format, extra=None):
     )
 
 
-class _TestClient(ServiceProvider):
+class _TestClient:
     def __init__(self, host) -> None:
         self._host = host
         self._count = 1
 
-    def name(self):
-        return f"myhost@{self._host}"
-
-    def streaming(self, reply):
+    def _streaming(self, reply):
         yield from [
-            {"message": {"content": token}} for token in re.findall(r"\S+|\s+", reply)
+            {"message": {"content": token}, "done": False}
+            for token in re.findall(r"\S+|\s+", reply)
         ]
 
     def chat(self, model, stream, messages, options, format):
@@ -64,9 +62,17 @@ class _TestClient(ServiceProvider):
             self._count += 1
         reply = llm(self._host, model, messages, options, format, extra)
         if stream:
-            return self.streaming(reply)
+            return self._streaming(reply)
         else:
-            return {"message": {"content": reply}}
+            return {
+                "message": {"content": reply},
+                "total_duration": 100,
+                "load_duration": 101,
+                "prompt_eval_count": 102,
+                "prompt_eval_duration": 103,
+                "eval_count": 104,
+                "eval_duration": 105,
+            }
 
     def list(self):
         return ["A", "B", "C", "D"]
@@ -117,6 +123,13 @@ def check_model(model, host):
         assert type(session) is Response
         assert isinstance(session.reply, str)
         assert session.reply == llm(host, test_model_name, context, {}, "")
+        assert session.metrics.total_duration == 100
+        assert session.metrics.load_duration == 101
+        assert session.metrics.prompt_eval_count == 102
+        assert session.metrics.prompt_eval_duration == 103
+        assert session.metrics.eval_count == 104
+        assert session.metrics.eval_duration == 105
+
         context.append({"role": "assistant", "content": session.reply})
 
 
@@ -128,7 +141,10 @@ class UserService(ServiceProvider):
         return f"myhost@{self.hostname}"
 
     def chat(self, configuration: Configuration, prompt: str, stream: bool):
-        return f"I reject your {len(prompt.split())} word prompt, and replace it with my own."
+        return (
+            f"I reject your {len(prompt.split())} word prompt, and replace it with my own.",
+            None,
+        )
 
     def list(self):
         return ["A", "B", "C"]
@@ -221,6 +237,13 @@ def test_echo(sample_model, capfd):
     resp = root_resp.echo()
     assert type(resp) is Response
     assert resp.settings.echo == Echo(width=78)
+    assert resp.metrics.total_duration == 100
+    assert resp.metrics.load_duration == 101
+    assert resp.metrics.prompt_eval_count == 102
+    assert resp.metrics.prompt_eval_duration == 103
+    assert resp.metrics.eval_count == 104
+    assert resp.metrics.eval_duration == 105
+
     resp = root_resp.echo(True)
     assert type(resp) is Response
     assert resp.settings.echo == Echo(width=78)
@@ -332,7 +355,7 @@ def test_cache(sample_model, tmp_path):
     assert len(model.children("Hello")) == 1
     assert len(model.children()) == 1
     context = [{"role": "user", "content": "Hello"}]
-    assert model.children("Hello")[0] == reply.copy(fresh=False)
+    assert model.children("Hello")[0] == reply.copy(fresh=False, metrics=None)
 
     reply = model.chat("Hello")
     assert reply.fresh == False
@@ -344,7 +367,7 @@ def test_cache(sample_model, tmp_path):
     assert reply.fresh == True
     assert len(model.children("World")) == 1
     assert len(model.children()) == 2
-    assert model.children("World")[0] == reply.copy(fresh=False)
+    assert model.children("World")[0] == reply.copy(fresh=False, metrics=None)
 
     reply = model.chat("World")
     assert reply.fresh == False
@@ -356,13 +379,15 @@ def test_cache(sample_model, tmp_path):
     assert reply.fresh == True
     assert len(model.children("###")) == 1
     assert len(model.children()) == 3
-    assert model.children("###")[0] == reply.copy(fresh=False)
+    assert model.children("###")[0] == reply.copy(fresh=False, metrics=None)
 
     reply = model.chat("###").check(fresh)
     assert reply.fresh == True
     assert len(model.children("###")) == 2
     assert len(model.children()) == 4
-    assert model.children("###")[-1] == reply.copy(fresh=False, _predicates=[])
+    assert model.children("###")[-1] == reply.copy(
+        fresh=False, _predicates=[], metrics=None
+    )
 
 
 def test_check(sample_model):
