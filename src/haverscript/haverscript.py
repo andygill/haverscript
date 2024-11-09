@@ -168,6 +168,16 @@ class Configuration:
 
 
 @dataclass(frozen=True)
+class Metrics(ABC):
+    total_duration: int  # time spent generating the response
+    load_duration: int  # time spent in nanoseconds loading the model
+    prompt_eval_count: int  # number of tokens in the prompt
+    prompt_eval_duration: int  # time spent in nanoseconds evaluating the prompt
+    eval_count: int  # number of tokens in the response
+    eval_duration: int  # time in nanoseconds spent generating the response
+
+
+@dataclass(frozen=True)
 class Model(ABC):
 
     configuration: Configuration
@@ -211,13 +221,24 @@ class Model(ABC):
 
         if isinstance(response, Iterator):
             if settings.echo:
-                tokens, response = tee(response)
+                response, metadata = tee(response)
+                tokens, response = tee(
+                    (token for token in response if isinstance(token, str))
+                )
                 settings.echo.reply(tokens, fresh=True)
+
             reply = "".join([r for r in response])
-        elif isinstance(response, str):
+
+            metrics = None
+            for meta in metadata:
+                if isinstance(meta, Metrics):
+                    metrics = meta
+
+        elif isinstance(response, Tuple):
+            assert len(response) == 2, f"{response} is not a 2-tuple"
+            reply, metrics = response
             if settings.echo:
-                settings.echo.reply(response, fresh=True)
-            reply = response
+                settings.echo.reply(reply, fresh=True)
         else:
             assert (
                 False
@@ -227,14 +248,21 @@ class Model(ABC):
             services.cache(self.settings.cache).insert(
                 self.configuration, prompt, reply
             )
-        return self.response(prompt, reply, fresh=True)
+        return self.response(prompt, reply, fresh=True, metrics=metrics)
 
-    def response(self, prompt: str, reply: str, fresh: bool):
+    def response(
+        self,
+        prompt: str,
+        reply: str,
+        fresh: bool,
+        metrics: Metrics | None = None,
+    ):
         return Response(
             configuration=self.configuration.add_context(prompt, reply),
             settings=self.settings,
             parent=self,
             fresh=fresh,
+            metrics=metrics,
             _predicates=[],
         )
 
@@ -321,6 +349,8 @@ class Response(Model):
 
     parent: Model
     fresh: bool  # was freshly generated (vs extracted from cache)
+    metrics: Metrics | None
+
     _predicates: list[Callable[[Self], bool]]
 
     @property
@@ -474,7 +504,7 @@ class ServiceProvider(ABC):
     @abstractmethod
     def chat(
         self, configuration: Configuration, prompt: str, stream: bool
-    ) -> str | Iterator[str]:
+    ) -> Tuple[str, Metrics] | Iterator[str | Metrics]:
         """Call the chat method of an LLM.
 
         prompt is the main text
@@ -540,7 +570,12 @@ class Ollama(ServiceProvider):
 
     def _streaming(self, response):
         try:
-            yield from (chunk["message"]["content"] for chunk in response)
+            for chunk in response:
+                if chunk["done"]:
+                    yield Metrics(
+                        **{k: chunk[k] for k in Metrics.__dataclass_fields__.keys()}
+                    )
+                yield from chunk["message"]["content"]
         except Exception as e:
             raise self._suggestions(e)
 
@@ -574,7 +609,12 @@ class Ollama(ServiceProvider):
             if isinstance(response, GeneratorType):
                 return self._streaming(response)
             else:
-                return response["message"]["content"]
+                return (
+                    response["message"]["content"],
+                    Metrics(
+                        **{k: response[k] for k in Metrics.__dataclass_fields__.keys()}
+                    ),
+                )
 
         except Exception as e:
             raise self._suggestions(e)
