@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `response.value`, which return the JSON `dict` of the reply, or `None`.
 - Added new `host` argument to `connect`, which allows for user "virtual" models.
 - Added top-level `list_models` function to list model options available.
+- Added spinner when waiting for the first token from LLM.
 ### Fixed
 ### Changed
 - Updated `children` method to return all children when no prompt is supplied.
