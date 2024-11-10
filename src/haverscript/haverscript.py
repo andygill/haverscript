@@ -167,6 +167,18 @@ class Configuration:
         return self.copy(images=self.images + (image,))
 
 
+def _canonical_string(string, postfix="\n"):
+    """Adds a newline to a string if needed, for outputting to a file."""
+    if not string:
+        return string
+    if not string.endswith(postfix):
+        overlap_len = next(
+            (i for i in range(1, len(postfix)) if string.endswith(postfix[:i])), 0
+        )
+        string += postfix[overlap_len:]
+    return string
+
+
 @dataclass(frozen=True)
 class Metrics(ABC):
     total_duration: int  # time spent generating the response
@@ -276,6 +288,10 @@ class Model(ABC):
             self.response(prompt_, prose, fresh=False) for prompt_, prose in replies
         ]
 
+    def render(self) -> str:
+        """Return a markdown string of the context."""
+        return _canonical_string(self.configuration.system or "")
+
     def copy(self, **update):
         return Model(
             **{
@@ -373,6 +389,22 @@ class Response(Model):
                 return None
 
         return self.reply
+
+    def render(self) -> str:
+        """Return a markdown string of the context."""
+
+        context = _canonical_string(self.parent.render(), postfix="\n\n")
+
+        if self.prompt:
+            prompt = (
+                "".join([f"> {line}\n" for line in self.prompt.splitlines()]) + "\n"
+            )
+        else:
+            prompt = ">\n\n"
+
+        reply = self.reply or ""
+
+        return context + prompt + _canonical_string(reply.strip())
 
     def copy(self, **update):
         return Response(

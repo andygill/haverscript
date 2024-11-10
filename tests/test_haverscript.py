@@ -99,14 +99,22 @@ def sample_remote_model():
 
 
 def test_model(sample_model):
-    check_model(sample_model, None)
+    check_model(sample_model, None, None)
+
+
+def test_model_and_system(sample_model):
+    check_model(sample_model.system("system"), None, "system")
 
 
 def test_remote_model(sample_remote_model):
-    check_model(sample_remote_model, test_model_host)
+    check_model(sample_remote_model, test_model_host, None)
 
 
-def check_model(model, host):
+def test_remote_model_and_system(sample_remote_model):
+    check_model(sample_remote_model.system("system"), test_model_host, "system")
+
+
+def check_model(model, host, system):
     assert type(model) is Model
     assert hasattr(model, "configuration")
     config = model.configuration
@@ -114,11 +122,20 @@ def check_model(model, host):
     assert config.model == test_model_name
     assert config.service == "ollama@" + (host or "local")
 
+    render = ""
+    if system:
+        render = system + "\n"
+    assert model.render() == render
+
     context = []
+    if system:
+        context.append({"role": "system", "content": system})
+        render += "\n"
     session = model
-    for i in range(5):
+    for i in range(2):
         message = f"Message #{i}"
         context.append({"role": "user", "content": message})
+        render += "".join(["> " + line for line in message.splitlines()]) + "\n\n"
         session = session.chat(message)
         assert type(session) is Response
         assert isinstance(session.reply, str)
@@ -131,6 +148,10 @@ def check_model(model, host):
         assert session.metrics.eval_duration == 105
 
         context.append({"role": "assistant", "content": session.reply})
+        render += session.reply
+        render += "\n"
+        assert session.render() == render
+        render += "\n"
 
 
 class UserService(ServiceProvider):

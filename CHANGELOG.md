@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added top-level `list_models` function to list model options available.
 - Added spinner when waiting for the first token from LLM.
 - Adding `metrics` to `Response`, which contains basic metrics about the LLM call.
+- Added `render()` method to `Model`, for outputing markdown-style session viewing.
 ### Fixed
 ### Changed
 - Updated `children` method to return all children when no prompt is supplied.
