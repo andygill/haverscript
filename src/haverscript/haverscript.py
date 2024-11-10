@@ -4,6 +4,7 @@ import logging
 import re
 import sqlite3
 import textwrap
+import threading
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from dataclasses import asdict, dataclass, field, fields
@@ -12,6 +13,7 @@ from types import GeneratorType
 from typing import AnyStr, Callable, Optional, Self, Tuple
 
 import ollama
+from yaspin import yaspin
 
 logger = logging.getLogger(__name__)
 
@@ -26,8 +28,28 @@ class Echo:
         print()
 
     def reply(self, tokens, fresh: bool):
-        for word in self.wrap(tokens):
-            print(word, end="", flush=True)
+
+        tokens = self.wrap(tokens)
+
+        first_token_available = threading.Event()
+        first_token = [None]  # Use list to allow modification in nested scope
+
+        def get_first_token():
+            try:
+                first_token[0] = next(tokens)
+            finally:
+                first_token_available.set()
+
+        threading.Thread(target=get_first_token).start()
+
+        with yaspin() as spinner:
+            first_token_available.wait()
+
+        if first_token[0] is not None:
+            print(first_token[0], end="", flush=True)
+
+        for token in tokens:
+            print(token, end="", flush=True)
         print()  # finish with a newline
 
     def regenerating(self):

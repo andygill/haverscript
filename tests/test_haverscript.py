@@ -197,6 +197,11 @@ null}
 """
 
 
+def remove_spinner(text):
+    # This removes any spinner output
+    return re.sub(r"([^\n]*\r)+", "", text)
+
+
 def test_echo(sample_model, capfd):
     capfd.readouterr()
     model = sample_model.echo()
@@ -233,22 +238,22 @@ def test_echo(sample_model, capfd):
         assert len(line) <= 78
 
     resp = sample_model.echo(True).chat("Hello")
-    assert capfd.readouterr().out == reply_to_hello
+    assert remove_spinner(capfd.readouterr().out) == reply_to_hello
 
     resp = sample_model.echo().chat("Hello")
-    assert capfd.readouterr().out == reply_to_hello
+    assert remove_spinner(capfd.readouterr().out) == reply_to_hello
 
     for line in reply_to_hello_48.splitlines():
         assert len(line) <= 48
 
     resp = sample_model.echo(width=48).chat("Hello")
-    assert capfd.readouterr().out == reply_to_hello_48
+    assert remove_spinner(capfd.readouterr().out) == reply_to_hello_48
 
     for line in reply_to_hello_8.splitlines():
         assert len(line) <= 8 or " " not in line
 
     resp = sample_model.echo(width=8).chat("Hello")
-    assert capfd.readouterr().out == reply_to_hello_8
+    assert remove_spinner(capfd.readouterr().out) == reply_to_hello_8
 
 
 def test_outdent(sample_model):
