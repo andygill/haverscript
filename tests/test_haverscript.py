@@ -376,7 +376,6 @@ def test_cache(sample_model, tmp_path):
     assert reply.fresh == True
     assert len(model.children("Hello")) == 1
     assert len(model.children()) == 1
-    context = [{"role": "user", "content": "Hello"}]
     assert model.children("Hello")[0] == reply.copy(fresh=False, metrics=None)
 
     reply = model.chat("Hello")
@@ -408,7 +407,7 @@ def test_cache(sample_model, tmp_path):
     assert len(model.children("###")) == 2
     assert len(model.children()) == 4
     assert model.children("###")[-1] == reply.copy(
-        fresh=False, _predicates=[], metrics=None
+        fresh=False, _predicates=(), metrics=None
     )
 
 

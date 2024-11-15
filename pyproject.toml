@@ -10,6 +10,7 @@ dependencies = [
     "ollama>=0.3.2",
     "pytest>=8.3.0",
     "yaspin>=3.0.0",
+    "frozendict>=4.2.0",
 ]
 
 [build-system]

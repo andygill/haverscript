@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 ### Changed
 - Updated `children` method to return all children when no prompt is supplied.
+- Reworked SQL cache schema to store context as chain of responses, and use a
+  string pool.
 ### Removed
 
 
