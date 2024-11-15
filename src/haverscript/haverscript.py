@@ -14,6 +14,7 @@ from typing import AnyStr, Callable, Optional, Self, Tuple, NoReturn
 
 import ollama
 from yaspin import yaspin
+from frozendict import frozendict
 
 from .exceptions import *
 
@@ -135,7 +136,7 @@ class Configuration:
 
     service: str = None
     model: str = None
-    options: dict = field(default_factory=dict)
+    options: frozendict = field(default_factory=frozendict)
     json: bool = False
     system: Optional[str] = None
     context: Tuple[  # list (using a tuple) of prompt+images response triples
@@ -263,11 +264,12 @@ class Model(ABC):
                 False
             ), f"response from a chat was type '{type(response)}', expecting 'str' or 'Iterator'"
 
+        response = self.response(prompt, reply, fresh=True, metrics=metrics)
+
         if self.settings.cache is not None:
-            services.cache(self.settings.cache).insert(
-                self.configuration, prompt, reply
-            )
-        return self.response(prompt, reply, fresh=True, metrics=metrics)
+            services.cache(self.settings.cache).insert(response)
+
+        return response
 
     def response(
         self,
@@ -282,7 +284,7 @@ class Model(ABC):
             parent=self,
             fresh=fresh,
             metrics=metrics,
-            _predicates=[],
+            _predicates=(),
         )
 
     def children(self, prompt: str = None):
@@ -290,7 +292,7 @@ class Model(ABC):
         if self.settings.cache is None:
             return []
         cache = services.cache(self.settings.cache)
-        replies = cache.lookup(self.configuration, prompt)
+        replies = cache.lookup(self, prompt)
         return [
             self.response(prompt_, prose, fresh=False) for prompt_, prose in replies
         ]
@@ -374,7 +376,7 @@ class Response(Model):
     fresh: bool  # was freshly generated (vs extracted from cache)
     metrics: Metrics | None
 
-    _predicates: list[Callable[[Self], bool]]
+    _predicates: tuple  # [Callable[[Self], bool]]
 
     @property
     def prompt(self) -> str:
@@ -453,7 +455,7 @@ class Response(Model):
                 self.settings.echo.regenerating()
             session = session.redo()
 
-        return session.copy(_predicates=self._predicates + [(predicate, limit)])
+        return session.copy(_predicates=self._predicates + ((predicate, limit),))
 
     def redo(self):
         """Rerun a chat with the previous prompt.
@@ -484,8 +486,9 @@ def accept(response):
 
 class Cache:
     def __init__(self, filename: str) -> None:
-        self.version = 1
+        self.version = 2
         self.filename = filename
+        self.local = {}
 
         self.conn = sqlite3.connect(
             filename, check_same_thread=sqlite3.threadsafety != 3
@@ -497,14 +500,44 @@ class Cache:
 
             PRAGMA user_version = {self.version};
 
-            CREATE TABLE IF NOT EXISTS interactions (
+            CREATE TABLE IF NOT EXISTS string_pool (
                 id INTEGER PRIMARY KEY,
-                configuration TEXT NOT NULL, -- full configuration of the LLM
-                prompt TEXT  NOT NULL,       -- what was said to the LLM
-                reply TEXT NOT NULL         -- reply from the LLM
+                string TEXT NOT NULL UNIQUE
             );
 
-            CREATE INDEX IF NOT EXISTS interactions_index ON interactions(configuration, prompt);
+            CREATE INDEX IF NOT EXISTS string_index ON string_pool(string);
+
+            CREATE TABLE IF NOT EXISTS interactions (
+                id INTEGER PRIMARY KEY,
+                configuration INTEGER NOT NULL, -- configuration without system and context
+                system INTEGER,                 
+                context INTEGER,                
+                prompt INTEGER  NOT NULL,       -- what was said to the LLM
+                reply INTEGER NOT NULL,         -- reply from the LLM
+                FOREIGN KEY (configuration) REFERENCES string_pool(id),
+                FOREIGN KEY (system)        REFERENCES string_pool(id),
+                FOREIGN KEY (context)       REFERENCES interactions(id),
+                FOREIGN KEY (prompt)        REFERENCES string_pool(id),
+                FOREIGN KEY (reply)         REFERENCES string_pool(id)
+            );
+
+            CREATE INDEX IF NOT EXISTS interactions_configuration_index ON interactions(configuration);
+            CREATE INDEX IF NOT EXISTS interactions_system_index ON interactions(system);
+            CREATE INDEX IF NOT EXISTS interactions_context_index ON interactions(context);
+            CREATE INDEX IF NOT EXISTS interactions_prompt_index ON interactions(prompt);
+
+            CREATE VIEW IF NOT EXISTS interactions_with_strings AS
+            SELECT 
+                interactions.id,
+                (SELECT string FROM string_pool WHERE id = interactions.configuration) AS configuration,
+                COALESCE((SELECT string FROM string_pool WHERE id = interactions.system), NULL) AS system,
+                interactions.context,
+                (SELECT string FROM string_pool WHERE id = interactions.prompt) AS prompt,
+                (SELECT string FROM string_pool WHERE id = interactions.reply) AS reply
+            FROM 
+                interactions
+            ;
+            
 
             COMMIT;
             """
@@ -512,7 +545,16 @@ class Cache:
 
     def to_json(self, config):
         """We represent our saved config using a JSON string."""
-        return json.dumps(asdict(config))
+        assert isinstance(config, Configuration)
+        return json.dumps(
+            {
+                k: v
+                for k, v in asdict(config).items()
+                # system and context are handled seperately
+                # images are not (yet) supported
+                if k not in ["system", "context", "images"]
+            }
+        )
 
     def check_version(self):
         version = self.conn.execute("PRAGMA user_version").fetchone()[0]
@@ -520,36 +562,134 @@ class Cache:
             version == self.version
         ), f"{repr(self.filename)} has schema version {version}, expecting version {self.version}."
 
-    def insert(self, configuration: Configuration, prompt: str, reply: str) -> None:
-        self.check_version()
+    def _string_lookup(self, string: str, update: bool = False) -> int:
+        if string is None:
+            return None
+        if update:
+            self.conn.execute(
+                "INSERT OR IGNORE INTO string_pool (string) VALUES (?)", (string,)
+            )
+            self.conn.commit()
 
-        # storing a JSON string for the configuration is a work-in-process
-        self.conn.execute(
-            "INSERT INTO interactions (configuration, prompt, reply) VALUES (?, ?, ?)",
-            (self.to_json(configuration), prompt, reply),
+        # Retrieve the id of the string (whether it was newly inserted or already exists)
+        row = self.conn.execute(
+            "SELECT id FROM string_pool WHERE string = ?", (string,)
+        ).fetchone()
+        if row:
+            return row[0]  # Return the id of the string
+        else:
+            return None
+
+    def _interactions_dict(
+        self,
+        configuration: Configuration,
+        context: Model | None = None,
+        prompt: str | None = None,
+        reply: str | None = None,
+        update: bool = False,
+    ):
+        args = {
+            "configuration": self._string_lookup(
+                self.to_json(configuration), update=update
+            ),
+            "system": self._string_lookup(configuration.system, update=update),
+            "context": self._response_lookup(context, update=update),
+        }
+
+        if prompt:
+            args["prompt"] = self._string_lookup(prompt, update=update)
+        if reply:
+            args["reply"] = self._string_lookup(reply, update=update)
+
+        return args
+
+    def _interactions_prompt(
+        self,
+        elements,
+        args,
+    ):
+        nullable_compares = []
+        compares = []
+        for k, v in args.items():
+            if v is None:
+                nullable_compares.append(f"{k} IS NULL")
+            else:
+                compares.append(f"{k} == :{k}")
+
+        prompt = (
+            "SELECT "
+            + ",".join(elements)
+            + " FROM interactions WHERE  "
+            + " AND ".join(compares + nullable_compares)
         )
+
+        return prompt
+
+    def _response_lookup(self, response: Model, update: bool = False) -> int:
+
+        if isinstance(response, Response):
+            if response in self.local:
+                return self.local[response]
+
+            args = self._interactions_dict(
+                response.configuration,
+                response.parent,
+                response.prompt,
+                response.reply,
+                update=update,
+            )
+
+            found = self.conn.execute(
+                self._interactions_prompt(["id"], args), args
+            ).fetchone()
+
+            if found is not None:
+                ix = found[0]
+                self.local[response] = ix
+                return ix
+
+            if update:
+                ix = self.conn.execute(
+                    """
+                    INSERT INTO interactions ( configuration,  system,  context,  prompt,  reply)  
+                                      VALUES (:configuration, :system, :context, :prompt, :reply)
+                    """,
+                    args,
+                ).lastrowid
+                self.local[response] = ix
+                return ix
+
+        return None
+
+    def insert(self, response: Response) -> None:
+        self.check_version()
+        self._response_lookup(response, update=True)
+        # remember the result index
         self.conn.commit()
 
-    def lookup(
-        self, configuration: Configuration, prompt: str = None
-    ) -> list[(str, str)]:
-        """Query to get the responses with this configuration, with optional prompt"""
-        if prompt is None:
-            return [
-                (row[0], row[1])
-                for row in self.conn.execute(
-                    "SELECT prompt, reply FROM interactions WHERE configuration=? ORDER BY id",
-                    (self.to_json(configuration),),
-                ).fetchall()
-            ]
+    def lookup(self, model: Model, prompt: str = None) -> list[(str, str)]:
+        self.check_version()
+        # looking for all the times this configuration/model was used with a prompt
+        if isinstance(model, Response):
+            args = self._interactions_dict(
+                model.configuration, context=model.parent, prompt=prompt
+            )
         else:
-            return [
-                (prompt, row[0])
-                for row in self.conn.execute(
-                    "SELECT reply FROM interactions WHERE configuration=? AND prompt=? ORDER BY id",
-                    (self.to_json(configuration), prompt),
-                ).fetchall()
-            ]
+            args = self._interactions_dict(model.configuration, prompt=prompt)
+
+        return [
+            (row[0], row[1])
+            for row in self.conn.execute(
+                self._interactions_prompt(
+                    [
+                        "(SELECT string FROM string_pool WHERE string_pool.id == prompt) as prompt",
+                        "(SELECT string FROM string_pool WHERE string_pool.id == reply) as reply",
+                    ],
+                    args,
+                ),
+                args,
+            ).fetchall()
+        ]
 
 
 class ServiceProvider(ABC):
