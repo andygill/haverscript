@@ -8,6 +8,7 @@ import sys
 import pytest
 from tenacity import stop_after_attempt
 
+from tests.test_utils import remove_spinner
 
 from haverscript import (
     Configuration,
@@ -245,11 +246,6 @@ null,
 "extra":
 null}
 """
-
-
-def remove_spinner(text):
-    # This removes any spinner output
-    return re.sub(r"([^\n]*\r)+", "", text)
 
 
 def test_echo(sample_model, capfd):

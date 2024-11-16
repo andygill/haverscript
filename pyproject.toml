@@ -10,6 +10,7 @@ dependencies = [
     "frozendict>=2.4.6",
     "ollama>=0.3.2",
     "pytest>=8.3.0",
+    "pytest-regressions>=2.5.0",
     "requests>=2.32.0",
     "tenacity>=9.0.0",
     "yaspin>=3.0.0",
@@ -18,3 +19,6 @@ dependencies = [
 [build-system]
 requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
