@@ -93,8 +93,8 @@ class _TestClient:
 
 # inject the TestClient
 models = sys.modules["haverscript.haverscript"].services._model_providers
-models["ollama@local"] = sys.modules["haverscript.haverscript"].Ollama(None)
-models["ollama@local"].client = _TestClient(None)
+models["ollama@localhost"] = sys.modules["haverscript.haverscript"].Ollama(None)
+models["ollama@localhost"].client = _TestClient(None)
 models[f"ollama@{test_model_host}"] = sys.modules["haverscript.haverscript"].Ollama(
     test_model_host
 )
@@ -133,7 +133,7 @@ def check_model(model, host, system):
     config = model.configuration
     assert hasattr(config, "model")
     assert config.model == test_model_name
-    assert config.service == "ollama@" + (host or "local")
+    assert config.service == "ollama@" + (host or "localhost")
 
     render = ""
     if system:
