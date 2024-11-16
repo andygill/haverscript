@@ -190,6 +190,11 @@ class Metrics(ABC):
 
 
 @dataclass(frozen=True)
+class Metrics(ABC):
+    pass
+
+
+@dataclass(frozen=True)
 class Model(ABC):
 
     configuration: Configuration
@@ -581,6 +586,16 @@ class Services:
 services = Services()
 
 
+@dataclass(frozen=True)
+class OllamaMetrics(Metrics):
+    total_duration: int  # time spent generating the response
+    load_duration: int  # time spent in nanoseconds loading the model
+    prompt_eval_count: int  # number of tokens in the prompt
+    prompt_eval_duration: int  # time spent in nanoseconds evaluating the prompt
+    eval_count: int  # number of tokens in the response
+    eval_duration: int  # time in nanoseconds spent generating the response
+
+
 class Ollama(ServiceProvider):
     def __init__(self, hostname) -> None:
         self.hostname = hostname
@@ -604,8 +619,11 @@ class Ollama(ServiceProvider):
         try:
             for chunk in response:
                 if chunk["done"]:
-                    yield Metrics(
-                        **{k: chunk[k] for k in Metrics.__dataclass_fields__.keys()}
+                    yield OllamaMetrics(
+                        **{
+                            k: chunk[k]
+                            for k in OllamaMetrics.__dataclass_fields__.keys()
+                        }
                     )
                 yield from chunk["message"]["content"]
         except Exception as e:
@@ -643,8 +661,11 @@ class Ollama(ServiceProvider):
             else:
                 return (
                     response["message"]["content"],
-                    Metrics(
-                        **{k: response[k] for k in Metrics.__dataclass_fields__.keys()}
+                    OllamaMetrics(
+                        **{
+                            k: response[k]
+                            for k in OllamaMetrics.__dataclass_fields__.keys()
+                        }
                     ),
                 )
 
