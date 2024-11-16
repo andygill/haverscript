@@ -162,11 +162,13 @@ class Configuration:
 
     def add_options(self, **options):
         return self.copy(
-            options={
-                key: value
-                for key, value in {**self.options, **options}.items()
-                if value is not None
-            }
+            options=frozendict(
+                {
+                    key: value
+                    for key, value in {**self.options, **options}.items()
+                    if value is not None
+                }
+            )
         )
 
     def add_image(self, image):
@@ -221,14 +223,14 @@ class Model(ABC):
         if self.settings.echo:
             self.settings.echo.prompt(prompt)
 
-        children = self.children(prompt)
-        if len(children) > 0:
-            response = children[-1]
-            if self.settings.echo:
-                self.settings.echo.reply(
-                    re.split(r"(\S+)", response.reply), fresh=False
-                )
-            return response
+        """Return all already cached replies to this prompt."""
+        if self.settings.cache is not None:
+            cache = services.cache(self.settings.cache)
+            prose = cache.next(self, prompt)
+            if prose:
+                if self.settings.echo:
+                    self.settings.echo.reply(re.split(r"(\S+)", prose), fresh=False)
+                return self.response(prompt, prose, fresh=False)
 
         return self.invoke(prompt)
 
@@ -297,6 +299,10 @@ class Model(ABC):
         fresh: bool,
         metrics: Metrics | None = None,
     ):
+        assert isinstance(prompt, str)
+        assert isinstance(reply, str)
+        assert isinstance(fresh, bool)
+        assert isinstance(metrics, (Metrics, type(None)))
         return Response(
             configuration=self.configuration.add_context(prompt, reply),
             settings=self.settings,
@@ -562,7 +568,8 @@ class Cache:
     def __init__(self, filename: str) -> None:
         self.version = 2
         self.filename = filename
-        self.local = {}
+        self.local: dict[Response, int] = {}
+        self.cursor: dict[tuple[Response, str], list[tuple[str, str]]] = {}
 
         self.conn = sqlite3.connect(
             filename, check_same_thread=sqlite3.threadsafety != 3
@@ -738,11 +745,9 @@ class Cache:
     def insert(self, response: Response) -> None:
         self.check_version()
         self._response_lookup(response, update=True)
-        # remember the result index
         self.conn.commit()
 
-    def lookup(self, model: Model, prompt: str = None) -> list[(str, str)]:
-        self.check_version()
+    def lookup(self, model: Model, prompt: str = None) -> list[tuple[str, str]]:
         # looking for all the times this configuration/model was used with a prompt
         if isinstance(model, Response):
             args = self._interactions_dict(
@@ -764,6 +769,18 @@ class Cache:
                 args,
             ).fetchall()
         ]
+
+    def next(self, model: Model, prompt: str) -> str | None:
+        if (model, prompt) not in self.cursor:
+            replies = self.lookup(model, prompt)
+            self.cursor[model, prompt] = replies
+        else:
+            replies = self.cursor[model, prompt]
+
+        if replies:
+            return replies.pop(0)[1]
+
+        return None
 
 
 class ServiceProvider(ABC):

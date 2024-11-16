@@ -11,12 +11,9 @@ prompt = "In one sentence, why is the sky blue?"
 times = []
 replies = []
 times.append(time.time())
-replies.append(model.chat(prompt).reply)
-times.append(time.time())
-replies.append(model.chat(prompt).reply)
-times.append(time.time())
-replies.append(model.chat(prompt).check(fresh).reply)
-times.append(time.time())
+for _ in range(2):
+    replies.append(model.chat(prompt).reply)
+    times.append(time.time())
 
 for i, (t1, t2, r) in enumerate(zip(times, times[1:], replies)):
     print(f"chat #{i}")
@@ -24,58 +21,44 @@ for i, (t1, t2, r) in enumerate(zip(times, times[1:], replies)):
     print("time: {:.5f}".format(t2 - t1))
     print()
 
-print(len(model.children(prompt)), "replies are cached")
-
+print(len(model.children(prompt)), "replies are in cache")
 ```
 
-The first run produces:
+The first run, with argument 2, produces:
 
 ```
+0 replies are in cache at start of run
 chat #0
-reply:  The sky appears blue due to scattering of shorter wavelengths (blue and violet) of sunlight by atmospheric molecules and particles more than other colors. This phenomenon is called Rayleigh scattering.
-time: 1.52271
-
-chat #1
-reply:  The sky appears blue due to scattering of shorter wavelengths (blue and violet) of sunlight by atmospheric molecules and particles more than other colors. This phenomenon is called Rayleigh scattering.
-time: 0.00004
-
-chat #2
-reply:  The sky appears blue due to scattering of shorter wavelengths (blue and violet) more than longer wavelengths (yellow, orange, and red) by molecules and particles in the Earth's atmosphere.
-time: 1.51861
-
-2 replies are cached
-```
-
- * chat #0 is generated
- * chat #1 is pulled from the cache
- * chat #2 is pulled from the cache, rejected because it is not fresh, and then regenerated.
- * The cache contains 2 possible replies to the prompt
-
-Second time, with the cache intact inside "cache.db", gives:
-
-```
-chat #0
-reply:  The sky appears blue due to scattering of shorter wavelengths (blue and violet) more than longer wavelengths (yellow, orange, and red) by molecules and particles in the Earth's atmosphere.
-time: 0.00090
-
-chat #1
-reply:  The sky appears blue due to scattering of shorter wavelengths (blue and violet) more than longer wavelengths (yellow, orange, and red) by molecules and particles in the Earth's atmosphere.
-time: 0.00003
-
-chat #2
 reply:  The sky appears blue due to scattering of shorter wavelengths (blue and violet) of sunlight by the atmosphere more than other colors before reaching our eyes.
-time: 1.18642
+time: 1.23832
 
-3 replies are cached
+chat #1
+reply:  The sky appears blue due to scattering of shorter wavelengths (blue and violet) more than other colors in sunlight by molecules and particles in Earth's atmosphere.
+time: 1.21506
+
+2 replies are in cache at end of run
 ```
 
- * chat #0 is pulled from the cache
- * chat #1 is pulled from the cache
- * chat #2 is pulled from the cache, rejected because it is not fresh, and the regenerated as a fresh result.
- * The cache now contains 3 possible replies to the prompt
+Second time, with the cache intact inside "cache.db", and an argument of 3, gives:
 
+```
+2 replies are in cache at start of run
+chat #0
+reply:  The sky appears blue due to scattering of sunlight by molecules and particles in the Earth's atmosphere.
+time: 0.00006
 
-There are two cached values at the start of the run, so we use the most up-to-date reply.
+chat #1
+reply:  The sky appears blue due to the scattering of shorter wavelengths (blue and violet) of sunlight by the atmosphere more than other colors before reaching our eyes.
+time: 0.00001
+
+chat #2
+reply:  The sky appears blue due to the scattering of sunlight by the gases and particles in the Earth's atmosphere, with shorter wavelengths (blue light) being more easily scattered than longer ones.
+time: 1.55286
+
+3 replies are in cache at end of run
+```
+
+There are two cached values at the start of the run, so we use the most up-to-date replies, in turn. The final call to `chat` calls the LLM.
 
 The cache can be access using `model.children()`, which will return a list of all possible
 `Response` values that are cached, or `model.children(prompt)`, which  which will return 
@@ -94,7 +77,6 @@ graph LR
     r1(Response)
     str1(str)
     r2(Response)
-    r3(Response)
     str2(str)
 
 
@@ -105,8 +87,7 @@ graph LR
     m1 -- chat('…') --> r1
     r1 -- reply --> str1
     m1 -- chat('…') --> r2
-    r2 -- check(fresh) --> r3
-    r3 -- reply --> str2
+    r2 -- reply --> str2
 
 ```
 
