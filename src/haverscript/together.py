@@ -99,7 +99,11 @@ class Together(ServiceProvider):
             "authorization": f"Bearer {self.key}",
         }
 
-        payload = {"model": configuration.model, "messages": messages, "stream": stream}
+        payload = {
+            "model": configuration.model,
+            "messages": messages,
+            "stream": stream,
+        } | configuration.options
 
         response = requests.post(url, json=payload, headers=headers, stream=stream)
 

@@ -1,0 +1,8 @@
+chat #0
+reply:  The sky appears blue due to scattering of shorter wavelengths (blue and violet light) more than longer wavelengths (red, green, and yellow light) by molecules and particles in the Earth's atmosphere.
+slower (used LLM)
+
+chat #1
+reply:  The sky appears blue due to scattering of sunshine by the atmosphere's molecules and particles.
+slower (used LLM)
+

@@ -1,4 +1,4 @@
-from haverscript import connect, Model, Response
+from haverscript import connect
 
 session = connect("mistral").echo()
 session = session.chat("In one sentence, why is the sky blue?")
