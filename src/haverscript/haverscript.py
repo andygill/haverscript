@@ -11,6 +11,7 @@ from dataclasses import asdict, dataclass, field, fields
 from itertools import tee
 from types import GeneratorType
 from typing import AnyStr, Callable, Optional, Self, Tuple, NoReturn
+from tenacity import Retrying, RetryError
 
 import ollama
 from yaspin import yaspin
@@ -120,6 +121,8 @@ class Settings:
     cache: str = None
 
     outdent: bool = True
+
+    retry: dict | None = None
 
     def copy(self, **update):
         return Settings(
@@ -233,6 +236,22 @@ class Model(ABC):
 
         settings = self.settings
 
+        if settings.retry is not None:
+            try:
+                for attempt in Retrying(**settings.retry):
+                    with attempt:
+                        return self._invoke(prompt)
+
+            except RetryError as e:
+                raise LLMError()
+
+        else:
+            return self._invoke(prompt)
+
+    def _invoke(self, prompt: str) -> "Response":
+
+        settings = self.settings
+
         response = services.provider(self.configuration.service).chat(
             configuration=self.configuration,
             prompt=prompt,
@@ -328,6 +347,10 @@ class Model(ABC):
     def cache(self, filename: Optional[str] = None):
         """Set the cache filename for this model."""
         return self.copy(settings=self.settings.copy(cache=filename))
+
+    def retry_policy(self, **options) -> Self:
+        """retry uses tenacity to wrap the LLM request-response action in retry options."""
+        return self.copy(settings=self.settings.copy(retry=options))
 
     def system(self, prompt: str) -> Self:
         """provide a system prompt."""

@@ -6,6 +6,8 @@ import re
 import sys
 
 import pytest
+from tenacity import stop_after_attempt
+
 
 from haverscript import (
     Configuration,
@@ -17,6 +19,7 @@ from haverscript import (
     fresh,
     valid_json,
     list_models,
+    LLMError,
     LLMResultError,
 )
 
@@ -61,6 +64,15 @@ class _TestClient:
         if "###" in messages[-1]["content"]:
             extra = self._count
             self._count += 1
+
+        match = re.match(r"^FAIL\((\d+)\)$", messages[-1]["content"])
+
+        if match:
+            self._count += 1
+            n = int(match.group(1))
+            if n != self._count:
+                raise LLMError()
+
         reply = llm(self._host, model, messages, options, format, extra)
         if stream:
             return self._streaming(reply)
@@ -464,3 +476,11 @@ def test_image(sample_model):
 def test_reject(sample_model):
     with pytest.raises(LLMResultError):
         sample_model.chat("Hello").reject()
+
+
+def test_retry(sample_model):
+    with pytest.raises(LLMError):
+        sample_model.chat("FAIL(0)")
+
+    extra = sample_model.json().chat("###").value["extra"]
+    sample_model.retry_policy(stop=stop_after_attempt(5)).chat(f"FAIL({extra+4})")
