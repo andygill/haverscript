@@ -381,6 +381,7 @@ def test_fresh(sample_model):
 def test_cache(sample_model, tmp_path):
     temp_file = tmp_path / "cache.db"
     model = sample_model.cache(temp_file)
+
     hello = "### Hello"
     assert len(model.children(hello)) == 0
     assert len(model.children()) == 0
@@ -397,9 +398,18 @@ def test_cache(sample_model, tmp_path):
     assert len(model.children()) == 2
     assert model.children(hello)[1] == reply2.copy(fresh=False, metrics=None)
 
+    world = "### World"
+    reply3 = reply2.chat(world)
+    assert reply3.fresh == True
+    assert len(reply2.children()) == 1
+    assert len(reply2.children(world)) == 1
+    assert reply2.children(world)[0] == reply3.copy(fresh=False, metrics=None)
+
     # reset the cursor, to simulate a new execute
     cache = sys.modules["haverscript.haverscript"].services.cache(temp_file)
     cache.cursor = {}
+
+    assert len(model.children()) == 2
 
     reply1b = model.chat(hello)
     assert reply1b.fresh == False
@@ -414,6 +424,12 @@ def test_cache(sample_model, tmp_path):
 
     reply3b = model.chat(hello)
     assert reply3b.fresh == True
+
+    reply4b = reply2b.chat(world)
+    assert reply4b.fresh == False
+
+    reply4c = reply2b.chat(world)
+    assert reply4c.fresh == True
 
 
 def test_check(sample_model):

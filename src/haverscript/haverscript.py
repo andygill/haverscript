@@ -223,7 +223,6 @@ class Model(ABC):
         if self.settings.echo:
             self.settings.echo.prompt(prompt)
 
-        """Return all already cached replies to this prompt."""
         if self.settings.cache is not None:
             cache = services.cache(self.settings.cache)
             prose = cache.next(self, prompt)
@@ -751,10 +750,12 @@ class Cache:
         # looking for all the times this configuration/model was used with a prompt
         if isinstance(model, Response):
             args = self._interactions_dict(
-                model.configuration, context=model.parent, prompt=prompt
+                model.configuration, context=model, prompt=prompt
             )
         else:
-            args = self._interactions_dict(model.configuration, prompt=prompt)
+            args = self._interactions_dict(
+                model.configuration, context=None, prompt=prompt
+            )
 
         return [
             (row[0], row[1])
