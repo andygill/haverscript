@@ -381,46 +381,39 @@ def test_fresh(sample_model):
 def test_cache(sample_model, tmp_path):
     temp_file = tmp_path / "cache.db"
     model = sample_model.cache(temp_file)
-    assert len(model.children("Hello")) == 0
+    hello = "### Hello"
+    assert len(model.children(hello)) == 0
     assert len(model.children()) == 0
 
-    reply = model.chat("Hello")
-    assert reply.fresh == True
-    assert len(model.children("Hello")) == 1
+    reply1 = model.chat(hello)
+    assert reply1.fresh == True
+    assert len(model.children(hello)) == 1
     assert len(model.children()) == 1
-    assert model.children("Hello")[0] == reply.copy(fresh=False, metrics=None)
+    assert model.children(hello)[0] == reply1.copy(fresh=False, metrics=None)
 
-    reply = model.chat("Hello")
-    assert reply.fresh == False
-    assert len(model.children("Hello")) == 1
-    assert len(model.children()) == 1
-    assert model.children("Hello")[0] == reply
-
-    reply = model.chat("World")
-    assert reply.fresh == True
-    assert len(model.children("World")) == 1
+    reply2 = model.chat(hello)
+    assert reply2.fresh == True
+    assert len(model.children(hello)) == 2
     assert len(model.children()) == 2
-    assert model.children("World")[0] == reply.copy(fresh=False, metrics=None)
+    assert model.children(hello)[1] == reply2.copy(fresh=False, metrics=None)
 
-    reply = model.chat("World")
-    assert reply.fresh == False
-    assert len(model.children("World")) == 1
-    assert len(model.children()) == 2
-    assert model.children("World")[0] == reply
+    # reset the cursor, to simulate a new execute
+    cache = sys.modules["haverscript.haverscript"].services.cache(temp_file)
+    cache.cursor = {}
 
-    reply = model.chat("###")
-    assert reply.fresh == True
-    assert len(model.children("###")) == 1
-    assert len(model.children()) == 3
-    assert model.children("###")[0] == reply.copy(fresh=False, metrics=None)
+    reply1b = model.chat(hello)
+    assert reply1b.fresh == False
+    assert reply1.copy(fresh=False, metrics=None) == reply1b.copy(metrics=None)
 
-    reply = model.chat("###").check(fresh)
-    assert reply.fresh == True
-    assert len(model.children("###")) == 2
-    assert len(model.children()) == 4
-    assert model.children("###")[-1] == reply.copy(
-        fresh=False, _predicates=(), metrics=None
-    )
+    reply2b = model.chat(hello)
+    assert reply2b.fresh == False
+
+    assert reply2.copy(fresh=False, metrics=None) == reply2b.copy(metrics=None)
+    # Check there was a difference to observe
+    assert reply1b.copy(metrics=None) != reply2b.copy(metrics=None)
+
+    reply3b = model.chat(hello)
+    assert reply3b.fresh == True
 
 
 def test_check(sample_model):
