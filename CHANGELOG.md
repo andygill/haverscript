@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `reject()` to `Response`, which raises a `LLMResultError` exception.
 - Added `retry_policy` to `Model`, which uses the tenacity package to provide a
   generic retry for `chat`.
+- Added support for together.ai's API as a first-class alternative to ollama.
 ### Fixed
 ### Changed
 - Updated `children` method to return all children when no prompt is supplied.
