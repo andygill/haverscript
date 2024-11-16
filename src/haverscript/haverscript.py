@@ -850,7 +850,7 @@ class Ollama(ServiceProvider):
         self.client = ollama.Client(hostname)
 
     def name(self):
-        return f"ollama@{self.hostname or "local"}"
+        return f"ollama@{self.hostname or 'localhost'}"
 
     def list(self):
         models = self.client.list()
