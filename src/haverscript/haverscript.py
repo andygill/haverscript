@@ -10,10 +10,12 @@ from collections.abc import Iterator
 from dataclasses import asdict, dataclass, field, fields
 from itertools import tee
 from types import GeneratorType
-from typing import AnyStr, Callable, Optional, Self, Tuple
+from typing import AnyStr, Callable, Optional, Self, Tuple, NoReturn
 
 import ollama
 from yaspin import yaspin
+
+from .exceptions import *
 
 logger = logging.getLogger(__name__)
 
@@ -406,6 +408,9 @@ class Response(Model):
 
         return context + prompt + _canonical_string(reply.strip())
 
+    def json_value(self, limit: int | None = 10) -> dict:
+        return self.check(valid_json, limit=limit).value
+
     def copy(self, **update):
         return Response(
             **{
@@ -417,6 +422,11 @@ class Response(Model):
     def __str__(self):
         return self.reply
 
+    def reject(self, message: str | None = None) -> NoReturn:
+        if message:
+            raise LLMResultError(message)
+        raise LLMResultError()
+
     def check(self, predicate, limit: Optional[int] = 10) -> Self:
         """A given predicate is applied to the Response.
 
@@ -425,13 +435,12 @@ class Response(Model):
 
         There is an optional limit, which defaults to 10.
         """
-        predicates = self._predicates + [predicate]
         session = self
 
-        while not all([predicate(session) for predicate in predicates]):
+        while not predicate(session):
             if limit is not None:
                 if limit == 0:
-                    raise RuntimeError(
+                    self.reject(
                         "exceeded the count limit for redoing generation with predicate(s)"
                     )
                 limit -= 1
@@ -439,10 +448,17 @@ class Response(Model):
                 self.settings.echo.regenerating()
             session = session.redo()
 
-        return session.copy(_predicates=predicates)
+        return session.copy(_predicates=self._predicates + [(predicate, limit)])
 
     def redo(self):
-        return self.parent.invoke(self.prompt)
+        """Rerun a chat with the previous prompt.
+
+        If the Response has check(s), they are also re-run.
+        """
+        previous = self.parent.invoke(self.prompt)
+        for pred, limit in self._predicates:
+            previous = previous.check(pred, limit=limit)
+        return previous
 
 
 def fresh(response):

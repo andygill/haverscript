@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added spinner when waiting for the first token from LLM.
 - Adding `metrics` to `Response`, which contains basic metrics about the LLM call.
 - Added `render()` method to `Model`, for outputing markdown-style session viewing.
+- Added LLMError, and subclasses. 
+- Added `reject()` to `Response`, which raises a `LLMResultError` exception.
 ### Fixed
 ### Changed
 - Updated `children` method to return all children when no prompt is supplied.

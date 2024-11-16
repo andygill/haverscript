@@ -17,6 +17,7 @@ from haverscript import (
     fresh,
     valid_json,
     list_models,
+    LLMResultError,
 )
 
 # Note that these tests break the haverscript API at points specifically
@@ -418,7 +419,7 @@ def test_check(sample_model):
     ).startswith("Response")
 
     # failing check
-    with pytest.raises(RuntimeError, match="exceeded the count limit"):
+    with pytest.raises(LLMResultError, match="exceeded the count limit"):
         sample_model.chat("Squirrel").check(lambda reply: "Squirrel" not in reply.reply)
 
     # chaining checks
@@ -459,3 +460,8 @@ def test_image(sample_model):
         {"role": "user", "content": prompt2},
     ]
     assert resp.reply == llm(None, test_model_name, context, {}, "")
+
+
+def test_reject(sample_model):
+    with pytest.raises(LLMResultError):
+        sample_model.chat("Hello").reject()

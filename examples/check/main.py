@@ -20,8 +20,7 @@ colors = (
     .chat(
         "Return a map from primary colors to their hex codes. The map should be called colors. Reply using JSON, and only JSON."
     )
-    .check(valid_json)  # Ensures that the reply is valid JSON before proceeding
-    .value  # read the JSON value (returns None if not valid JSON))
+    .json_value()  # read the JSON value (retries until valid JSON)
 )
 
 print(json.dumps(colors, indent=2))

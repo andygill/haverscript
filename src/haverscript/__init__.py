@@ -1,14 +1,24 @@
+from .exceptions import (
+    LLMConfigurationError,
+    LLMConnectivityError,
+    LLMError,
+    LLMPermissionError,
+    LLMRateLimitError,
+    LLMRequestError,
+    LLMResponseError,
+    LLMResultError,
+)
 from .haverscript import (
     Configuration,
     Echo,
-    ServiceProvider,
     Model,
     Response,
+    ServiceProvider,
     accept,
     connect,
     fresh,
-    valid_json,
     list_models,
+    valid_json,
 )
 
 __all__ = [
@@ -22,4 +32,12 @@ __all__ = [
     "fresh",
     "valid_json",
     "list_models",
+    "LLMError",
+    "LLMConfigurationError",
+    "LLMRequestError",
+    "LLMConnectivityError",
+    "LLMPermissionError",
+    "LLMRateLimitError",
+    "LLMResponseError",
+    "LLMResultError",
 ]
