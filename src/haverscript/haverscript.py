@@ -360,6 +360,57 @@ class Model(ABC):
         """request a json result."""
         return self.copy(configuration=self.configuration.copy(json=json))
 
+    def load(self, markdown: str, complete: bool = False) -> Self:
+        """Read markdown as system + prompt-reply pairs."""
+
+        lines = markdown.split("\n")
+        result = []
+        if not lines:
+            return self
+
+        current_block = []
+        current_is_quote = lines[0].startswith("> ")
+        starts_with_quote = current_is_quote
+
+        for line in lines:
+            is_quote = line.startswith("> ")
+            # Remove the '> ' prefix if it's a quote line
+            line_content = line[2:] if is_quote else line
+            if is_quote == current_is_quote:
+                current_block.append(line_content)
+            else:
+                result.append("\n".join(current_block))
+                current_block = [line_content]
+                current_is_quote = is_quote
+
+        # Append the last block
+        if current_block:
+            result.append("\n".join(current_block))
+
+        model = self
+
+        if not starts_with_quote:
+            if sys_prompt := result[0].strip():
+                # only use non-empty system prompts
+                model = model.system(sys_prompt)
+            result = result[1:]
+
+        while result:
+            prompt = result[0].strip()
+            if len(result) == 1:
+                reply = ""
+            else:
+                reply = result[1].strip()
+
+            if complete and reply in ("", "..."):
+                model = model.chat(prompt)
+            else:
+                model = model.response(prompt, reply, fresh=False)
+
+            result = result[2:]
+
+        return model
+
     def options(
         self,
         **kwargs,

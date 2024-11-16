@@ -484,3 +484,47 @@ def test_retry(sample_model):
 
     extra = sample_model.json().chat("###").value["extra"]
     sample_model.retry_policy(stop=stop_after_attempt(5)).chat(f"FAIL({extra+4})")
+
+
+md0 = "System"
+
+md1 = """
+> Hello
+World
+"""
+
+md2 = """
+System
+> Hello
+World
+> Sprite
+"""
+
+
+def test_load(sample_model):
+    session = sample_model.load(md0)
+    assert isinstance(session, Model) and not isinstance(session, Response)
+
+    session = sample_model.load(md1)
+    assert isinstance(session, Response)
+    assert session.configuration.system is None
+    assert session.prompt == "Hello"
+    assert session.reply == "World"
+
+    session = sample_model.load(md2)
+    assert isinstance(session, Response)
+    assert session.configuration.system == "System"
+    assert session.prompt == "Sprite"
+    assert session.reply == ""
+
+    session = sample_model.load(md2, complete=True)
+    assert isinstance(session, Response)
+    assert session.configuration.system == "System"
+    assert session.prompt == "Sprite"
+    context = [
+        {"role": "system", "content": "System"},
+        {"role": "user", "content": "Hello"},
+        {"role": "assistant", "content": "World"},
+        {"role": "user", "content": "Sprite"},
+    ]
+    assert session.reply == llm(None, test_model_name, context, {}, "")
