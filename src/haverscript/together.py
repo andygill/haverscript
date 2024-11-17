@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import requests
 
 from .haverscript import Configuration, Metrics, ServiceProvider
+from .exceptions import LLMRateLimitError
 
 
 @dataclass(frozen=True)
@@ -45,7 +46,14 @@ class Together(ServiceProvider):
                 except json.JSONDecodeError as e:
                     logging.error(f"JSON decoding failed: {e}")
             else:
-                logging.warning(f"Packet does not start with 'data: ': {packet}")
+                packet_data = json.loads(packet)
+                if (
+                    "error" in packet_data
+                    and "type" in packet_data["error"]
+                    and packet_data["error"]["type"] == "credit_limit"
+                ):
+                    raise LLMRateLimitError
+
             return None
 
         for chunk in response.iter_content(chunk_size=None, decode_unicode=True):

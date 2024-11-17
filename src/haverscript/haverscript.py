@@ -41,6 +41,8 @@ class Echo:
         def get_first_token():
             try:
                 first_token[0] = next(tokens)
+            except Exception as e:
+                first_token[0] = e
             finally:
                 first_token_available.set()
 
@@ -50,6 +52,8 @@ class Echo:
             first_token_available.wait()
 
         if first_token[0] is not None:
+            if isinstance(first_token[0], Exception):
+                raise first_token[0]
             print(first_token[0], end="", flush=True)
 
         for token in tokens:
