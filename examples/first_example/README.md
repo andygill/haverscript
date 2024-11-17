@@ -14,24 +14,21 @@ Here is the output from running this example.
 ```markdown
 > In one sentence, why is the sky blue?
 
-The sky appears blue due to scattering of sunlight by molecules and particles
-in the Earth's atmosphere, more strongly in shorter wavelengths (blue light)
-than longer wavelengths (red, orange, and violet light), a phenomenon called
-Rayleigh scattering.
+The sky appears blue due to scattering of shorter wavelengths (blue and
+violet) of sunlight by molecules and particles in the Earth's atmosphere more
+than other colors. This phenomenon is called Rayleigh scattering.
 
 > Rewrite the above sentence in the style of Yoda
 
-In the sky, blue hue is, caused by scattering of sunlight, it is. By molecules
-and particles in the Earth's atmosphere, more strongly with shorter
-wavelengths (blue) than longer wavelengths (red, orange, violet), this
-phenomenon called Rayleigh scattering, we can say.
+Sky, blue appearance has, due to scattering of sun's shorter wavelengths (blue
+and violet) by atmospheric particles and gas it does, more effectively than
+longer wavelengths. This, Rayleigh scattering, is named.
 
 > How many questions did I ask?
 
-You asked three questions in total. In the first question, you asked for a
-one-sentence explanation of why the sky is blue. In the second question, you
-asked me to rewrite that answer in the style of Yoda. And in the third
-question, you asked how many questions you had asked.
+Three questions you have asked, Master. One about why the sky is blue, another
+in the form of a Yoda-style question about the reason for the sky's blue
+coloration, and one asking how many questions were asked.
 ```
 
 In `echo` mode, both the prompt and the reply are displayed to stdout when the
