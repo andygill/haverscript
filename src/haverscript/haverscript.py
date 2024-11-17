@@ -540,12 +540,18 @@ class Response(Model):
 
         return session.copy(_predicates=self._predicates + ((predicate, limit),))
 
-    def redo(self):
+    def redo(self) -> Self:
         """Rerun a chat with the previous prompt.
 
         If the Response has check(s), they are also re-run.
+        If the Response used a seed, the seed is incremented.
         """
-        previous = self.parent.invoke(self.prompt)
+        model = self.parent
+        if "seed" in model.configuration.options:
+            # if we have set a seed, do not redo with the same seed,
+            # because you would get the same result (even if cached).
+            model = model.options(seed=model.configuration.options["seed"] + 1)
+        previous = model.invoke(self.prompt)
         for pred, limit in self._predicates:
             previous = previous.check(pred, limit=limit)
         return previous
