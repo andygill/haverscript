@@ -131,6 +131,17 @@ def test_cache(tmp_path, file_regression):
     )
 
 
+def test_check(tmp_path, file_regression):
+    file_regression.check(
+        run_example(
+            "examples/check/main.py",
+            tmp_path,
+            {'("mistral")': '("mistral").options(seed=12345)'},
+        ),
+        extension=".txt",
+    )
+
+
 def test_images(tmp_path, file_regression):
     file_regression.check(
         run_example(

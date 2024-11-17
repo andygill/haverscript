@@ -1,0 +1,36 @@
+
+> In one sentence, why is the sky blue?
+
+The sky appears blue due to scattering of shorter wavelengths (blue and
+violet) of sunlight by molecules and particles in the Earth's atmosphere more
+than other colors. This phenomenon is called Rayleigh scattering.
+
+> Rewrite the above sentence in the style of Yoda
+
+Sky, blue appearance has, due to scattering of sun's shorter wavelengths (blue
+and violet) by atmospheric particles and gas it does, more effectively than
+longer wavelengths. This, Rayleigh scattering, is named.
+
+> How many questions did I ask?
+
+Three questions you have asked, Master. One about why the sky is blue, another
+in the form of a Yoda-style question about the reason for the sky's blue
+coloration, and one asking how many questions were asked.
+
+[Regenerating response]
+
+You asked three questions in total: one about why the sky is blue, another
+asking Yoda-style version of that question, and a third asking how many
+questions you had asked.
+
+[Regenerating response]
+
+You have asked three questions in this conversation so far.
+59 characters
+{
+  "colors": {
+    "red": "#FF0000",
+    "green": "#00FF00",
+    "blue": "#0000FF"
+  }
+}
