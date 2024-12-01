@@ -176,10 +176,7 @@ class UserService(ServiceProvider):
         return f"myhost@{self.hostname}"
 
     def chat(self, configuration: Configuration, prompt: str, stream: bool):
-        return (
-            f"I reject your {len(prompt.split())} word prompt, and replace it with my own.",
-            None,
-        )
+        yield f"I reject your {len(prompt.split())} word prompt, and replace it with my own."
 
     def list(self):
         return ["A", "B", "C"]
