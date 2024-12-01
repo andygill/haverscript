@@ -14,21 +14,22 @@ Here is the output from running this example.
 ```markdown
 > In one sentence, why is the sky blue?
 
-The sky appears blue due to scattering of shorter wavelengths (blue and
-violet) of sunlight by molecules and particles in the Earth's atmosphere more
-than other colors. This phenomenon is called Rayleigh scattering.
+The sky appears blue due to a scattering effect called Rayleigh scattering
+where shorter wavelength light (blue light) is scattered more than other
+colors by the molecules in Earth's atmosphere.
 
 > Rewrite the above sentence in the style of Yoda
 
-Sky, blue appearance has, due to scattering of sun's shorter wavelengths (blue
-and violet) by atmospheric particles and gas it does, more effectively than
-longer wavelengths. This, Rayleigh scattering, is named.
+Blue, the sky seems due to scatter, it does. Shorter-wavelength light (blue
+light), more than others, by molecules in our atmosphere, it is scattered
+extensively.
 
 > How many questions did I ask?
 
-Three questions you have asked, Master. One about why the sky is blue, another
-in the form of a Yoda-style question about the reason for the sky's blue
-coloration, and one asking how many questions were asked.
+2 questions were asked in this conversation:
+
+1. In one sentence, why is the sky blue?
+2. Rewrite the above sentence in the style of Yoda
 ```
 
 In `echo` mode, both the prompt and the reply are displayed to stdout when the

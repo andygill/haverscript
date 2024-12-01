@@ -1,36 +1,35 @@
 
 > In one sentence, why is the sky blue?
 
-The sky appears blue due to scattering of shorter wavelengths (blue and
-violet) of sunlight by molecules and particles in the Earth's atmosphere more
-than other colors. This phenomenon is called Rayleigh scattering.
+The sky appears blue due to a scattering effect called Rayleigh scattering
+where shorter wavelength light (blue light) is scattered more than other
+colors by the molecules in Earth's atmosphere.
 
 > Rewrite the above sentence in the style of Yoda
 
-Sky, blue appearance has, due to scattering of sun's shorter wavelengths (blue
-and violet) by atmospheric particles and gas it does, more effectively than
-longer wavelengths. This, Rayleigh scattering, is named.
+Blue, the sky seems due to scatter, it does. Shorter-wavelength light (blue
+light), more than others, by molecules in our atmosphere, it is scattered
+extensively.
 
 > How many questions did I ask?
 
-Three questions you have asked, Master. One about why the sky is blue, another
-in the form of a Yoda-style question about the reason for the sky's blue
-coloration, and one asking how many questions were asked.
+2 questions were asked in this conversation:
+
+1. In one sentence, why is the sky blue?
+2. Rewrite the above sentence in the style of Yoda
 
 [Regenerating response]
 
-You asked three questions in total: one about why the sky is blue, another
-asking Yoda-style version of that question, and a third asking how many
-questions you had asked.
+2 questions were asked in this interaction. The first question asked for a
+one-sentence explanation of why the sky is blue, and the second question was a
+request to rewrite that explanation in the style of Yoda.
 
 [Regenerating response]
 
-You have asked three questions in this conversation so far.
-59 characters
+2 questions were asked in this conversation.
+44 characters
 {
-  "colors": {
-    "red": "#FF0000",
-    "green": "#00FF00",
-    "blue": "#0000FF"
-  }
+  "Red": "#FF0000",
+  "Blue": "#0000FF",
+  "Green": "#00FF00"
 }
