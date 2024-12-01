@@ -4,6 +4,7 @@ import sys
 import json
 import re
 import sys
+from collections.abc import Iterator
 
 import pytest
 from tenacity import stop_after_attempt
@@ -544,3 +545,43 @@ def test_load(sample_model):
         {"role": "user", "content": "Sprite"},
     ]
     assert session.reply == llm(None, test_model_name, context, {}, "")
+
+
+class UpperCase(ServiceProvider):
+
+    def __init__(self, llm) -> None:
+        self.llm = llm
+
+    def upper_tokens(self, responses):
+        for token in responses:
+            if isinstance(token, str):
+                yield token.upper()
+
+    def chat(self, configuration: Configuration, prompt: str, stream: bool):
+        responses = self.llm.chat(configuration, prompt + " World", stream)
+        if isinstance(responses, str):
+            return responses.upper()
+        elif isinstance(responses, tuple) and len(responses) == 2:
+            assert isinstance(responses[0], str)
+            return (responses[0].upper(), responses[1])
+        elif isinstance(responses, Iterator):
+            return self.upper_tokens(responses)
+
+        assert False, f"unexpected return type from inner llm call : {type(responses)}"
+
+    def name(self):
+        return self.llm.name() + "|uppercase"
+
+    def list(self):
+        return llm.list()
+
+
+def test_middleware(sample_model: Model):
+    reply0 = sample_model.chat("Hello" + " World")
+
+    session = sample_model.middleware(UpperCase)
+    reply1 = session.chat("Hello")
+    reply2 = session.echo().chat("Hello")
+
+    assert reply0.reply.upper() == reply1.reply
+    assert reply0.reply.upper() == reply2.reply
