@@ -466,6 +466,9 @@ class Model(ABC):
         """image must be bytes, path-like object, or file-like object"""
         return self.copy(configuration=self.configuration.add_image(image))
 
+    def middleware(self, f: Callable[["ServiceProvider"], "ServiceProvider"]):
+        return self.copy(settings=self.settings.copy(service=f(self.settings.service)))
+
 
 @dataclass(frozen=True)
 class Response(Model):
