@@ -25,11 +25,13 @@ logger = logging.getLogger(__name__)
 @dataclass(frozen=True)
 class Echo:
     width: int = 78
+    echo_prompt: bool = True
 
     def prompt(self, prompt: str):
-        print()
-        print("\n".join([f"> {line}" for line in prompt.splitlines()]))
-        print()
+        if self.echo_prompt:
+            print()
+            print("\n".join([f"> {line}" for line in prompt.splitlines()]))
+            print()
 
     def reply(self, tokens, fresh: bool):
 
@@ -337,10 +339,15 @@ class Model(ABC):
             }
         )
 
-    def echo(self, echo: Optional[bool | Echo] = True, width: int = 78) -> Self:
+    def echo(
+        self,
+        echo: Optional[bool | Echo] = True,
+        width: int = 78,
+        echo_prompt: bool = True,
+    ) -> Self:
         """echo prompts and responses to stdout."""
         if echo == True:
-            echo = Echo(width=width)
+            echo = Echo(width=width, echo_prompt=echo_prompt)
         elif echo == False:
             echo = None
 
