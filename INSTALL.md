@@ -63,6 +63,13 @@ pytest tests/e2e  # run e2e tests
 
 The e2e tests uses `pytest-regressions`. The golden output is version controlled. 
 
+We use the following models:
+* ollama mistral:v0.3 (f974a74358d6)
+* together.ai meta-llama/Meta-Llama-3-8B-Instruct-Lite
+* ollama llava:v1.6 (8dd30f6b0cb1)
+
+The tests need a valid TOGETHER_API_KEY in the environment when run.
+
 If you need to regenerate test output, use 
 
 ```

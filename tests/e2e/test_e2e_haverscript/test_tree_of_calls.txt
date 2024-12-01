@@ -1,20 +1,23 @@
 
 > In one sentence, why is the sky blue?
 
-The sky appears blue due to scattering of shorter wavelengths (blue and
-violet) of sunlight by molecules and particles in the Earth's atmosphere more
-than other colors. This phenomenon is called Rayleigh scattering.
+The sky appears blue during a clear day because molecules in Earth's
+atmosphere scatter sunlight in all directions and short-wavelength light like
+blue and violet is scattered more due to its smaller wavelength. However, we
+perceive the sky as blue and not violet since our eyes are more sensitive to
+blue light and the scattered blue light reaches us from every direction while
+the scattered violet light is scattered even more and is removed from our line
+of sight by a phenomenon called Rayleigh scattering.
 
 > In one sentence, how many feet in a yard?
 
-A yard is equal to three feet. Therefore, there are 36 inches or 3 feet in one
-yard.
+1 yard equals 3 feet.
 
 > In one sentence, why is the sky blue?
 
-Sky's hue of blue shifts, day turns to night, reflection of Earth's gases,
-sun's rays scattering, behold, a natural spectacle.
+Sky blue, it is, from scattering of sunlight by Earth's atmosphere, young
+padawan.
 
 > In one sentence, how many feet in a yard?
 
-A yard holds three feet, it does.
+A yard is equal to three feet, young one.
