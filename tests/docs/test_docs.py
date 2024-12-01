@@ -69,5 +69,5 @@ def test_docs_first_example():
     )
     assert (
         Content("tests/e2e/test_e2e_haverscript/test_first_example.txt")[2:]
-        == Content("examples/first_example/README.md")[15:32]
+        == Content("examples/first_example/README.md")[15:33]
     )

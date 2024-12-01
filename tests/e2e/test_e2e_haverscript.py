@@ -38,7 +38,7 @@ def test_first_example(tmp_path, file_regression):
         run_example(
             "examples/first_example/main.py",
             tmp_path,
-            {'("mistral")': '("mistral").options(seed=12345)'},
+            {'("mistral")': '("mistral:v0.3").options(seed=12345)'},
         ),
         extension=".txt",
     )
@@ -78,7 +78,7 @@ def test_tree_of_calls(tmp_path, file_regression):
         run_example(
             "examples/tree_of_calls/main.py",
             tmp_path,
-            {'("mistral")': '("mistral").options(seed=12345)'},
+            {'("mistral")': '("mistral:v0.3").options(seed=23456)'},
         ),
         extension=".txt",
     )
@@ -89,7 +89,7 @@ def test_chaining_answers(tmp_path, file_regression):
         run_example(
             "examples/chaining_answers/main.py",
             tmp_path,
-            {'("mistral")': '("mistral").options(seed=12345)'},
+            {'("mistral")': '("mistral:v0.3").options(seed=12345)'},
         ),
         extension=".txt",
     )
@@ -108,7 +108,7 @@ def test_options(tmp_path, file_regression):
 
 def test_cache(tmp_path, file_regression):
     env = {
-        '("mistral")': '("mistral").options(seed=12345)',
+        '("mistral")': '("mistral:v0.3").options(seed=12345)',
         'cache("cache.db")': f'cache("{tmp_path}/cache.db")',
     }
     file_regression.check(
@@ -136,7 +136,7 @@ def test_check(tmp_path, file_regression):
         run_example(
             "examples/check/main.py",
             tmp_path,
-            {'("mistral")': '("mistral").options(seed=12345)'},
+            {'("mistral")': '("mistral:v0.3").options(seed=12345)'},
         ),
         extension=".txt",
     )
@@ -147,7 +147,7 @@ def test_images(tmp_path, file_regression):
         run_example(
             "examples/images/main.py",
             tmp_path,
-            {'("llava")': '("llava").options(seed=12345)'},
+            {'("llava")': '("llava:v1.6").options(seed=12345)'},
         ),
         extension=".txt",
     )
