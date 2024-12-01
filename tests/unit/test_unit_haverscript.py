@@ -247,6 +247,11 @@ null,
 null}
 """
 
+reply_to_hello_no_prompt = """
+{"host": null, "model": "test-model", "messages": [{"role": "user", "content":
+"Hello"}], "options": {}, "format": "", "extra": null}
+""".lstrip()
+
 
 def test_echo(sample_model, capfd):
     capfd.readouterr()
@@ -259,6 +264,10 @@ def test_echo(sample_model, capfd):
     model = sample_model.echo(True, width=99)
     assert type(model) is Model
     assert model.settings.echo == Echo(width=99)
+    model = sample_model.echo(True, echo_prompt=False)
+    assert type(model) is Model
+    assert model.settings.echo == Echo(echo_prompt=False)
+
     model = sample_model.echo(False)
     assert type(model) is Model
     assert model.settings.echo is None
@@ -307,6 +316,9 @@ def test_echo(sample_model, capfd):
 
     resp = sample_model.echo(width=8).chat("Hello")
     assert remove_spinner(capfd.readouterr().out) == reply_to_hello_8
+
+    resp = sample_model.echo(echo_prompt=False).chat("Hello")
+    assert remove_spinner(capfd.readouterr().out) == reply_to_hello_no_prompt
 
 
 def test_outdent(sample_model):
