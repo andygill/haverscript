@@ -10,7 +10,7 @@ from collections.abc import Iterator
 from dataclasses import asdict, dataclass, field, fields
 from itertools import tee
 from types import GeneratorType
-from typing import AnyStr, Callable, Optional, Self, Tuple, NoReturn
+from typing import AnyStr, Callable, Optional, Self, Tuple, NoReturn, Generator
 from tenacity import Retrying, RetryError
 
 import ollama
@@ -265,30 +265,23 @@ class Model(ABC):
             stream=settings.echo is not None,
         )
 
-        if isinstance(response, Iterator):
-            if settings.echo:
-                response, metadata = tee(response)
-                tokens, response = tee(
-                    (token for token in response if isinstance(token, str))
-                )
-                settings.echo.reply(tokens, fresh=True)
+        assert isinstance(
+            response, GeneratorType
+        ), f"response : {type(response)}, expecting GeneratorType"
 
-            reply = "".join([r for r in response])
+        response, metadata = tee(response)
+        response = (token for token in response if isinstance(token, str))
+        metadata = (token for token in metadata if isinstance(token, Metrics))
+        if settings.echo:
+            tokens, response = tee(response)
+            settings.echo.reply(tokens, fresh=True)
 
-            metrics = None
-            for meta in metadata:
-                if isinstance(meta, Metrics):
-                    metrics = meta
+        reply = "".join([r for r in response])
 
-        elif isinstance(response, Tuple):
-            assert len(response) == 2, f"{response} is not a 2-tuple"
-            reply, metrics = response
-            if settings.echo:
-                settings.echo.reply(reply, fresh=True)
-        else:
-            assert (
-                False
-            ), f"response from a chat was type '{type(response)}', expecting 'str' or 'Iterator'"
+        metrics = None
+        for meta in metadata:
+            if isinstance(meta, Metrics):
+                metrics = meta
 
         response = self.response(prompt, reply, fresh=True, metrics=metrics)
 
@@ -806,12 +799,17 @@ class ServiceProvider(ABC):
     @abstractmethod
     def chat(
         self, configuration: Configuration, prompt: str, stream: bool
-    ) -> Tuple[str, Metrics] | Iterator[str | Metrics]:
+    ) -> Generator[str | Metrics, None, None]:
         """Call the chat method of an LLM.
 
         prompt is the main text
         configuration is (structured) context
         stream, if true, is a request for a streamed reply
+
+        Returns a GeneratorType / Generator of str or Metrics.
+
+        We use Generator explicitly because this is a consumable
+        value, that is, iterating over it consumes it.
         """
         pass
 
@@ -880,20 +878,6 @@ class Ollama(ServiceProvider):
             print("Connection error (Check if ollama is running)")
         return e
 
-    def _streaming(self, response):
-        try:
-            for chunk in response:
-                if chunk["done"]:
-                    yield OllamaMetrics(
-                        **{
-                            k: chunk[k]
-                            for k in OllamaMetrics.__dataclass_fields__.keys()
-                        }
-                    )
-                yield from chunk["message"]["content"]
-        except Exception as e:
-            raise self._suggestions(e)
-
     def chat(self, configuration: Configuration, prompt: str, stream: bool):
         messages = []
 
@@ -922,16 +906,26 @@ class Ollama(ServiceProvider):
             )
 
             if isinstance(response, GeneratorType):
-                return self._streaming(response)
+                try:
+                    for chunk in response:
+                        if chunk["done"]:
+                            yield OllamaMetrics(
+                                **{
+                                    k: chunk[k]
+                                    for k in OllamaMetrics.__dataclass_fields__.keys()
+                                }
+                            )
+                        yield from chunk["message"]["content"]
+                except Exception as e:
+                    raise self._suggestions(e)
             else:
-                return (
-                    response["message"]["content"],
-                    OllamaMetrics(
-                        **{
-                            k: response[k]
-                            for k in OllamaMetrics.__dataclass_fields__.keys()
-                        }
-                    ),
+                assert isinstance(response["message"]["content"], str)
+                yield response["message"]["content"]
+                yield OllamaMetrics(
+                    **{
+                        k: response[k]
+                        for k in OllamaMetrics.__dataclass_fields__.keys()
+                    }
                 )
 
         except Exception as e:
