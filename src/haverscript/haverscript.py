@@ -451,6 +451,16 @@ class Model(ABC):
         """image must be bytes, path-like object, or file-like object"""
         return self.copy(configuration=self.configuration.add_image(image))
 
+    def functor(self, f: Callable[["ServiceProvider"], "ServiceProvider"]):
+        inner_provider = services.provider(self.configuration.service)
+        assert isinstance(inner_provider, ServiceProvider)
+        outer_provider = f(inner_provider)
+        assert isinstance(outer_provider, ServiceProvider)
+        outer_provider_name = services.connect(outer_provider)
+        return self.copy(
+            configuration=self.configuration.copy(provider=outer_provider_name)
+        )
+
 
 @dataclass(frozen=True)
 class Response(Model):
