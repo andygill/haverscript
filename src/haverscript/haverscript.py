@@ -130,6 +130,8 @@ class Settings:
 
     retry: dict | None = None
 
+    service: "ServiceProvider" = None
+
     def copy(self, **update):
         return Settings(
             **{
@@ -141,9 +143,8 @@ class Settings:
 
 @dataclass(frozen=True)
 class Configuration:
-    """Full Context and other arguments for the LLM."""
+    """Full Context and other arguments for the LLM. Needs to be serializable."""
 
-    service: str = None
     model: str = None
     options: frozendict = field(default_factory=frozendict)
     json: bool = False
@@ -209,6 +210,20 @@ class Metrics(ABC):
 
 
 @dataclass(frozen=True)
+class Service(ABC):
+    service: "ServiceProvider"
+
+    def list(self):
+        return self.service.list()
+
+    def model(self, model) -> "Model":
+        return Model(
+            configuration=Configuration(model=model),
+            settings=Settings(service=self.service),
+        )
+
+
+@dataclass(frozen=True)
 class Model(ABC):
 
     configuration: Configuration
@@ -259,7 +274,7 @@ class Model(ABC):
 
         settings = self.settings
 
-        response = services.provider(self.configuration.service).chat(
+        response = self.settings.service.chat(
             configuration=self.configuration,
             prompt=prompt,
             stream=settings.echo is not None,
@@ -813,14 +828,6 @@ class ServiceProvider(ABC):
         """
         pass
 
-    @abstractmethod
-    def name(self) -> str:
-        pass
-
-    @abstractmethod
-    def list(self) -> list[str]:
-        pass
-
 
 class Services:
     """Internal class with lazy instantiation of services"""
@@ -828,17 +835,6 @@ class Services:
     def __init__(self) -> None:
         self._model_providers = {}
         self._cache = {}
-
-    def connect(self, service: ServiceProvider):
-        assert isinstance(service, ServiceProvider)
-        name = service.name()
-        if name not in self._model_providers:
-            self._model_providers[name] = service
-        return name
-
-    def provider(self, service) -> ServiceProvider:
-        assert service in self._model_providers
-        return self._model_providers[service]
 
     def cache(self, filename):
         if filename not in self._cache:
@@ -860,15 +856,18 @@ class OllamaMetrics(Metrics):
 
 
 class Ollama(ServiceProvider):
-    def __init__(self, hostname) -> None:
-        self.hostname = hostname
-        self.client = ollama.Client(hostname)
+    client = {}
 
-    def name(self):
-        return f"ollama@{self.hostname or 'localhost'}"
+    def __init__(self, hostname: str | None = None) -> None:
+        self.hostname = hostname
+        if hostname not in Ollama.client:
+            Ollama.client[hostname] = ollama.Client(host=hostname)
+
+    # def name(self):
+    #     return f"ollama@{self.hostname or 'localhost'}"
 
     def list(self):
-        models = self.client.list()
+        models = self.client[self.hostname].list()
         assert "models" in models
         return [model["name"] for model in models["models"]]
 
@@ -897,7 +896,7 @@ class Ollama(ServiceProvider):
         )
 
         try:
-            response = self.client.chat(
+            response = self.client[self.hostname].chat(
                 configuration.model,
                 stream=stream,
                 messages=messages,
@@ -935,35 +934,20 @@ class Ollama(ServiceProvider):
 def connect(
     modelname: str | None = None,
     hostname: str | None = None,
-    service: ServiceProvider | None = Ollama,
-) -> Model:
+    service: ServiceProvider | None = None,
+) -> Model | Service:
     """return a model that uses the given model name."""
 
-    hyrated_service = service(hostname)
+    assert (
+        hostname is None or service is None
+    ), "can not use hostname with a provided service provider (pass hostname directly)"
 
-    assert isinstance(
-        hyrated_service, ServiceProvider
-    ), "service needs to be of type Host"
+    if service is None:
+        service = Ollama(hostname)
 
-    service = services.connect(hyrated_service)
+    service = Service(service)
 
-    return Model(
-        configuration=Configuration(model=modelname, service=service),
-        settings=Settings(),
-    )
+    if modelname is not None:
+        return service.model(modelname)
 
-
-def list_models(
-    hostname: str | None = None,
-    service: ServiceProvider | None = Ollama,
-) -> Model:
-    """return a model that uses the given model name."""
-
-    hyrated_service = service(hostname)
-
-    assert isinstance(
-        hyrated_service, ServiceProvider
-    ), "service needs to be of type ServiceProvider"
-
-    name = services.connect(hyrated_service)
-    return services.provider(name).list()
+    return service

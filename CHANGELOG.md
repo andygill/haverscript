@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.1] - 2024-XX-YY
 ### Added
 - Generalized `echo()` to accept an `Echo` class.
+- Added `Service` class, that can be asked about models, and can generate `Model`s.
 - Added `image(...)` method to `Model`, for multi-modal models.
 - Added `response.value`, which return the JSON `dict` of the reply, or `None`.
 - Added new `host` argument to `connect`, which allows for user "virtual" models.
