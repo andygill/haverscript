@@ -55,7 +55,7 @@ from haverscript.together import Together
 from tenacity import stop_after_attempt, wait_fixed
 
 session = connect""",
-                '("mistral")': '("meta-llama/Meta-Llama-3-8B-Instruct-Lite", service=Together).retry_policy(stop=stop_after_attempt(5), wait=wait_fixed(2))',
+                '("mistral")': '("meta-llama/Meta-Llama-3-8B-Instruct-Lite", service=Together()).retry_policy(stop=stop_after_attempt(5), wait=wait_fixed(2))',
             },
         ).splitlines()
     )
@@ -67,7 +67,7 @@ def test_together(tmp_path, file_regression):
         run_example(
             "examples/together/main.py",
             tmp_path,
-            {"connect(model, service=Together)": "connect(model, service=Together)"},
+            {"connect(model, service=Together)": "connect(model, service=Together())"},
         ).splitlines()
     )
     assert lines > 10 and lines < 1000

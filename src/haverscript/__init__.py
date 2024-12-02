@@ -14,10 +14,11 @@ from .haverscript import (
     Model,
     Response,
     ServiceProvider,
+    Ollama,
+    Service,
     accept,
     connect,
     fresh,
-    list_models,
     valid_json,
 )
 
@@ -31,7 +32,8 @@ __all__ = [
     "connect",
     "fresh",
     "valid_json",
-    "list_models",
+    "Service",
+    "Ollama",
     "LLMError",
     "LLMConfigurationError",
     "LLMRequestError",

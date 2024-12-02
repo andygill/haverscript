@@ -19,9 +19,10 @@ from haverscript import (
     connect,
     fresh,
     valid_json,
-    list_models,
     LLMError,
+    Service,
     LLMResultError,
+    Ollama,
 )
 
 # Note that these tests break the haverscript API at points specifically
@@ -89,7 +90,7 @@ class _TestClient:
             }
 
     def list(self):
-        return ["A", "B", "C", "D"]
+        return {"models": [{"name": x} for x in ["A", "B", "C"]]}
 
 
 # inject the TestClient
@@ -100,6 +101,10 @@ models[f"ollama@{test_model_host}"] = sys.modules["haverscript.haverscript"].Oll
     test_model_host
 )
 models[f"ollama@{test_model_host}"].client = _TestClient(test_model_host)
+models = sys.modules["haverscript.haverscript"].Ollama.client = {
+    None: _TestClient(None),
+    test_model_host: _TestClient(test_model_host),
+}
 
 
 @pytest.fixture
@@ -109,7 +114,7 @@ def sample_model():
 
 @pytest.fixture
 def sample_remote_model():
-    return connect(test_model_name, hostname=test_model_host)
+    return connect(test_model_name, service=Ollama(test_model_host))
 
 
 def test_model(sample_model):
@@ -134,7 +139,6 @@ def check_model(model, host, system):
     config = model.configuration
     assert hasattr(config, "model")
     assert config.model == test_model_name
-    assert config.service == "ollama@" + (host or "localhost")
 
     render = ""
     if system:
@@ -169,11 +173,8 @@ def check_model(model, host, system):
 
 
 class UserService(ServiceProvider):
-    def __init__(self, hostname) -> None:
-        self.hostname = hostname
-
     def name(self):
-        return f"myhost@{self.hostname}"
+        return f"myhost"
 
     def chat(self, configuration: Configuration, prompt: str, stream: bool):
         yield f"I reject your {len(prompt.split())} word prompt, and replace it with my own."
@@ -184,17 +185,16 @@ class UserService(ServiceProvider):
 
 @pytest.fixture
 def sample_user_model():
-    return connect(service=UserService)
+    return connect("some-model", service=UserService())
 
 
 def test_user_model(sample_user_model):
     model = sample_user_model
-    assert type(model) is Model
+    assert isinstance(model, Model)
     assert hasattr(model, "configuration")
     config = model.configuration
     assert hasattr(config, "model")
-    assert config.model is None
-    assert config.service == "myhost@None"
+    assert config.model is "some-model"
     context = []
     session = model
     message = "Three word prompt"
@@ -206,7 +206,9 @@ def test_user_model(sample_user_model):
 
 
 def test_list_models():
-    assert list_models(service=UserService) == ["A", "B", "C"]
+    service = connect()
+    assert isinstance(service, Service)
+    assert service.list() == ["A", "B", "C"]
 
 
 reply_to_hello = """

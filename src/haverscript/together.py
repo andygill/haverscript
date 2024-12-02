@@ -17,7 +17,7 @@ class TogetherMetrics(Metrics):
 
 
 class Together(ServiceProvider):
-    def __init__(self, hostname) -> None:
+    def __init__(self) -> None:
         self.key = os.getenv("TOGETHER_API_KEY")
         assert self.key is not None, "TOGETHER_API_KEY is not set to key"
 
