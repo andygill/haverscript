@@ -15,6 +15,7 @@ from haverscript import (
     Configuration,
     Echo,
     ServiceProvider,
+    Middleware,
     Model,
     Response,
     connect,
@@ -174,9 +175,6 @@ def check_model(model, host, system):
 
 
 class UserService(ServiceProvider):
-    def name(self):
-        return f"myhost"
-
     def chat(self, configuration: Configuration, prompt: str, stream: bool):
         yield f"I reject your {len(prompt.split())} word prompt, and replace it with my own."
 
@@ -547,10 +545,7 @@ def test_load(sample_model):
     assert session.reply == llm(None, test_model_name, context, {}, "")
 
 
-class UpperCase(ServiceProvider):
-
-    def __init__(self, llm) -> None:
-        self.llm = llm
+class UpperCase(Middleware):
 
     def upper_tokens(self, responses):
         for token in responses:
@@ -558,7 +553,7 @@ class UpperCase(ServiceProvider):
                 yield token.upper()
 
     def chat(self, configuration: Configuration, prompt: str, stream: bool):
-        responses = self.llm.chat(configuration, prompt + " World", stream)
+        responses = self.next.chat(configuration, prompt + " World", stream)
         if isinstance(responses, str):
             return responses.upper()
         elif isinstance(responses, tuple) and len(responses) == 2:
@@ -568,12 +563,6 @@ class UpperCase(ServiceProvider):
             return self.upper_tokens(responses)
 
         assert False, f"unexpected return type from inner llm call : {type(responses)}"
-
-    def name(self):
-        return self.llm.name() + "|uppercase"
-
-    def list(self):
-        return llm.list()
 
 
 def test_middleware(sample_model: Model):

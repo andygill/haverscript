@@ -466,7 +466,7 @@ class Model(ABC):
         """image must be bytes, path-like object, or file-like object"""
         return self.copy(configuration=self.configuration.add_image(image))
 
-    def middleware(self, f: Callable[["ServiceProvider"], "ServiceProvider"]):
+    def middleware(self, f: Callable[["LanguageModel"], "Middleware"]):
         return self.copy(settings=self.settings.copy(service=f(self.settings.service)))
 
 
@@ -812,7 +812,8 @@ class Cache:
         return None
 
 
-class ServiceProvider(ABC):
+class LanguageModel(ABC):
+    """Base class for anything that chats, that is takes a configuration and prompt and returns token(s)."""
 
     @abstractmethod
     def chat(
@@ -830,6 +831,22 @@ class ServiceProvider(ABC):
         value, that is, iterating over it consumes it.
         """
         pass
+
+
+class ServiceProvider(LanguageModel):
+    """A ServiceProvider is a LanguageModel that serves specific models."""
+
+    def list(self) -> list[str]:
+        models = self.client[self.hostname].list()
+        assert "models" in models
+        return [model["name"] for model in models["models"]]
+
+
+@dataclass
+class Middleware(LanguageModel):
+    """Middleware is a LanguageModel that has next down-the-pipeline LanguageModel."""
+
+    next: LanguageModel
 
 
 class Services:
@@ -866,10 +883,7 @@ class Ollama(ServiceProvider):
         if hostname not in Ollama.client:
             Ollama.client[hostname] = ollama.Client(host=hostname)
 
-    # def name(self):
-    #     return f"ollama@{self.hostname or 'localhost'}"
-
-    def list(self):
+    def list(self) -> list[str]:
         models = self.client[self.hostname].list()
         assert "models" in models
         return [model["name"] for model in models["models"]]
