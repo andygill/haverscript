@@ -15,9 +15,6 @@ session = session.chat("How many questions did I ask?")
 session = session.check(lambda pred: len(pred.reply) < 100)
 print(f"{len(session.reply)} characters")
 
-# turn off echo
-model = model.echo(False)
-
 colors = (
     model.json()
     .chat(
@@ -121,8 +118,7 @@ graph LR
     r2 -- chat('…') --> r3
     r3 -- check(…) --> r4
 
-    m1 -- echo(False) --> m2
-    m2 -- json() --> m3
+    m1 -- json() --> m3
     m3 -- chat('…') --> r5
     r5 -- reply --> str
     str -- json.loads --> dict

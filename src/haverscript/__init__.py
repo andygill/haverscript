@@ -10,11 +10,11 @@ from .exceptions import (
 )
 from .haverscript import (
     Configuration,
-    Echo,
     Model,
     Response,
     ServiceProvider,
     Middleware,
+    EchoMiddleware,
     Ollama,
     Service,
     LanguageModelResponse,
@@ -26,9 +26,9 @@ from .haverscript import (
 
 __all__ = [
     "Configuration",
-    "Echo",
     "ServiceProvider",
     "Middleware",
+    "EchoMiddleware",
     "Model",
     "Response",
     "accept",
