@@ -18,6 +18,7 @@ from haverscript import (
     Middleware,
     Model,
     Response,
+    LanguageModelResponse,
     connect,
     fresh,
     valid_json,
@@ -176,7 +177,11 @@ def check_model(model, host, system):
 
 class UserService(ServiceProvider):
     def chat(self, configuration: Configuration, prompt: str, stream: bool):
-        yield f"I reject your {len(prompt.split())} word prompt, and replace it with my own."
+        return LanguageModelResponse(
+            [
+                f"I reject your {len(prompt.split())} word prompt, and replace it with my own."
+            ]
+        )
 
     def list(self):
         return ["A", "B", "C"]
@@ -554,6 +559,8 @@ class UpperCase(Middleware):
 
     def chat(self, configuration: Configuration, prompt: str, stream: bool):
         responses = self.next.chat(configuration, prompt + " World", stream)
+        return LanguageModelResponse(str(responses).upper())
+
         if isinstance(responses, str):
             return responses.upper()
         elif isinstance(responses, tuple) and len(responses) == 2:

@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 import requests
 
-from .haverscript import Configuration, Metrics, ServiceProvider
+from .haverscript import Configuration, Metrics, ServiceProvider, LanguageModelResponse
 from .exceptions import LLMRateLimitError
 
 
@@ -108,7 +108,7 @@ class Together(ServiceProvider):
         response = requests.post(url, json=payload, headers=headers, stream=stream)
 
         if stream:
-            return self._streaming(response)
+            return LanguageModelResponse(self._streaming(response))
         else:
             reply = response.json()
             choices = reply["choices"]
@@ -122,4 +122,4 @@ class Together(ServiceProvider):
                         for k in TogetherMetrics.__dataclass_fields__.keys()
                     }
                 )
-            return (choice["message"]["content"], metrics)
+            return LanguageModelResponse([choice["message"]["content"], metrics])

@@ -281,8 +281,8 @@ class Model(ABC):
         )
 
         assert isinstance(
-            response, GeneratorType
-        ), f"response : {type(response)}, expecting GeneratorType"
+            response, LanguageModelResponse
+        ), f"response : {type(response)}, expecting LanguageModelResponse"
 
         response, metadata = tee(response)
         response = (token for token in response if isinstance(token, str))
@@ -812,23 +812,63 @@ class Cache:
         return None
 
 
+class LanguageModelResponse:
+    """A tokenized response to a large language model"""
+
+    def __init__(self, tokens):
+        self.tokens = iter(tokens)
+        self.cache = []
+
+    def __iter__(self):
+        return self._ResponseIterator(self.cache, self.tokens)
+
+    def __str__(self):
+        return "".join([t for t in self if isinstance(t, str)])
+
+    def metrics(self) -> Metrics | None:
+        for t in self:
+            if isinstance(t, Metrics):
+                return t
+        return None
+
+    class _ResponseIterator:
+        def __init__(self, cache, iterable):
+            self._iterable = iterable
+            self._cache = cache
+            self._index = 0  # Track the position in the cache
+
+        def __iter__(self):
+            return self
+
+        def __next__(self):
+            if self._index < len(self._cache):
+                # Return cached value if available
+                value = self._cache[self._index]
+            else:
+                # Otherwise, fetch the next value from the original iterator
+                try:
+                    value = next(self._iterable)
+                    self._cache.append(value)  # Add to cache
+                except StopIteration:
+                    raise StopIteration
+            self._index += 1
+            return value
+
+
 class LanguageModel(ABC):
     """Base class for anything that chats, that is takes a configuration and prompt and returns token(s)."""
 
     @abstractmethod
     def chat(
         self, configuration: Configuration, prompt: str, stream: bool
-    ) -> Generator[str | Metrics, None, None]:
+    ) -> LanguageModelResponse:
         """Call the chat method of an LLM.
 
         prompt is the main text
         configuration is (structured) context
         stream, if true, is a request for a streamed reply
 
-        Returns a GeneratorType / Generator of str or Metrics.
-
-        We use Generator explicitly because this is a consumable
-        value, that is, iterating over it consumes it.
+        returns a LanguageModelResponse.
         """
         pass
 
@@ -894,6 +934,28 @@ class Ollama(ServiceProvider):
             print("Connection error (Check if ollama is running)")
         return e
 
+    def generator(self, response):
+
+        if isinstance(response, GeneratorType):
+            try:
+                for chunk in response:
+                    if chunk["done"]:
+                        yield OllamaMetrics(
+                            **{
+                                k: chunk[k]
+                                for k in OllamaMetrics.__dataclass_fields__.keys()
+                            }
+                        )
+                    yield from chunk["message"]["content"]
+            except Exception as e:
+                raise self._suggestions(e)
+        else:
+            assert isinstance(response["message"]["content"], str)
+            yield response["message"]["content"]
+            yield OllamaMetrics(
+                **{k: response[k] for k in OllamaMetrics.__dataclass_fields__.keys()}
+            )
+
     def chat(self, configuration: Configuration, prompt: str, stream: bool):
         messages = []
 
@@ -921,28 +983,7 @@ class Ollama(ServiceProvider):
                 format="json" if configuration.json else "",
             )
 
-            if isinstance(response, GeneratorType):
-                try:
-                    for chunk in response:
-                        if chunk["done"]:
-                            yield OllamaMetrics(
-                                **{
-                                    k: chunk[k]
-                                    for k in OllamaMetrics.__dataclass_fields__.keys()
-                                }
-                            )
-                        yield from chunk["message"]["content"]
-                except Exception as e:
-                    raise self._suggestions(e)
-            else:
-                assert isinstance(response["message"]["content"], str)
-                yield response["message"]["content"]
-                yield OllamaMetrics(
-                    **{
-                        k: response[k]
-                        for k in OllamaMetrics.__dataclass_fields__.keys()
-                    }
-                )
+            return LanguageModelResponse(self.generator(response))
 
         except Exception as e:
             raise self._suggestions(e)
