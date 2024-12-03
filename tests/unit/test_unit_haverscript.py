@@ -13,7 +13,6 @@ from tests.test_utils import remove_spinner
 
 from haverscript import (
     Configuration,
-    Echo,
     ServiceProvider,
     Middleware,
     Model,
@@ -258,51 +257,14 @@ reply_to_hello_no_prompt = """
 
 def test_echo(sample_model, capfd):
     capfd.readouterr()
-    model = sample_model.echo()
-    assert type(model) is Model
-    assert model.settings.echo == Echo(width=78)
-    model = sample_model.echo(True)
-    assert type(model) is Model
-    assert model.settings.echo == Echo(width=78)
-    model = sample_model.echo(True, width=99)
-    assert type(model) is Model
-    assert model.settings.echo == Echo(width=99)
-    model = sample_model.echo(True, echo_prompt=False)
-    assert type(model) is Model
-    assert model.settings.echo == Echo(echo_prompt=False)
-
-    model = sample_model.echo(False)
-    assert type(model) is Model
-    assert model.settings.echo is None
-
-    root_resp = sample_model.chat("Hello")
-    resp = root_resp.echo()
-    assert type(resp) is Response
-    assert resp.settings.echo == Echo(width=78)
-    assert resp.metrics.total_duration == 100
-    assert resp.metrics.load_duration == 101
-    assert resp.metrics.prompt_eval_count == 102
-    assert resp.metrics.prompt_eval_duration == 103
-    assert resp.metrics.eval_count == 104
-    assert resp.metrics.eval_duration == 105
-
-    resp = root_resp.echo(True)
-    assert type(resp) is Response
-    assert resp.settings.echo == Echo(width=78)
-    resp = root_resp.echo(False)
-    assert type(resp) is Response
-    assert resp.settings.echo is None
 
     resp = sample_model.chat("Hello")
-    assert capfd.readouterr().out == ""
-
-    resp = sample_model.echo(False).chat("Hello")
     assert capfd.readouterr().out == ""
 
     for line in reply_to_hello.splitlines():
         assert len(line) <= 78
 
-    resp = sample_model.echo(True).chat("Hello")
+    resp = sample_model.echo().chat("Hello")
     assert remove_spinner(capfd.readouterr().out) == reply_to_hello
 
     resp = sample_model.echo().chat("Hello")
@@ -320,7 +282,7 @@ def test_echo(sample_model, capfd):
     resp = sample_model.echo(width=8).chat("Hello")
     assert remove_spinner(capfd.readouterr().out) == reply_to_hello_8
 
-    resp = sample_model.echo(echo_prompt=False).chat("Hello")
+    resp = sample_model.echo(prompt=False).chat("Hello")
     assert remove_spinner(capfd.readouterr().out) == reply_to_hello_no_prompt
 
 

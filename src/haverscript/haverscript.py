@@ -23,106 +23,8 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
-class Echo:
-    width: int = 78
-    echo_prompt: bool = True
-
-    def prompt(self, prompt: str):
-        if self.echo_prompt:
-            print()
-            print("\n".join([f"> {line}" for line in prompt.splitlines()]))
-            print()
-
-    def reply(self, tokens, fresh: bool):
-
-        tokens = self.wrap(tokens)
-
-        first_token_available = threading.Event()
-        first_token = [None]  # Use list to allow modification in nested scope
-
-        def get_first_token():
-            try:
-                first_token[0] = next(tokens)
-            except Exception as e:
-                first_token[0] = e
-            finally:
-                first_token_available.set()
-
-        threading.Thread(target=get_first_token).start()
-
-        with yaspin() as spinner:
-            first_token_available.wait()
-
-        if first_token[0] is not None:
-            if isinstance(first_token[0], Exception):
-                raise first_token[0]
-            print(first_token[0], end="", flush=True)
-
-        for token in tokens:
-            print(token, end="", flush=True)
-        print()  # finish with a newline
-
-    def regenerating(self):
-        print()
-        print("[Regenerating response]")
-        print()
-
-    def wrap(self, stream):
-
-        line_width = 0  # the size of the commited line so far
-        spaces = 0
-        newline = "\n"
-        prequel = ""
-
-        for s in stream:
-
-            for t in re.split(r"(\n|\S+)", s):
-
-                if t == "":
-                    continue
-
-                if t.isspace():
-                    if line_width + spaces + len(prequel) > self.width:
-                        yield newline  # injected newline
-                        line_width = 0
-                        spaces = 0
-
-                    if spaces > 0 and line_width > 0:
-                        yield " " * spaces
-                        line_width += spaces
-
-                    spaces = 0
-                    line_width += spaces + len(prequel)
-                    yield prequel
-                    prequel = ""
-
-                    if t == "\n":
-                        line_width = 0
-                        yield newline  # actual newline
-                    else:
-                        spaces += len(t)
-                else:
-                    prequel += t
-
-        if prequel != "":
-            if line_width + spaces + len(prequel) > self.width:
-                yield newline
-                line_width = 0
-                spaces = 0
-
-            if spaces > 0 and line_width > 0:
-                yield " " * spaces
-
-            yield prequel
-
-        return
-
-
-@dataclass(frozen=True)
 class Settings:
     """Local settings."""
-
-    echo: Optional[Echo] = None
 
     cache: str = None
 
@@ -241,15 +143,11 @@ class Model(ABC):
             prompt = textwrap.dedent(prompt).strip()
 
         logger.info(f"chat prompt {prompt}")
-        if self.settings.echo:
-            self.settings.echo.prompt(prompt)
 
         if self.settings.cache is not None:
             cache = services.cache(self.settings.cache)
             prose = cache.next(self, prompt)
             if prose:
-                if self.settings.echo:
-                    self.settings.echo.reply(re.split(r"(\S+)", prose), fresh=False)
                 return self.response(prompt, prose, fresh=False)
 
         return self.invoke(prompt)
@@ -277,7 +175,7 @@ class Model(ABC):
         response = self.settings.service.chat(
             configuration=self.configuration,
             prompt=prompt,
-            stream=settings.echo is not None,
+            stream=False,
         )
 
         assert isinstance(
@@ -287,9 +185,6 @@ class Model(ABC):
         response, metadata = tee(response)
         response = (token for token in response if isinstance(token, str))
         metadata = (token for token in metadata if isinstance(token, Metrics))
-        if settings.echo:
-            tokens, response = tee(response)
-            settings.echo.reply(tokens, fresh=True)
 
         reply = "".join([r for r in response])
 
@@ -349,21 +244,14 @@ class Model(ABC):
 
     def echo(
         self,
-        echo: Optional[bool | Echo] = True,
         width: int = 78,
-        echo_prompt: bool = True,
+        prompt: bool = True,
     ) -> Self:
         """echo prompts and responses to stdout."""
-        if echo == True:
-            echo = Echo(width=width, echo_prompt=echo_prompt)
-        elif echo == False:
-            echo = None
+        assert isinstance(width, int) and not isinstance(width, bool)
+        assert isinstance(prompt, bool)
 
-        assert echo is None or isinstance(
-            echo, Echo
-        ), "echo() take a bool, or an Echo class"
-
-        return self.copy(settings=self.settings.copy(echo=echo))
+        return self.middleware(lambda next: EchoMiddleware(next, width, prompt))
 
     def outdent(self, outdent: bool = True) -> Self:
         return self.copy(settings=self.settings.copy(outdent=outdent))
@@ -552,8 +440,6 @@ class Response(Model):
                         "exceeded the count limit for redoing generation with predicate(s)"
                     )
                 limit -= 1
-            if self.settings.echo:
-                self.settings.echo.regenerating()
             session = session.redo()
 
         return session.copy(_predicates=self._predicates + ((predicate, limit),))
@@ -887,6 +773,105 @@ class Middleware(LanguageModel):
     """Middleware is a LanguageModel that has next down-the-pipeline LanguageModel."""
 
     next: LanguageModel
+
+
+@dataclass
+class EchoMiddleware(Middleware):
+    width: int = 78
+    prompt: bool = True
+
+    def chat(self, configuration: Configuration, prompt: str, stream: bool):
+        if self.prompt:
+            print()
+            print("\n".join([f"> {line}" for line in prompt.splitlines()]))
+            print()
+
+        # We turn on streaming, because if we echo, we want to see progress
+        response = self.next.chat(configuration, prompt, stream=True)
+
+        assert isinstance(response, LanguageModelResponse)
+
+        tokens = self._wrap((token for token in response if isinstance(token, str)))
+
+        first_token_available = threading.Event()
+        first_token = [None]  # Use list to allow modification in nested scope
+
+        def get_first_token():
+            try:
+                first_token[0] = next(tokens)
+            except Exception as e:
+                first_token[0] = e
+            finally:
+                first_token_available.set()
+
+        threading.Thread(target=get_first_token).start()
+
+        with yaspin() as spinner:
+            first_token_available.wait()
+
+        if first_token[0] is not None:
+            if isinstance(first_token[0], Exception):
+                raise first_token[0]
+            print(first_token[0], end="", flush=True)
+
+        for token in tokens:
+            print(token, end="", flush=True)
+        print()  # finish with a newline
+
+        return response
+
+    def _wrap(self, stream):
+
+        line_width = 0  # the size of the commited line so far
+        spaces = 0
+        newline = "\n"
+        prequel = ""
+
+        for s in stream:
+
+            for t in re.split(r"(\n|\S+)", s):
+
+                if t == "":
+                    continue
+
+                if t.isspace():
+                    if line_width + spaces + len(prequel) > self.width:
+                        yield newline  # injected newline
+                        line_width = 0
+                        spaces = 0
+
+                    if spaces > 0 and line_width > 0:
+                        yield " " * spaces
+                        line_width += spaces
+
+                    spaces = 0
+                    line_width += spaces + len(prequel)
+                    yield prequel
+                    prequel = ""
+
+                    if t == "\n":
+                        line_width = 0
+                        yield newline  # actual newline
+                    else:
+                        spaces += len(t)
+                else:
+                    prequel += t
+
+        if prequel != "":
+            if line_width + spaces + len(prequel) > self.width:
+                yield newline
+                line_width = 0
+                spaces = 0
+
+            if spaces > 0 and line_width > 0:
+                yield " " * spaces
+
+            yield prequel
+
+        return
+
+    def list(self):
+        return []
 
 
 class Services:
