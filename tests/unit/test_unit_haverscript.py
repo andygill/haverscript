@@ -139,8 +139,6 @@ def check_model(model, host, system):
     assert type(model) is Model
     assert hasattr(model, "configuration")
     config = model.configuration
-    assert hasattr(config, "model")
-    assert config.model == test_model_name
 
     render = ""
     if system:
@@ -196,8 +194,6 @@ def test_user_model(sample_user_model):
     assert isinstance(model, Model)
     assert hasattr(model, "configuration")
     config = model.configuration
-    assert hasattr(config, "model")
-    assert config.model is "some-model"
     context = []
     session = model
     message = "Three word prompt"

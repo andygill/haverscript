@@ -32,7 +32,7 @@ class Settings:
 
     retry: dict | None = None
 
-    service: "ServiceProvider" = None
+    service: "Middleware" = None
 
     def copy(self, **update):
         return Settings(
@@ -47,7 +47,6 @@ class Settings:
 class Configuration:
     """Full Context and other arguments for the LLM. Needs to be serializable."""
 
-    model: str = None
     options: frozendict = field(default_factory=frozendict)
     json: bool = False
     system: Optional[str] = None
@@ -120,8 +119,8 @@ class Service(ABC):
 
     def model(self, model) -> "Model":
         return Model(
-            configuration=Configuration(model=model),
-            settings=Settings(service=self.service),
+            configuration=Configuration(),
+            settings=Settings(service=ModelMiddleware(self.service, model)),
         )
 
 
@@ -174,7 +173,6 @@ class Model(ABC):
 
         response = self.settings.service.chat(
             prompt=prompt,
-            model=self.configuration.model,
             options=self.configuration.options,
             json=self.configuration.json,
             system=self.configuration.system,
@@ -358,7 +356,7 @@ class Model(ABC):
         """image must be bytes, path-like object, or file-like object"""
         return self.copy(configuration=self.configuration.add_image(image))
 
-    def middleware(self, f: Callable[["LanguageModel"], "Middleware"]):
+    def middleware(self, f: Callable[["Middleware"], "Middleware"]):
         return self.copy(settings=self.settings.copy(service=f(self.settings.service)))
 
 
@@ -769,14 +767,22 @@ class ServiceProvider(LanguageModel):
         return [model["name"] for model in models["models"]]
 
 
-@dataclass
+@dataclass(frozen=True)
 class Middleware(LanguageModel):
     """Middleware is a LanguageModel that has next down-the-pipeline LanguageModel."""
 
     next: LanguageModel
 
 
-@dataclass
+@dataclass(frozen=True)
+class ModelMiddleware(Middleware):
+    model: str
+
+    def chat(self, prompt: str, **kwargs):
+        return self.next.chat(prompt, model=self.model, **kwargs)
+
+
+@dataclass(frozen=True)
 class EchoMiddleware(Middleware):
     width: int = 78
     prompt: bool = True
@@ -942,10 +948,9 @@ class Ollama(ServiceProvider):
                 **{k: response[k] for k in OllamaMetrics.__dataclass_fields__.keys()}
             )
 
-    def chat(self, prompt: str, **kwargs):
+    def chat(self, prompt: str, model: str, **kwargs):
 
         configuration = Configuration(
-            model=kwargs["model"],
             options=kwargs["options"],
             json=kwargs["json"],
             system=kwargs["system"],
@@ -976,7 +981,7 @@ class Ollama(ServiceProvider):
 
         try:
             response = self.client[self.hostname].chat(
-                configuration.model,
+                model=model,
                 stream=stream,
                 messages=messages,
                 options=options,
