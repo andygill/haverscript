@@ -78,11 +78,10 @@ class Together(ServiceProvider):
                 if json_data is not None:
                     yield json_data["choices"][0]["text"]
 
-    def chat(self, prompt: str, **kwargs):
+    def chat(self, prompt: str, model: str, **kwargs):
         messages = []
 
         configuration = Configuration(
-            model=kwargs["model"],
             options=kwargs["options"],
             json=kwargs["json"],
             system=kwargs["system"],
@@ -111,7 +110,7 @@ class Together(ServiceProvider):
         }
 
         payload = {
-            "model": configuration.model,
+            "model": model,
             "messages": messages,
             "stream": stream,
         } | configuration.options
