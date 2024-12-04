@@ -173,9 +173,13 @@ class Model(ABC):
         settings = self.settings
 
         response = self.settings.service.chat(
-            configuration=self.configuration,
             prompt=prompt,
-            stream=False,
+            model=self.configuration.model,
+            options=self.configuration.options,
+            json=self.configuration.json,
+            system=self.configuration.system,
+            context=self.configuration.context,
+            images=self.configuration.images,
         )
 
         assert isinstance(
@@ -745,14 +749,11 @@ class LanguageModel(ABC):
     """Base class for anything that chats, that is takes a configuration and prompt and returns token(s)."""
 
     @abstractmethod
-    def chat(
-        self, configuration: Configuration, prompt: str, stream: bool
-    ) -> LanguageModelResponse:
+    def chat(self, prompt: str, *kwargs) -> LanguageModelResponse:
         """Call the chat method of an LLM.
 
         prompt is the main text
-        configuration is (structured) context
-        stream, if true, is a request for a streamed reply
+        ksargs contains a dictionary of configuration options
 
         returns a LanguageModelResponse.
         """
@@ -780,14 +781,14 @@ class EchoMiddleware(Middleware):
     width: int = 78
     prompt: bool = True
 
-    def chat(self, configuration: Configuration, prompt: str, stream: bool):
+    def chat(self, prompt: str, **kwargs):
         if self.prompt:
             print()
             print("\n".join([f"> {line}" for line in prompt.splitlines()]))
             print()
 
         # We turn on streaming, because if we echo, we want to see progress
-        response = self.next.chat(configuration, prompt, stream=True)
+        response = self.next.chat(prompt, stream=True, **kwargs)
 
         assert isinstance(response, LanguageModelResponse)
 
@@ -941,10 +942,24 @@ class Ollama(ServiceProvider):
                 **{k: response[k] for k in OllamaMetrics.__dataclass_fields__.keys()}
             )
 
-    def chat(self, configuration: Configuration, prompt: str, stream: bool):
+    def chat(self, prompt: str, **kwargs):
+
+        configuration = Configuration(
+            model=kwargs["model"],
+            options=kwargs["options"],
+            json=kwargs["json"],
+            system=kwargs["system"],
+            context=kwargs["context"],
+            images=kwargs["images"],
+        )
+
         messages = []
 
-        if configuration.system:
+        stream = "stream" in kwargs and kwargs["stream"]
+
+        options = copy.deepcopy(kwargs["options"]) if "options" in kwargs else {}
+
+        if "system" in kwargs and kwargs["system"]:
             messages.append({"role": "system", "content": configuration.system})
 
         for pmt, imgs, resp in configuration.context:
@@ -964,7 +979,7 @@ class Ollama(ServiceProvider):
                 configuration.model,
                 stream=stream,
                 messages=messages,
-                options=copy.deepcopy(configuration.options),
+                options=options,
                 format="json" if configuration.json else "",
             )
 
