@@ -175,7 +175,7 @@ def check_model(model, host, system):
 
 
 class UserService(ServiceProvider):
-    def chat(self, configuration: Configuration, prompt: str, stream: bool):
+    def chat(self, prompt: str, **args):
         return LanguageModelResponse(
             [
                 f"I reject your {len(prompt.split())} word prompt, and replace it with my own."
@@ -519,19 +519,9 @@ class UpperCase(Middleware):
             if isinstance(token, str):
                 yield token.upper()
 
-    def chat(self, configuration: Configuration, prompt: str, stream: bool):
-        responses = self.next.chat(configuration, prompt + " World", stream)
+    def chat(self, prompt: str, **ksargs):
+        responses = self.next.chat(prompt + " World", **ksargs)
         return LanguageModelResponse(str(responses).upper())
-
-        if isinstance(responses, str):
-            return responses.upper()
-        elif isinstance(responses, tuple) and len(responses) == 2:
-            assert isinstance(responses[0], str)
-            return (responses[0].upper(), responses[1])
-        elif isinstance(responses, Iterator):
-            return self.upper_tokens(responses)
-
-        assert False, f"unexpected return type from inner llm call : {type(responses)}"
 
 
 def test_middleware(sample_model: Model):

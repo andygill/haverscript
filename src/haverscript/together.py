@@ -78,8 +78,19 @@ class Together(ServiceProvider):
                 if json_data is not None:
                     yield json_data["choices"][0]["text"]
 
-    def chat(self, configuration: Configuration, prompt: str, stream: bool):
+    def chat(self, prompt: str, **kwargs):
         messages = []
+
+        configuration = Configuration(
+            model=kwargs["model"],
+            options=kwargs["options"],
+            json=kwargs["json"],
+            system=kwargs["system"],
+            context=kwargs["context"],
+            images=kwargs["images"],
+        )
+
+        stream = "stream" in kwargs and kwargs["stream"]
 
         if configuration.system:
             messages.append({"role": "system", "content": configuration.system})
