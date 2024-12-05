@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `middleware(...)` method to `Model`, to support composable
   language models components. We have the following middleware components:
   - `Model.echo()` adds eching of prompts and replies.
+  - `Model.retry()` which uses the tenacity package to provide a generic retry.
+  - `Model.validate()` which checks the response for a predicate.
 - Added `Service` class, that can be asked about models, and can generate `Model`s.
 - Added `image(...)` method to `Model`, for multi-modal models.
 - Added `response.value`, which return the JSON `dict` of the reply, or `None`.
@@ -21,8 +23,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `load()` method to `Model`, for parsing markdown-style sessions.
 - Added LLMError, and subclasses. 
 - Added `reject()` to `Response`, which raises a `LLMResultError` exception.
-- Added `retry_policy` to `Model`, which uses the tenacity package to provide a
-  generic retry for `chat`.
 - Added support for together.ai's API as a first-class alternative to ollama.
 ### Fixed
 ### Changed
