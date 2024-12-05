@@ -97,13 +97,7 @@ class _TestClient:
 
 # inject the TestClient
 models = sys.modules["haverscript.haverscript"].services._model_providers
-models["ollama@localhost"] = sys.modules["haverscript.haverscript"].Ollama(None)
-models["ollama@localhost"].client = _TestClient(None)
-models[f"ollama@{test_model_host}"] = sys.modules["haverscript.haverscript"].Ollama(
-    test_model_host
-)
-models[f"ollama@{test_model_host}"].client = _TestClient(test_model_host)
-models = sys.modules["haverscript.haverscript"].Ollama.client = {
+models = sys.modules["haverscript.ollama"].Ollama.client = {
     None: _TestClient(None),
     test_model_host: _TestClient(test_model_host),
 }

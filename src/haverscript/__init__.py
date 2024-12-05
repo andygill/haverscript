@@ -23,10 +23,12 @@ from .haverscript import (
     fresh,
     valid_json,
 )
+from .languagemodel import LanguageModelResponse, LanguageModel, ServiceProvider
+from .middleware import Middleware
+from .together import Together
 
 __all__ = [
     "Configuration",
-    "ServiceProvider",
     "Middleware",
     "EchoMiddleware",
     "Model",
@@ -37,7 +39,11 @@ __all__ = [
     "valid_json",
     "Service",
     "Ollama",
+    "LanguageModel",
     "LanguageModelResponse",
+    "ServiceProvider",
+    "Middleware",
+    "Together",
     "LLMError",
     "LLMConfigurationError",
     "LLMRequestError",

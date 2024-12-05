@@ -1,23 +1,21 @@
-import copy
 import json
 import logging
-import re
 import sqlite3
 import textwrap
-import threading
-from abc import ABC, abstractmethod
-from collections.abc import Iterator
+from abc import ABC
 from dataclasses import asdict, dataclass, field, fields
 from itertools import tee
-from types import GeneratorType
-from typing import AnyStr, Callable, Optional, Self, Tuple, NoReturn, Generator
+from typing import AnyStr, Callable, Optional, Self, Tuple, NoReturn
 from tenacity import Retrying, RetryError
 
-import ollama
 from yaspin import yaspin
 from frozendict import frozendict
 
 from .exceptions import *
+from .languagemodel import *
+from .middleware import *
+from .ollama import Ollama
+
 
 logger = logging.getLogger(__name__)
 
@@ -93,21 +91,6 @@ def _canonical_string(string, postfix="\n"):
         )
         string += postfix[overlap_len:]
     return string
-
-
-@dataclass(frozen=True)
-class Metrics(ABC):
-    total_duration: int  # time spent generating the response
-    load_duration: int  # time spent in nanoseconds loading the model
-    prompt_eval_count: int  # number of tokens in the prompt
-    prompt_eval_duration: int  # time spent in nanoseconds evaluating the prompt
-    eval_count: int  # number of tokens in the response
-    eval_duration: int  # time in nanoseconds spent generating the response
-
-
-@dataclass(frozen=True)
-class Metrics(ABC):
-    pass
 
 
 @dataclass(frozen=True)
@@ -700,187 +683,6 @@ class Cache:
         return None
 
 
-class LanguageModelResponse:
-    """A tokenized response to a large language model"""
-
-    def __init__(self, tokens):
-        self.tokens = iter(tokens)
-        self.cache = []
-
-    def __iter__(self):
-        return self._ResponseIterator(self.cache, self.tokens)
-
-    def __str__(self):
-        return "".join([t for t in self if isinstance(t, str)])
-
-    def metrics(self) -> Metrics | None:
-        for t in self:
-            if isinstance(t, Metrics):
-                return t
-        return None
-
-    class _ResponseIterator:
-        def __init__(self, cache, iterable):
-            self._iterable = iterable
-            self._cache = cache
-            self._index = 0  # Track the position in the cache
-
-        def __iter__(self):
-            return self
-
-        def __next__(self):
-            if self._index < len(self._cache):
-                # Return cached value if available
-                value = self._cache[self._index]
-            else:
-                # Otherwise, fetch the next value from the original iterator
-                try:
-                    value = next(self._iterable)
-                    self._cache.append(value)  # Add to cache
-                except StopIteration:
-                    raise StopIteration
-            self._index += 1
-            return value
-
-
-class LanguageModel(ABC):
-    """Base class for anything that chats, that is takes a configuration and prompt and returns token(s)."""
-
-    @abstractmethod
-    def chat(self, prompt: str, *kwargs) -> LanguageModelResponse:
-        """Call the chat method of an LLM.
-
-        prompt is the main text
-        ksargs contains a dictionary of configuration options
-
-        returns a LanguageModelResponse.
-        """
-        pass
-
-
-class ServiceProvider(LanguageModel):
-    """A ServiceProvider is a LanguageModel that serves specific models."""
-
-    def list(self) -> list[str]:
-        models = self.client[self.hostname].list()
-        assert "models" in models
-        return [model["name"] for model in models["models"]]
-
-
-@dataclass(frozen=True)
-class Middleware(LanguageModel):
-    """Middleware is a LanguageModel that has next down-the-pipeline LanguageModel."""
-
-    next: LanguageModel
-
-
-@dataclass(frozen=True)
-class ModelMiddleware(Middleware):
-    model: str
-
-    def chat(self, prompt: str, **kwargs):
-        return self.next.chat(prompt, model=self.model, **kwargs)
-
-
-@dataclass(frozen=True)
-class EchoMiddleware(Middleware):
-    width: int = 78
-    prompt: bool = True
-
-    def chat(self, prompt: str, **kwargs):
-        if self.prompt:
-            print()
-            print("\n".join([f"> {line}" for line in prompt.splitlines()]))
-            print()
-
-        # We turn on streaming, because if we echo, we want to see progress
-        response = self.next.chat(prompt, stream=True, **kwargs)
-
-        assert isinstance(response, LanguageModelResponse)
-
-        tokens = self._wrap((token for token in response if isinstance(token, str)))
-
-        first_token_available = threading.Event()
-        first_token = [None]  # Use list to allow modification in nested scope
-
-        def get_first_token():
-            try:
-                first_token[0] = next(tokens)
-            except Exception as e:
-                first_token[0] = e
-            finally:
-                first_token_available.set()
-
-        threading.Thread(target=get_first_token).start()
-
-        with yaspin() as spinner:
-            first_token_available.wait()
-
-        if first_token[0] is not None:
-            if isinstance(first_token[0], Exception):
-                raise first_token[0]
-            print(first_token[0], end="", flush=True)
-
-        for token in tokens:
-            print(token, end="", flush=True)
-        print()  # finish with a newline
-
-        return response
-
-    def _wrap(self, stream):
-
-        line_width = 0  # the size of the commited line so far
-        spaces = 0
-        newline = "\n"
-        prequel = ""
-
-        for s in stream:
-
-            for t in re.split(r"(\n|\S+)", s):
-
-                if t == "":
-                    continue
-
-                if t.isspace():
-                    if line_width + spaces + len(prequel) > self.width:
-                        yield newline  # injected newline
-                        line_width = 0
-                        spaces = 0
-
-                    if spaces > 0 and line_width > 0:
-                        yield " " * spaces
-                        line_width += spaces
-
-                    spaces = 0
-                    line_width += spaces + len(prequel)
-                    yield prequel
-                    prequel = ""
-
-                    if t == "\n":
-                        line_width = 0
-                        yield newline  # actual newline
-                    else:
-                        spaces += len(t)
-                else:
-                    prequel += t
-
-        if prequel != "":
-            if line_width + spaces + len(prequel) > self.width:
-                yield newline
-                line_width = 0
-                spaces = 0
-
-            if spaces > 0 and line_width > 0:
-                yield " " * spaces
-
-            yield prequel
-
-        return
-
-    def list(self):
-        return []
-
-
 class Services:
     """Internal class with lazy instantiation of services"""
 
@@ -895,103 +697,6 @@ class Services:
 
 
 services = Services()
-
-
-@dataclass(frozen=True)
-class OllamaMetrics(Metrics):
-    total_duration: int  # time spent generating the response
-    load_duration: int  # time spent in nanoseconds loading the model
-    prompt_eval_count: int  # number of tokens in the prompt
-    prompt_eval_duration: int  # time spent in nanoseconds evaluating the prompt
-    eval_count: int  # number of tokens in the response
-    eval_duration: int  # time in nanoseconds spent generating the response
-
-
-class Ollama(ServiceProvider):
-    client = {}
-
-    def __init__(self, hostname: str | None = None) -> None:
-        self.hostname = hostname
-        if hostname not in Ollama.client:
-            Ollama.client[hostname] = ollama.Client(host=hostname)
-
-    def list(self) -> list[str]:
-        models = self.client[self.hostname].list()
-        assert "models" in models
-        return [model["name"] for model in models["models"]]
-
-    def _suggestions(self, e: Exception):
-        # Slighty better message. Should really have a type of reply for failure.
-        if "ConnectError" in str(type(e)):
-            print("Connection error (Check if ollama is running)")
-        return e
-
-    def generator(self, response):
-
-        if isinstance(response, GeneratorType):
-            try:
-                for chunk in response:
-                    if chunk["done"]:
-                        yield OllamaMetrics(
-                            **{
-                                k: chunk[k]
-                                for k in OllamaMetrics.__dataclass_fields__.keys()
-                            }
-                        )
-                    yield from chunk["message"]["content"]
-            except Exception as e:
-                raise self._suggestions(e)
-        else:
-            assert isinstance(response["message"]["content"], str)
-            yield response["message"]["content"]
-            yield OllamaMetrics(
-                **{k: response[k] for k in OllamaMetrics.__dataclass_fields__.keys()}
-            )
-
-    def chat(self, prompt: str, model: str, **kwargs):
-
-        configuration = Configuration(
-            options=kwargs["options"],
-            json=kwargs["json"],
-            system=kwargs["system"],
-            context=kwargs["context"],
-            images=kwargs["images"],
-        )
-
-        messages = []
-
-        stream = "stream" in kwargs and kwargs["stream"]
-
-        options = copy.deepcopy(kwargs["options"]) if "options" in kwargs else {}
-
-        if "system" in kwargs and kwargs["system"]:
-            messages.append({"role": "system", "content": configuration.system})
-
-        for pmt, imgs, resp in configuration.context:
-            messages.append(
-                {"role": "user", "content": pmt}
-                | ({"images": list(imgs)} if imgs else {})
-            )
-            messages.append({"role": "assistant", "content": resp})
-
-        messages.append(
-            {"role": "user", "content": prompt}
-            | ({"images": list(configuration.images)} if configuration.images else {})
-        )
-
-        try:
-            response = self.client[self.hostname].chat(
-                model=model,
-                stream=stream,
-                messages=messages,
-                options=options,
-                format="json" if configuration.json else "",
-            )
-
-            return LanguageModelResponse(self.generator(response))
-
-        except Exception as e:
-            raise self._suggestions(e)
 
 
 def connect(
