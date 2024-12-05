@@ -455,7 +455,38 @@ def test_retry(sample_model):
         sample_model.chat("FAIL(0)")
 
     extra = sample_model.json().chat("###").value["extra"]
-    sample_model.retry_policy(stop=stop_after_attempt(5)).chat(f"FAIL({extra+4})")
+    sample_model.retry(stop=stop_after_attempt(5)).chat(f"FAIL({extra+4})")
+
+
+def test_validate(sample_model):
+    with pytest.raises(LLMError):
+        sample_model.validate(lambda txt: "$$$" in txt).chat("...")
+
+    sample_model.validate(lambda txt: "$$$" in txt).chat("$$$")
+
+    extra = sample_model.json().chat("###").value["extra"]
+
+    with pytest.raises(LLMError):
+        sample_model.validate(lambda txt: f'"extra": {extra + 10}' in txt).retry(
+            stop=stop_after_attempt(5)
+        ).chat("###")
+
+    extra = sample_model.json().chat("###").value["extra"]
+
+    sample_model.validate(lambda txt: f'"extra": {extra + 3}' in txt).retry(
+        stop=stop_after_attempt(5)
+    ).chat("###")
+
+    extra = sample_model.json().chat("###").value["extra"]
+
+    with pytest.raises(LLMError):
+        # wrong order; retry is bellow validate.
+        sample_model.retry(stop=stop_after_attempt(5)).validate(
+            lambda txt: f'"extra": {extra + 3}' in txt
+        ).chat("###")
+
+
+#
 
 
 md0 = "System"

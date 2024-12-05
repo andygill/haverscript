@@ -1,9 +1,12 @@
 import re
 import threading
 from dataclasses import dataclass
+from typing import AnyStr, Callable, Optional, Self, Tuple, NoReturn
 
+from tenacity import Retrying, RetryError, retry
 from yaspin import yaspin
 
+from .exceptions import LLMError
 from .languagemodel import LanguageModel, LanguageModelResponse
 
 
@@ -20,6 +23,42 @@ class ModelMiddleware(Middleware):
 
     def chat(self, prompt: str, **kwargs):
         return self.next.chat(prompt, model=self.model, **kwargs)
+
+
+@dataclass(frozen=True)
+class RetryMiddleware(Middleware):
+    """Retry the lower chat if it fails, using options as argument(s) to tenacity retry.
+
+    There is a cavet here. If the lower chat returns an in-progress and working streaming,
+    then this will be accepted by this retry. We wait for the first token, though.
+    """
+
+    options: dict
+
+    def chat(self, prompt: str, **kwargs):
+        try:
+            for attempt in Retrying(**self.options):
+                with attempt:
+                    # We turn off streaming, because we want complete results.
+                    response = self.next.chat(prompt, streaming=False, **kwargs)
+                    response.first()  # wait for at least the first token
+                    return response
+        except RetryError as e:
+            raise LLMError()
+
+
+@dataclass(frozen=True)
+class ValidationMiddleware(Middleware):
+    """Validate if a predicate is true for the response."""
+
+    predicate: Callable[[str], bool]
+
+    def chat(self, prompt: str, **kwargs):
+        response = self.next.chat(prompt, **kwargs)
+        # the str forces the full evaluation here
+        if not self.predicate(str(response)):
+            raise LLMError
+        return response
 
 
 @dataclass(frozen=True)

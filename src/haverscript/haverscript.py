@@ -245,9 +245,9 @@ class Model(ABC):
         """Set the cache filename for this model."""
         return self.copy(settings=self.settings.copy(cache=filename))
 
-    def retry_policy(self, **options) -> Self:
+    def retry(self, **options) -> Self:
         """retry uses tenacity to wrap the LLM request-response action in retry options."""
-        return self.copy(settings=self.settings.copy(retry=options))
+        return self.middleware(lambda next: RetryMiddleware(next, options))
 
     def system(self, prompt: str) -> Self:
         """provide a system prompt."""
@@ -256,6 +256,9 @@ class Model(ABC):
     def json(self, json: bool = True):
         """request a json result."""
         return self.copy(configuration=self.configuration.copy(json=json))
+
+    def validate(self, predicate: Callable[[str], bool]):
+        return self.middleware(lambda next: ValidationMiddleware(next, predicate))
 
     def load(self, markdown: str, complete: bool = False) -> Self:
         """Read markdown as system + prompt-reply pairs."""

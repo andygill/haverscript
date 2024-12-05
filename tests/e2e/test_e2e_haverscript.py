@@ -55,7 +55,7 @@ from haverscript.together import Together
 from tenacity import stop_after_attempt, wait_fixed
 
 session = connect""",
-                '("mistral")': '("meta-llama/Meta-Llama-3-8B-Instruct-Lite", service=Together()).retry_policy(stop=stop_after_attempt(5), wait=wait_fixed(2))',
+                '("mistral")': '("meta-llama/Meta-Llama-3-8B-Instruct-Lite", service=Together()).retry(stop=stop_after_attempt(5), wait=wait_fixed(2))',
             },
         ).splitlines()
     )
