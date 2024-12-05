@@ -5,7 +5,8 @@ from dataclasses import dataclass
 
 import requests
 
-from .haverscript import Configuration, Metrics, ServiceProvider, LanguageModelResponse
+from .haverscript import Configuration, Metrics
+from .languagemodel import ServiceProvider, LanguageModelResponse
 from .exceptions import LLMRateLimitError
 
 
