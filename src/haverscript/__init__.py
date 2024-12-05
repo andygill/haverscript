@@ -1,3 +1,5 @@
+from tenacity import stop_after_attempt
+
 from .exceptions import (
     LLMConfigurationError,
     LLMConnectivityError,
@@ -52,4 +54,5 @@ __all__ = [
     "LLMRateLimitError",
     "LLMResponseError",
     "LLMResultError",
+    "stop_after_attempt",
 ]

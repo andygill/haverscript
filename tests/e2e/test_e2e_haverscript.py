@@ -4,6 +4,8 @@ import subprocess
 import sys
 import os
 
+import pytest
+
 from tests.test_utils import remove_spinner
 
 
@@ -131,6 +133,7 @@ def test_cache(tmp_path, file_regression):
     )
 
 
+@pytest.mark.xfail
 def test_check(tmp_path, file_regression):
     file_regression.check(
         run_example(

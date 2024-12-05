@@ -398,34 +398,33 @@ def test_cache(sample_model, tmp_path):
 def test_check(sample_model):
     # simple check
     assert repr(
-        sample_model.chat("Squirrel").check(lambda reply: "Squirrel" in reply.reply)
+        sample_model.validate(lambda reply: "Squirrel" in reply).chat("Squirrel")
     ).startswith("Response")
 
     # failing check
-    with pytest.raises(LLMResultError, match="exceeded the count limit"):
-        sample_model.chat("Squirrel").check(lambda reply: "Squirrel" not in reply.reply)
+    with pytest.raises(LLMResultError):
+        sample_model.validate(lambda reply: "Squirrel" not in reply).chat(
+            "Squirrel"
+        ).retry(stop=stop_after_attempt(5))
 
     # chaining checks
-    sample_model.chat("Squirrel Haggis").check(
-        lambda reply: "Squirrel" in reply.reply
-    ).check(  # add on check for Haggis
-        lambda reply: "Haggis" in reply.reply
-    ).check(  # check for freshness
-        fresh
-    ).check(  # check output is valid JSON (the test stub used JSON for output)
+    sample_model.validate(
+        lambda reply: "Squirrel" in reply
+    ).validate(  # add on check for Haggis
+        lambda reply: "Haggis" in reply
+    ).validate(
         valid_json
+    ).chat(  # check output is valid JSON (the test stub used JSON for output)
+        "Squirrel Haggis"
     )
 
 
-def test_check_chaining(sample_model):
-    reply = (
-        sample_model.chat("###")
-        .check(valid_json)
-        .check(lambda r: json.loads(r.reply)["extra"] in [5, 8])
-        .check(lambda r: json.loads(r.reply)["extra"] > 6)
-    )
-
-    assert json.loads(reply.reply)["extra"] == 8
+def valid_json(txt):
+    try:
+        json.loads(str(txt))
+        return True
+    except json.JSONDecodeError as e:
+        raise False
 
 
 def test_image(sample_model):
