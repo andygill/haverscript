@@ -5,6 +5,8 @@ import json
 import re
 import sys
 from collections.abc import Iterator
+import time
+import threading
 
 import pytest
 from tenacity import stop_after_attempt
@@ -553,3 +555,39 @@ def test_middleware(sample_model: Model):
 
     assert reply0.reply.upper() == reply1.reply
     assert reply0.reply.upper() == reply2.reply
+
+
+def test_LanguageModelResponse():
+    """Test that LanguageModelResponse responses in a thread-safe manner"""
+
+    def gen(xs):
+        for x in xs:
+            time.sleep(0.01)
+            yield f"{x} "
+
+    input = list(range(10))
+
+    lmr = LanguageModelResponse(gen(input))
+
+    def consume():
+        result = []
+        for x in lmr.tokens():
+            result.append(int(x))
+        assert result == input
+
+    def metrics():
+        assert lmr.metrics() is None
+
+    ts = []
+    for n in range(10):
+        if n == 4:
+            fun = metrics
+        else:
+            fun = consume
+        ts.append(threading.Thread(target=fun))
+
+    for t in ts:
+        t.start()
+
+    for t in ts:
+        t.join()

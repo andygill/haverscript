@@ -2,6 +2,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from concurrent.futures import Future
 import threading
+from collections.abc import Iterable
+from typing import Iterator
 
 
 @dataclass(frozen=True)
@@ -10,60 +12,53 @@ class Metrics(ABC):
 
 
 class LanguageModelResponse:
-    """A tokenized response to a large language model"""
+    """A potentially tokenized response to a large language model"""
 
-    def __init__(self, tokens):
-        self.tokens = iter(tokens)
-        self.cache = []
-
-    def __iter__(self):
-        return self._ResponseIterator(self.cache, self.tokens)
+    def __init__(self, packets: Iterable[str | Metrics]):
+        self._packets = iter(packets)
+        # We always have at least one item in our sequence.
+        # This typically will cause as small pause before
+        # returning the LanguageModelResponse constructor.
+        # It does mean, by design, that the generator
+        # has started producing tokens, so the context
+        # has already been processed. If you have a
+        # LanguageModelResponse, you can assume that tokens
+        # are in flight, and the LLM worked.
+        self._cache = [next(self._packets)]
+        self._lock = threading.Lock()
 
     def __str__(self):
-        return "".join([t for t in self if isinstance(t, str)])
+        return "".join(self.tokens())
+
+    def __iter__(self):
+        ix = 0
+        while True:
+            # We need a lock, because the contents can be consumed
+            # by difference threads. With list, this just works.
+            # With generators, we need to both the cache, and the lock.
+            with self._lock:
+                if ix < len(self._cache):
+                    result = self._cache[ix]
+                else:
+                    assert ix == len(self._cache)
+                    try:
+                        result = next(self._packets)
+                    except StopIteration:
+                        return
+                    self._cache.append(result)
+            ix += 1
+            yield result
+
+    def tokens(self) -> Iterable[str]:
+        """Returns all str tokens."""
+        yield from (token for token in self if isinstance(token, str))
 
     def metrics(self) -> Metrics | None:
+        """Returns any Metrics."""
         for t in self:
             if isinstance(t, Metrics):
                 return t
         return None
-
-    class _ResponseIterator:
-        def __init__(self, cache, iterable):
-            self._iterable = iterable
-            self._cache = cache
-            self._index = 0  # Track the position in the cache
-
-        def __iter__(self):
-            return self
-
-        def __next__(self):
-            if self._index < len(self._cache):
-                # Return cached value if available
-                value = self._cache[self._index]
-            else:
-                # Otherwise, fetch the next value from the original iterator
-                try:
-                    value = next(self._iterable)
-                    self._cache.append(value)  # Add to cache
-                except StopIteration:
-                    raise StopIteration
-            self._index += 1
-            return value
-
-    def first(self) -> Future[str | Exception]:
-        """The Future value of the first item. Typically be used to wait for the first item."""
-        future = Future()
-
-        def get_first_token():
-            try:
-                future.set_result(next(iter(self)))
-            except Exception as e:
-                future.set_result(e)
-
-        threading.Thread(target=get_first_token).start()
-
-        return future
 
 
 class LanguageModel(ABC):
