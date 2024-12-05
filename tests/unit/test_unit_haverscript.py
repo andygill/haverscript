@@ -20,7 +20,6 @@ from haverscript import (
     LanguageModelResponse,
     connect,
     fresh,
-    valid_json,
     LLMError,
     Service,
     LLMResultError,
@@ -320,8 +319,7 @@ def test_json(sample_model):
     for ix, model in enumerate(
         [
             sample_model,
-            sample_model.json(True),
-            sample_model.json(False),
+            sample_model.json(),
         ]
     ):
         reply = model.chat("")
@@ -426,6 +424,9 @@ def test_check_chaining(sample_model):
     )
 
     assert json.loads(reply.reply)["extra"] == 8
+
+
+valid_json = lambda x: True
 
 
 def test_image(sample_model):

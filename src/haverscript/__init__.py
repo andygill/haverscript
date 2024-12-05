@@ -21,7 +21,6 @@ from .haverscript import (
     accept,
     connect,
     fresh,
-    valid_json,
 )
 from .languagemodel import LanguageModelResponse, LanguageModel, ServiceProvider
 from .middleware import Middleware
@@ -36,7 +35,6 @@ __all__ = [
     "accept",
     "connect",
     "fresh",
-    "valid_json",
     "Service",
     "Ollama",
     "LanguageModel",

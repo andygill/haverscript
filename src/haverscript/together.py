@@ -84,7 +84,6 @@ class Together(ServiceProvider):
 
         configuration = Configuration(
             options=kwargs["options"],
-            json=kwargs["json"],
             system=kwargs["system"],
             context=kwargs["context"],
             images=kwargs["images"],

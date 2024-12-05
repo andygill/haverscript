@@ -1,4 +1,5 @@
 import re
+import json
 import threading
 from dataclasses import dataclass
 from typing import AnyStr, Callable, Optional, Self, Tuple, NoReturn
@@ -59,6 +60,19 @@ class ValidationMiddleware(Middleware):
         if not self.predicate(str(response)):
             raise LLMError
         return response
+
+
+@dataclass(frozen=True)
+class JSONMiddleware(Middleware):
+    """Ask for JSON response, and check the response is JSON on way back."""
+
+    def chat(self, prompt: str, **kwargs):
+        response = self.next.chat(prompt, json=True, **kwargs)
+        try:
+            json.loads(str(response))
+            return response
+        except json.JSONDecodeError as e:
+            raise LLMError
 
 
 @dataclass(frozen=True)

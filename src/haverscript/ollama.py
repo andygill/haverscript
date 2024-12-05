@@ -14,7 +14,6 @@ class Configuration:
     """This will be factored out soon"""
 
     options: frozendict = field(default_factory=frozendict)
-    json: bool = False
     system: Optional[str] = None
     context: Tuple[  # list (using a tuple) of prompt+images response triples
         Tuple[str, Tuple[str, ...], str], ...
@@ -77,7 +76,6 @@ class Ollama(ServiceProvider):
 
         configuration = Configuration(
             options=kwargs["options"],
-            json=kwargs["json"],
             system=kwargs["system"],
             context=kwargs["context"],
             images=kwargs["images"],
@@ -110,7 +108,7 @@ class Ollama(ServiceProvider):
                 stream=stream,
                 messages=messages,
                 options=options,
-                format="json" if configuration.json else "",
+                format="json" if "json" in kwargs and kwargs["json"] else "",
             )
 
             return LanguageModelResponse(self.generator(response))

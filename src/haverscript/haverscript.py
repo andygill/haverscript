@@ -46,7 +46,6 @@ class Configuration:
     """Full Context and other arguments for the LLM. Needs to be serializable."""
 
     options: frozendict = field(default_factory=frozendict)
-    json: bool = False
     system: Optional[str] = None
     context: Tuple[  # list (using a tuple) of prompt+images response triples
         Tuple[str, Tuple[str, ...], str], ...
@@ -152,12 +151,9 @@ class Model(ABC):
 
     def _invoke(self, prompt: str) -> "Response":
 
-        settings = self.settings
-
         response = self.settings.service.chat(
             prompt=prompt,
             options=self.configuration.options,
-            json=self.configuration.json,
             system=self.configuration.system,
             context=self.configuration.context,
             images=self.configuration.images,
@@ -253,9 +249,9 @@ class Model(ABC):
         """provide a system prompt."""
         return self.copy(configuration=self.configuration.copy(system=prompt))
 
-    def json(self, json: bool = True):
-        """request a json result."""
-        return self.copy(configuration=self.configuration.copy(json=json))
+    def json(self):
+        """request a JSON result; reject if result is not JSON."""
+        return self.middleware(lambda next: JSONMiddleware(next))
 
     def validate(self, predicate: Callable[[str], bool]):
         return self.middleware(lambda next: ValidationMiddleware(next, predicate))
@@ -368,13 +364,10 @@ class Response(Model):
     @property
     def value(self) -> str:
         """return a value of the reply in its requested format"""
-        if self.configuration.json:
-            try:
-                return json.loads(self.reply)
-            except json.JSONDecodeError as e:
-                return None
-
-        return self.reply
+        try:
+            return json.loads(self.reply)
+        except json.JSONDecodeError as e:
+            return None
 
     def render(self) -> str:
         """Return a markdown string of the context."""
@@ -391,9 +384,6 @@ class Response(Model):
         reply = self.reply or ""
 
         return context + prompt + _canonical_string(reply.strip())
-
-    def json_value(self, limit: int | None = 10) -> dict:
-        return self.check(valid_json, limit=limit).value
 
     def copy(self, **update):
         return Response(
@@ -452,11 +442,6 @@ class Response(Model):
 def fresh(response):
     """Check a response is freshly generated (not obtained fromcache)."""
     return response.fresh
-
-
-def valid_json(response):
-    """Check to see if the response reply is valid JSON."""
-    return response.value is not None
 
 
 def accept(response):

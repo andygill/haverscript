@@ -1,4 +1,4 @@
-from haverscript import connect, fresh, valid_json
+from haverscript import connect, fresh
 import json
 
 model = connect("mistral")
@@ -18,7 +18,7 @@ colors = (
     .chat(
         "Return a map from primary colors to their hex codes. The map should be called colors. Reply using JSON, and only JSON."
     )
-    .json_value()  # read the JSON value (retries until valid JSON)
+    .value
 )
 
 print(json.dumps(colors, indent=2))
