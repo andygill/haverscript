@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.1] - 2024-XX-YY
+## [0.2.0] - 2024-XX-YY
 ### Added
 - Added `middleware(...)` method to `Model`, to support composable
   language models components. We have the following middleware components:
@@ -31,6 +31,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   string pool.
 - Using the cache now uses LLM results in order, until exhausted, then calls the LLM.
 ### Removed
+- Removed `check()` from `Response`. Replace it with `validate()` *before* the call to chat.
+  The idea is tha `validate` can be paired with `retry` to build a custom repeater,
+  and replaces the ad-hoc `check` which was doing redo's. Use middleware to build
+  a LLM stack that works for you, not fix things afterwards.
 
 
 ## [0.1.0] - 2024-09-23

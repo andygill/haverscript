@@ -6,7 +6,6 @@ from abc import ABC
 from dataclasses import asdict, dataclass, field, fields
 from itertools import tee
 from typing import AnyStr, Callable, Optional, Self, Tuple, NoReturn
-from tenacity import Retrying, RetryError
 
 from yaspin import yaspin
 from frozendict import frozendict
@@ -27,8 +26,6 @@ class Settings:
     cache: str = None
 
     outdent: bool = True
-
-    retry: dict | None = None
 
     service: "Middleware" = None
 
@@ -135,22 +132,6 @@ class Model(ABC):
         return self.invoke(prompt)
 
     def invoke(self, prompt: str) -> "Response":
-
-        settings = self.settings
-
-        if settings.retry is not None:
-            try:
-                for attempt in Retrying(**settings.retry):
-                    with attempt:
-                        return self._invoke(prompt)
-
-            except RetryError as e:
-                raise LLMError()
-
-        else:
-            return self._invoke(prompt)
-
-    def _invoke(self, prompt: str) -> "Response":
 
         settings = self.settings
 
@@ -392,9 +373,6 @@ class Response(Model):
 
         return context + prompt + _canonical_string(reply.strip())
 
-    def json_value(self, limit: int | None = 10) -> dict:
-        return self.check(valid_json, limit=limit).value
-
     def copy(self, **update):
         return Response(
             **{
@@ -411,27 +389,6 @@ class Response(Model):
             raise LLMResultError(message)
         raise LLMResultError()
 
-    def check(self, predicate, limit: Optional[int] = 10) -> Self:
-        """A given predicate is applied to the Response.
-
-        If the predicate is false, then a new Response is generated,
-        using a new call to the LLM.
-
-        There is an optional limit, which defaults to 10.
-        """
-        session = self
-
-        while not predicate(session):
-            if limit is not None:
-                if limit == 0:
-                    self.reject(
-                        "exceeded the count limit for redoing generation with predicate(s)"
-                    )
-                limit -= 1
-            session = session.redo()
-
-        return session.copy(_predicates=self._predicates + ((predicate, limit),))
-
     def redo(self) -> Self:
         """Rerun a chat with the previous prompt.
 
@@ -443,10 +400,7 @@ class Response(Model):
             # if we have set a seed, do not redo with the same seed,
             # because you would get the same result (even if cached).
             model = model.options(seed=model.configuration.options["seed"] + 1)
-        previous = model.invoke(self.prompt)
-        for pred, limit in self._predicates:
-            previous = previous.check(pred, limit=limit)
-        return previous
+        return model.invoke(self.prompt)
 
 
 def fresh(response):

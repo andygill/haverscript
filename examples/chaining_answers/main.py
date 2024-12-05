@@ -1,11 +1,16 @@
-from haverscript import connect
+# required HaverScript 0.2
+from haverscript import connect, stop_after_attempt
 
 model = connect("mistral").echo()
 
-best = model.chat(
-    "Name the best basketball player. Only name one player and do not give commentary."
-).check(  # Ensure the reply is three words or fewer
-    lambda response: len(response.reply.split()) <= 3
+best = (
+    model.validate(  # Ensure the reply is three words or fewer
+        lambda response: len(response.split()) <= 3
+    )
+    .retry(stop=stop_after_attempt(10))
+    .chat(
+        "Name the best basketball player. Only name one player and do not give commentary."
+    )
 )
 
 model.chat(

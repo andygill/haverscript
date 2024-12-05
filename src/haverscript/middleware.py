@@ -6,7 +6,7 @@ from typing import AnyStr, Callable, Optional, Self, Tuple, NoReturn
 from tenacity import Retrying, RetryError, retry
 from yaspin import yaspin
 
-from .exceptions import LLMError
+from .exceptions import LLMError, LLMResultError
 from .languagemodel import LanguageModel, LanguageModelResponse
 
 
@@ -44,7 +44,7 @@ class RetryMiddleware(Middleware):
                     response.first()  # wait for at least the first token
                     return response
         except RetryError as e:
-            raise LLMError()
+            raise LLMResultError()
 
 
 @dataclass(frozen=True)
@@ -57,7 +57,7 @@ class ValidationMiddleware(Middleware):
         response = self.next.chat(prompt, **kwargs)
         # the str forces the full evaluation here
         if not self.predicate(str(response)):
-            raise LLMError
+            raise LLMResultError()
         return response
 
 
