@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from concurrent.futures import Future
+import threading
 
 
 @dataclass(frozen=True)
@@ -48,6 +50,20 @@ class LanguageModelResponse:
                     raise StopIteration
             self._index += 1
             return value
+
+    def first(self) -> Future[str | Exception]:
+        """The Future value of the first item. Typically be used to wait for the first item."""
+        future = Future()
+
+        def get_first_token():
+            try:
+                future.set_result(next(iter(self)))
+            except Exception as e:
+                future.set_result(e)
+
+        threading.Thread(target=get_first_token).start()
+
+        return future
 
 
 class LanguageModel(ABC):

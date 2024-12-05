@@ -33,35 +33,23 @@ class EchoMiddleware(Middleware):
             print("\n".join([f"> {line}" for line in prompt.splitlines()]))
             print()
 
+        # TODO: use Future to start spinner *before* calling next.chat
+
         # We turn on streaming, because if we echo, we want to see progress
         response = self.next.chat(prompt, stream=True, **kwargs)
 
         assert isinstance(response, LanguageModelResponse)
 
-        tokens = self._wrap((token for token in response if isinstance(token, str)))
-
-        first_token_available = threading.Event()
-        first_token = [None]  # Use list to allow modification in nested scope
-
-        def get_first_token():
-            try:
-                first_token[0] = next(tokens)
-            except Exception as e:
-                first_token[0] = e
-            finally:
-                first_token_available.set()
-
-        threading.Thread(target=get_first_token).start()
+        first = response.first()
 
         with yaspin() as spinner:
-            first_token_available.wait()
+            e = first.result()
+            if isinstance(e, Exception):
+                raise e
 
-        if first_token[0] is not None:
-            if isinstance(first_token[0], Exception):
-                raise first_token[0]
-            print(first_token[0], end="", flush=True)
-
-        for token in tokens:
+        for token in self._wrap(
+            (token for token in response if isinstance(token, str))
+        ):
             print(token, end="", flush=True)
         print()  # finish with a newline
 
