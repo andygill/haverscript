@@ -148,18 +148,9 @@ class Model(ABC):
             response, LanguageModelResponse
         ), f"response : {type(response)}, expecting LanguageModelResponse"
 
-        response, metadata = tee(response)
-        response = (token for token in response if isinstance(token, str))
-        metadata = (token for token in metadata if isinstance(token, Metrics))
-
-        reply = "".join([r for r in response])
-
-        metrics = None
-        for meta in metadata:
-            if isinstance(meta, Metrics):
-                metrics = meta
-
-        response = self.response(prompt, reply, fresh=True, metrics=metrics)
+        response = self.response(
+            prompt, str(response), fresh=True, metrics=response.metrics()
+        )
 
         if self.settings.cache is not None:
             services.cache(self.settings.cache).insert(response)

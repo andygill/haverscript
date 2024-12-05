@@ -1,12 +1,15 @@
 import re
 import threading
+import queue
+import time
+
 from dataclasses import dataclass
 from typing import AnyStr, Callable, Optional, Self, Tuple, NoReturn
 
-from tenacity import Retrying, RetryError, retry
+from tenacity import Retrying, RetryError
 from yaspin import yaspin
 
-from .exceptions import LLMError, LLMResultError
+from .exceptions import LLMResultError
 from .languagemodel import LanguageModel, LanguageModelResponse
 
 
@@ -40,9 +43,7 @@ class RetryMiddleware(Middleware):
             for attempt in Retrying(**self.options):
                 with attempt:
                     # We turn off streaming, because we want complete results.
-                    response = self.next.chat(prompt, streaming=False, **kwargs)
-                    response.first()  # wait for at least the first token
-                    return response
+                    return self.next.chat(prompt, streaming=False, **kwargs)
         except RetryError as e:
             raise LLMResultError()
 
@@ -72,23 +73,27 @@ class EchoMiddleware(Middleware):
             print("\n".join([f"> {line}" for line in prompt.splitlines()]))
             print()
 
-        # TODO: use Future to start spinner *before* calling next.chat
+        event = threading.Event()
 
-        # We turn on streaming, because if we echo, we want to see progress
-        response = self.next.chat(prompt, stream=True, **kwargs)
+        def wait_for_event():
+            with yaspin() as spinner:
+                event.wait()  # Wait until the event is set
 
-        assert isinstance(response, LanguageModelResponse)
+        spinner_thread = threading.Thread(target=wait_for_event)
+        spinner_thread.start()
 
-        first = response.first()
+        try:
+            # We turn on streaming to make the echo responsive
+            kwargs.pop("stream", None)
+            response = self.next.chat(prompt, stream=True, **kwargs)
+            assert isinstance(response, LanguageModelResponse)
+        finally:
+            # stop the spinner
+            event.set()
+            # wait for the spinner thread to stop (and stop printing)
+            spinner_thread.join()
 
-        with yaspin() as spinner:
-            e = first.result()
-            if isinstance(e, Exception):
-                raise e
-
-        for token in self._wrap(
-            (token for token in response if isinstance(token, str))
-        ):
+        for token in self._wrap(response.tokens()):
             print(token, end="", flush=True)
         print()  # finish with a newline
 
