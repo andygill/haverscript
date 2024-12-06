@@ -4,12 +4,14 @@ import queue
 import time
 
 from dataclasses import dataclass
+import queue
+import time
 from typing import AnyStr, Callable, Optional, Self, Tuple, NoReturn
 
 from tenacity import Retrying, RetryError
 from yaspin import yaspin
 
-from .exceptions import LLMResultError
+from .exceptions import LLMResultError, LLMError
 from .languagemodel import LanguageModel, LanguageModelResponse
 
 
@@ -151,3 +153,73 @@ class EchoMiddleware(Middleware):
 
     def list(self):
         return []
+
+
+@dataclass(frozen=True)
+class StatsMiddleware(Middleware):
+    width: int = 78
+    prompt: bool = True
+
+    def chat(self, prompt: str, **kwargs):
+
+        event = threading.Event()
+        channel = queue.Queue()
+
+        start_time = time.time()
+
+        def message(prompt, tokens, time_to_first_token, tokens_per_second):
+            return (
+                f"prompt : {len(prompt):,}b, "
+                f"reply : {tokens:,}t, "
+                f"first token : {time_to_first_token:.2f}s, "
+                f"tokens/s : {tokens_per_second:.0f}"
+            )
+
+        def wait_for_event():
+            with yaspin(text=f"prompt : {len(prompt):,}b") as spinner:
+                first_token_time = None
+                tokens = 0
+                while True:
+                    token = channel.get()
+                    if not isinstance(token, str):
+                        txt = spinner.text
+                        if isinstance(token, LLMError):
+                            txt += ", LLMError Exception raised"
+                        spinner.write("- " + txt)
+                        break
+
+                    now = time.time()
+                    if first_token_time is None:
+                        first_token_time = now
+                        time_to_first_token = first_token_time - start_time
+                        tokens_per_second = 0
+                    else:
+                        tokens_per_second = tokens / (now - first_token_time)
+                    tokens += 1
+
+                    spinner.text = message(
+                        prompt, tokens, time_to_first_token, tokens_per_second
+                    )
+
+        try:
+            spinner_thread = threading.Thread(target=wait_for_event)
+            spinner_thread.start()
+
+            # We turn on streaming to make the echo responsive
+            kwargs["stream"] = True
+            response = self.next.chat(prompt, **kwargs)
+            assert isinstance(response, LanguageModelResponse)
+
+            for token in response.tokens():
+                channel.put(token)
+        except LLMError as e:
+            channel.put(e)
+            spinner_thread.join()  # do wait for the printing to finish
+            raise e
+        finally:
+            channel.put(None)
+
+        # wait for the spinner thread to stop (and stop printing)
+        spinner_thread.join()
+
+        return response

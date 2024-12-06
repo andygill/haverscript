@@ -2,6 +2,7 @@ from pathlib import Path
 import pytest
 import sys
 import json
+import time
 import re
 import sys
 from collections.abc import Iterator
@@ -59,10 +60,9 @@ class _TestClient:
         self._count = 1
 
     def _streaming(self, reply):
-        yield from [
-            {"message": {"content": token}, "done": False}
-            for token in re.findall(r"\S+|\s+", reply)
-        ]
+        for token in re.findall(r"\S+|\s+", reply):
+            time.sleep(0.01)
+            yield {"message": {"content": token}, "done": False}
 
     def chat(self, model, stream, messages, options, format):
         assert format == "json" or format == ""
@@ -276,6 +276,23 @@ def test_echo(sample_model, capfd):
 
     resp = sample_model.echo(prompt=False).chat("Hello")
     assert remove_spinner(capfd.readouterr().out) == reply_to_hello_no_prompt
+
+
+def test_stats(sample_model, capfd):
+    capfd.readouterr()
+
+    sample_model.stats().chat("Hello")
+    txt = remove_spinner(capfd.readouterr().out)
+    pattern = r"prompt\s*:\s*\d+b,\s*reply\s*:\s*\d+t,\s*first\s*token\s*:\s*\d+(\.\d+)?s,\s*tokens\/s\s*:\s*\d+"
+    assert re.search(pattern, txt), f"found: {txt}"
+
+    capfd.readouterr()
+    try:
+        sample_model.stats().chat("FAIL(1)")
+    except Exception:
+        ...
+    txt = remove_spinner(capfd.readouterr().out)
+    assert txt == "- prompt : 7b, LLMError Exception raised\n"
 
 
 def test_outdent(sample_model):
