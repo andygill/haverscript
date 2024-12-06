@@ -210,6 +210,9 @@ class Model(ABC):
 
         return self.middleware(lambda next: EchoMiddleware(next, width, prompt))
 
+    def stats(self):
+        return self.middleware(lambda next: StatsMiddleware(next))
+
     def outdent(self, outdent: bool = True) -> Self:
         return self.copy(settings=self.settings.copy(outdent=outdent))
 
