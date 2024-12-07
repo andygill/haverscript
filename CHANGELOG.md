@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `Model.echo()` adds eching of prompts and replies.
   - `Model.retry()` which uses the tenacity package to provide a generic retry.
   - `Model.validate()` which checks the response for a predicate.
+  - `Model.cache()` add a caching component.
 - Added `Service` class, that can be asked about models, and can generate `Model`s.
 - Added `image(...)` method to `Model`, for multi-modal models.
 - Added `response.value`, which return the JSON `dict` of the reply, or `None`.
