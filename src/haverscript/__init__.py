@@ -22,7 +22,6 @@ from .haverscript import (
     LanguageModelResponse,
     accept,
     connect,
-    fresh,
     valid_json,
 )
 from .languagemodel import LanguageModelResponse, LanguageModel, ServiceProvider
@@ -37,7 +36,6 @@ __all__ = [
     "Response",
     "accept",
     "connect",
-    "fresh",
     "valid_json",
     "Service",
     "Ollama",

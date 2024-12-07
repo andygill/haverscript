@@ -1,4 +1,4 @@
-from haverscript import connect, fresh
+from haverscript import connect
 import time
 import sys
 
