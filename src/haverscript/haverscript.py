@@ -199,16 +199,15 @@ class Model(ABC):
             }
         )
 
-    def echo(
-        self,
-        width: int = 78,
-        prompt: bool = True,
-    ) -> Self:
+    def echo(self, width: int = 78, prompt: bool = True, spinner: bool = True) -> Self:
         """echo prompts and responses to stdout."""
         assert isinstance(width, int) and not isinstance(width, bool)
         assert isinstance(prompt, bool)
+        assert isinstance(spinner, bool)
 
-        return self.middleware(lambda next: EchoMiddleware(next, width, prompt))
+        return self.middleware(
+            lambda next: EchoMiddleware(next, width, prompt, spinner)
+        )
 
     def stats(self):
         return self.middleware(lambda next: StatsMiddleware(next))

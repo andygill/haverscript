@@ -68,6 +68,7 @@ class ValidationMiddleware(Middleware):
 class EchoMiddleware(Middleware):
     width: int = 78
     prompt: bool = True
+    spinner: bool = True
 
     def chat(self, prompt: str, **kwargs):
         if self.prompt:
@@ -75,25 +76,30 @@ class EchoMiddleware(Middleware):
             print("\n".join([f"> {line}" for line in prompt.splitlines()]))
             print()
 
-        event = threading.Event()
+        # We turn on streaming to make the echo responsive
+        kwargs["stream"] = True
 
-        def wait_for_event():
-            with yaspin() as spinner:
-                event.wait()  # Wait until the event is set
+        if self.spinner:
+            event = threading.Event()
 
-        spinner_thread = threading.Thread(target=wait_for_event)
-        spinner_thread.start()
+            def wait_for_event():
+                with yaspin() as spinner:
+                    event.wait()  # Wait until the event is set
 
-        try:
-            # We turn on streaming to make the echo responsive
-            kwargs.pop("stream", None)
-            response = self.next.chat(prompt, stream=True, **kwargs)
-            assert isinstance(response, LanguageModelResponse)
-        finally:
-            # stop the spinner
-            event.set()
-            # wait for the spinner thread to stop (and stop printing)
-            spinner_thread.join()
+            spinner_thread = threading.Thread(target=wait_for_event)
+            spinner_thread.start()
+
+            try:
+                response = self.next.chat(prompt, **kwargs)
+            finally:
+                # stop the spinner
+                event.set()
+                # wait for the spinner thread to stop (and stop printing)
+                spinner_thread.join()
+        else:
+            response = self.next.chat(prompt, **kwargs)
+
+        assert isinstance(response, LanguageModelResponse)
 
         for token in self._wrap(response.tokens()):
             print(token, end="", flush=True)
