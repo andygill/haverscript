@@ -258,8 +258,8 @@ def test_echo(sample_model, capfd):
     resp = sample_model.echo().chat("Hello")
     assert remove_spinner(capfd.readouterr().out) == reply_to_hello
 
-    resp = sample_model.echo().chat("Hello")
-    assert remove_spinner(capfd.readouterr().out) == reply_to_hello
+    resp = sample_model.echo(spinner=False).chat("Hello")
+    assert capfd.readouterr().out == reply_to_hello
 
     for line in reply_to_hello_48.splitlines():
         assert len(line) <= 48
