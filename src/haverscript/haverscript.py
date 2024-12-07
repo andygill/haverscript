@@ -394,11 +394,6 @@ class Response(Model):
         return model.invoke(self.prompt)
 
 
-def fresh(response):
-    """Check a response is freshly generated (not obtained fromcache)."""
-    return response.fresh
-
-
 def valid_json(response):
     """Check to see if the response reply is valid JSON."""
     return response.value is not None
