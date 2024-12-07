@@ -2,6 +2,7 @@ import re
 import threading
 import queue
 import time
+import json
 
 from dataclasses import dataclass
 import queue
@@ -13,6 +14,7 @@ from yaspin import yaspin
 
 from .exceptions import LLMResultError, LLMError
 from .languagemodel import LanguageModel, LanguageModelResponse
+from .cache import Cache
 
 
 @dataclass(frozen=True)
@@ -70,7 +72,10 @@ class EchoMiddleware(Middleware):
     prompt: bool = True
 
     def chat(self, prompt: str, **kwargs):
-        if self.prompt:
+        if prompt is None:
+            return self.next.chat(prompt, **kwargs)
+
+        if self.prompt and prompt:
             print()
             print("\n".join([f"> {line}" for line in prompt.splitlines()]))
             print()
@@ -223,3 +228,77 @@ class StatsMiddleware(Middleware):
         spinner_thread.join()
 
         return response
+
+
+@dataclass(frozen=True)
+class CacheMiddleware(Middleware):
+
+    filename: str
+    mode: str  # "r", "a", "a+"
+
+    def chat(
+        self,
+        prompt: str,
+        system: str,
+        context: str,
+        images: list,
+        options: dict,
+        **kwargs,
+    ):
+
+        cache = Cache(self.filename, self.mode)
+
+        parameters = options.copy()
+
+        if self.mode in {"r", "a+"}:
+
+            cached = cache.lookup_interactions(
+                system, context, prompt, images, parameters, limit=1, blacklist=True
+            )
+
+            if cached:
+                key = next(iter(cached.keys()))
+                if self.mode == "a+":
+                    cache.blacklist(key)
+                # just return the (cached) reply
+                return LanguageModelResponse(cached[key][2])
+
+        response = self.next.chat(
+            prompt=prompt,
+            system=system,
+            context=context,
+            images=images,
+            options=options,
+            **kwargs,
+        )
+        if self.mode == "r":
+            return response
+
+        def save_response():
+            cache.insert_interaction(
+                system, context, prompt, images, str(response), parameters
+            )
+
+        response.after(save_response)
+
+        return response
+
+    def children(
+        self,
+        prompt: str,
+        system: str,
+        context: str,
+        images: list,
+        options: dict,
+        **kwargs,
+    ):
+        if self.mode == "a":
+            return []
+
+        cache = Cache(self.filename, self.mode)
+
+        parameters = options.copy()
+
+        return cache.lookup_interactions(
+            system, context, prompt, [], parameters, limit=None, blacklist=False
+        ).values()
