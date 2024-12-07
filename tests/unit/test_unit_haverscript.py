@@ -8,6 +8,7 @@ import sys
 from collections.abc import Iterator
 import time
 import threading
+import subprocess
 
 import pytest
 from tenacity import stop_after_attempt
@@ -28,6 +29,7 @@ from haverscript import (
     LLMResultError,
     Ollama,
 )
+from haverscript.cache import Cache, INTERACTION
 
 # Note that these tests break the haverscript API at points specifically
 # for testing purposes.
@@ -66,6 +68,14 @@ class _TestClient:
     def chat(self, model, stream, messages, options, format):
         assert format == "json" or format == ""
         extra = None
+
+        assert isinstance(messages, list)
+        assert len(messages) > 0
+        assert isinstance(messages[-1], dict)
+        assert "content" in messages[-1]
+        assert isinstance(
+            messages[-1]["content"], str
+        ), f'expecting str, found {messages[-1]["content"]}:{type(messages[-1]["content"])}'
         if "###" in messages[-1]["content"]:
             extra = self._count
             self._count += 1
@@ -354,63 +364,76 @@ def test_json(sample_model):
             )
 
 
-def test_fresh(sample_model):
-    reply = sample_model.chat("Hello")
-    assert reply.fresh == True
-
-
 def test_cache(sample_model, tmp_path):
     temp_file = tmp_path / "cache.db"
-    model = sample_model.cache(temp_file)
+    mode = "a+"
+    model = sample_model.cache(temp_file, mode)
 
     hello = "### Hello"
     assert len(model.children(hello)) == 0
     assert len(model.children()) == 0
 
     reply1 = model.chat(hello)
-    assert reply1.fresh == True
     assert len(model.children(hello)) == 1
     assert len(model.children()) == 1
     assert model.children(hello)[0] == reply1.copy(fresh=False, metrics=None)
 
     reply2 = model.chat(hello)
-    assert reply2.fresh == True
     assert len(model.children(hello)) == 2
     assert len(model.children()) == 2
     assert model.children(hello)[1] == reply2.copy(fresh=False, metrics=None)
 
     world = "### World"
     reply3 = reply2.chat(world)
-    assert reply3.fresh == True
     assert len(reply2.children()) == 1
     assert len(reply2.children(world)) == 1
     assert reply2.children(world)[0] == reply3.copy(fresh=False, metrics=None)
 
     # reset the cursor, to simulate a new execute
-    cache = sys.modules["haverscript.haverscript"].services.cache(temp_file)
-    cache.cursor = {}
+    sys.modules["haverscript.cache"].Cache.connections = {}
+    model = sample_model.cache(temp_file, mode)
 
     assert len(model.children()) == 2
-
     reply1b = model.chat(hello)
-    assert reply1b.fresh == False
-    assert reply1.copy(fresh=False, metrics=None) == reply1b.copy(metrics=None)
+    assert reply1.copy(metrics=None) == reply1b.copy(metrics=None)
 
     reply2b = model.chat(hello)
-    assert reply2b.fresh == False
 
-    assert reply2.copy(fresh=False, metrics=None) == reply2b.copy(metrics=None)
+    assert reply2.copy(metrics=None) == reply2b.copy(metrics=None)
     # Check there was a difference to observe
     assert reply1b.copy(metrics=None) != reply2b.copy(metrics=None)
 
-    reply3b = model.chat(hello)
-    assert reply3b.fresh == True
+    # now test the read mode
+    sys.modules["haverscript.cache"].Cache.connections = {}
+    mode = "r"
+    model = sample_model.cache(temp_file, mode)
 
-    reply4b = reply2b.chat(world)
-    assert reply4b.fresh == False
+    assert len(model.children()) == 2
+    reply1b = model.chat(hello)
 
-    reply4c = reply2b.chat(world)
-    assert reply4c.fresh == True
+    scrub = dict(configuration=None, settings=None, parent=None)
+
+    assert reply1.copy(metrics=None, **scrub) == reply1b.copy(metrics=None, **scrub)
+
+    reply2b = model.chat(hello)
+
+    assert reply2.copy(metrics=None, **scrub) == reply2b.copy(metrics=None, **scrub)
+
+    # Check they are the same in read mode
+    assert reply1b.copy(metrics=None) == reply2b.copy(metrics=None)
+
+    sys.modules["haverscript.cache"].Cache.connections = {}
+    mode = "a"
+    model = sample_model.cache(temp_file, mode)
+
+    hello = "### Hello"
+    assert len(model.children(hello)) == 0
+    assert len(model.children()) == 0
+
+    reply1 = model.chat(hello)
+    # Nothing to read, this is append mode
+    assert len(model.children(hello)) == 0
+    assert len(model.children()) == 0
 
 
 def test_check(sample_model):
@@ -567,7 +590,7 @@ def test_middleware(sample_model: Model):
 
     session = sample_model.middleware(UpperCase)
     reply1 = session.chat("Hello")
-    reply2 = session.echo().chat("Hello")
+    reply2 = session.retry(stop=stop_after_attempt(5)).chat("Hello")
 
     assert reply0.reply.upper() == reply1.reply
     assert reply0.reply.upper() == reply2.reply
@@ -607,3 +630,122 @@ def test_LanguageModelResponse():
 
     for t in ts:
         t.join()
+
+
+def test_cache_class(tmp_path):
+    temp_file = tmp_path / "cache.db"
+    cache = Cache(temp_file, "a+")
+    system = "..."
+    context = (("Hello", [], "World"), ("Hello2", [], "World2"))
+    prompt = "Hello!"
+    images = ["foo.png"]
+    reply = "Wombat"
+    options = {"model": "modal"}
+    cache.insert_interaction(system, context, prompt, images, reply, options)
+    cache.insert_interaction(system, context, prompt, images, reply, options)
+    cache.insert_interaction(
+        system, context, prompt + "..2", images, reply + "..2", options
+    )
+
+    # pretend that the database is read fresh
+    cache.conn.execute("DELETE FROM blacklist;")
+
+    assert cache.lookup_interactions(
+        system, context, prompt, images, options, limit=None, blacklist=False
+    ) == {INTERACTION(1): (prompt, images, reply)}
+
+    cache.blacklist(INTERACTION(1))
+    # Should not appear in our lookup (because of the blacklist)
+
+    cache.insert_interaction(
+        system, context, prompt, images, reply + " (Again)", options
+    )
+
+    assert (
+        cache.lookup_interactions(
+            system, context, prompt, images, options, limit=None, blacklist=True
+        )
+        == {}
+    )
+    assert cache.lookup_interactions(
+        system, context, None, images, options, limit=None, blacklist=False
+    ) == {
+        INTERACTION(1): (prompt, images, reply),
+        INTERACTION(2): (prompt + "..2", images, reply + "..2"),
+        INTERACTION(3): (prompt, images, reply + " (Again)"),
+    }
+
+    assert cache.lookup_interactions(
+        system, context, None, images, options, limit=1, blacklist=False
+    ) == {
+        INTERACTION(1): (prompt, images, reply),
+    }
+    result = subprocess.run(
+        f'echo ".dump" | sqlite3 {temp_file}',
+        shell=True,
+        text=True,
+        capture_output=True,
+    )
+    result = "\n".join([line.rstrip() for line in result.stdout.splitlines()])
+
+    assert result == sql_dump
+
+
+sql_dump = """
+PRAGMA foreign_keys=OFF;
+BEGIN TRANSACTION;
+CREATE TABLE string_pool (
+    id INTEGER PRIMARY KEY,
+    string TEXT NOT NULL UNIQUE
+);
+INSERT INTO string_pool VALUES(1,'Hello');
+INSERT INTO string_pool VALUES(2,'[]');
+INSERT INTO string_pool VALUES(3,'World');
+INSERT INTO string_pool VALUES(4,'Hello2');
+INSERT INTO string_pool VALUES(5,'World2');
+INSERT INTO string_pool VALUES(6,'Hello!');
+INSERT INTO string_pool VALUES(7,'["foo.png"]');
+INSERT INTO string_pool VALUES(8,'Wombat');
+INSERT INTO string_pool VALUES(9,'...');
+INSERT INTO string_pool VALUES(10,'{"model": "modal"}');
+INSERT INTO string_pool VALUES(11,'Hello!..2');
+INSERT INTO string_pool VALUES(12,'Wombat..2');
+INSERT INTO string_pool VALUES(13,'Wombat (Again)');
+CREATE TABLE context (
+    id INTEGER PRIMARY KEY,
+    prompt INTEGER  NOT NULL,       -- what was said to the LLM
+    images INTEGER NOT NULL,        -- string of list of images
+    reply INTEGER NOT NULL,         -- reply from the LLM
+    context INTEGER,
+    FOREIGN KEY (prompt)        REFERENCES string_pool(id),
+    FOREIGN KEY (images)        REFERENCES string_pool(id),
+    FOREIGN KEY (reply)         REFERENCES string_pool(id),
+    FOREIGN KEY (context)       REFERENCES interactions(id)
+);
+INSERT INTO context VALUES(1,1,2,3,NULL);
+INSERT INTO context VALUES(2,4,2,5,1);
+INSERT INTO context VALUES(3,6,7,8,2);
+INSERT INTO context VALUES(4,11,7,12,2);
+INSERT INTO context VALUES(5,6,7,13,2);
+CREATE TABLE interactions (
+    id INTEGER PRIMARY KEY,
+    system INTEGER,
+    context INTEGER,
+    parameters INTEGER NOT NULL,
+    FOREIGN KEY (system)        REFERENCES string_pool(id),
+    FOREIGN KEY (context)       REFERENCES context(id),
+    FOREIGN KEY (parameters)    REFERENCES string_pool(id)
+);
+INSERT INTO interactions VALUES(1,9,3,10);
+INSERT INTO interactions VALUES(2,9,4,10);
+INSERT INTO interactions VALUES(3,9,5,10);
+CREATE INDEX string_index ON string_pool(string);
+CREATE INDEX context_prompt_index ON context(prompt);
+CREATE INDEX context_images_index ON context(images);
+CREATE INDEX context_reply_index ON context(reply);
+CREATE INDEX context_context_index ON context(context);
+CREATE INDEX interactions_system_index ON interactions(system);
+CREATE INDEX interactions_context_index ON interactions(context);
+CREATE INDEX interactions_parameters_index ON interactions(parameters);
+COMMIT;
+""".strip()
