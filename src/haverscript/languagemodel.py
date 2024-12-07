@@ -4,6 +4,7 @@ from concurrent.futures import Future
 import threading
 from collections.abc import Iterable
 from typing import Iterator
+from typing import Callable
 
 
 @dataclass(frozen=True)
@@ -24,8 +25,13 @@ class LanguageModelResponse:
         # has already been processed. If you have a
         # LanguageModelResponse, you can assume that tokens
         # are in flight, and the LLM worked.
-        self._cache = [next(self._packets)]
+        try:
+            self._cache = [next(self._packets)]
+        except StopIteration:
+            self._packets = iter([])
+            self._cache = []
         self._lock = threading.Lock()
+        self.closers = []
 
     def __str__(self):
         return "".join(self.tokens())
@@ -59,6 +65,13 @@ class LanguageModelResponse:
             if isinstance(t, Metrics):
                 return t
         return None
+
+    def after(self, completion: Callable[[], None]) -> None:
+        self.closers.append(completion)
+
+    def close(self):
+        for completion in self.closers:
+            completion()
 
 
 class LanguageModel(ABC):
