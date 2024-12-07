@@ -22,7 +22,6 @@ from haverscript import (
     Response,
     LanguageModelResponse,
     connect,
-    fresh,
     valid_json,
     LLMError,
     Service,

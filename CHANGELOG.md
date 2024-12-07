@@ -36,7 +36,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The idea is tha `validate` can be paired with `retry` to build a custom repeater,
   and replaces the ad-hoc `check` which was doing redo's. Use middleware to build
   a LLM stack that works for you, not fix things afterwards.
-
+- Removed `fresh` function. The concept of fresh responses has been replaced
+  with a more robust caching middleware.
 
 ## [0.1.0] - 2024-09-23
 ### Initial release
