@@ -28,3 +28,7 @@ class LLMResponseError(LLMError):
 
 class LLMResultError(LLMError):
     """Exception raised for errors related to the LLM's output quality."""
+
+
+class LLMInternalError(LLMError):
+    """Exception raised when something was inconsistent internally"""
