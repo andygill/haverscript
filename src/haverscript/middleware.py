@@ -257,9 +257,15 @@ class CacheMiddleware(Middleware):
 
         cache = Cache(self.filename, self.mode)
 
-        parameters = options.copy()
+        parameters = dict(options)
+        fresh = "fresh" in parameters and parameters["fresh"]
+        if fresh:
+            # fresh is about ignoring cache misses, and nothing else.
+            # So we do not record if this cache write was triggered
+            # by a previous cache miss, or a request with fresh.
+            del parameters["fresh"]
 
-        if self.mode in {"r", "a+"}:
+        if self.mode in {"r", "a+"} and not fresh:
 
             cached = cache.lookup_interactions(
                 system, context, prompt, images, parameters, limit=1, blacklist=True
