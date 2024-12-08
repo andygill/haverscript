@@ -5,6 +5,7 @@ import json
 import time
 import re
 import sys
+import os
 from collections.abc import Iterator
 import time
 import threading
@@ -749,3 +750,31 @@ CREATE INDEX interactions_context_index ON interactions(context);
 CREATE INDEX interactions_parameters_index ON interactions(parameters);
 COMMIT;
 """.strip()
+
+
+def test_transcript(sample_model: Model, tmp_path: str):
+    temp_dir = tmp_path / "transcripts"
+
+    transcripts = []
+    model = sample_model.transcript(temp_dir)
+    session = model.chat("Hello")
+    transcripts.append(session.render())
+    session = session.chat("World")
+    transcripts.append(session.render())
+
+    model = model.system("SYSTEM")
+    session = model.chat("Hello")
+    transcripts.append(session.render())
+    session = session.chat("World")
+    transcripts.append(session.render())
+
+    files = os.listdir(temp_dir)
+    files = [f for f in files if os.path.isfile(os.path.join(temp_dir, f))]
+    files.sort()
+
+    assert len(files) == len(transcripts)
+
+    for file, transcript in zip(files, transcripts):
+        with open(os.path.join(temp_dir, file), "r", encoding="utf-8") as f:
+            content = f.read()
+            assert content == transcript

@@ -3,6 +3,8 @@ import threading
 import queue
 import time
 import json
+import os
+from datetime import datetime
 
 from dataclasses import dataclass
 import queue
@@ -15,6 +17,7 @@ from yaspin import yaspin
 from .exceptions import LLMResultError, LLMError
 from .languagemodel import LanguageModel, LanguageModelResponse
 from .cache import Cache
+from .render import *
 
 
 @dataclass(frozen=True)
@@ -308,3 +311,32 @@ class CacheMiddleware(Middleware):
         return cache.lookup_interactions(
             system, context, prompt, [], parameters, limit=None, blacklist=False
         ).values()
+
+
+@dataclass(frozen=True)
+class TranscriptMiddleware(Middleware):
+    dirname: str
+
+    def chat(self, prompt: str, system: str | None, context: tuple, **kwargs):
+        response: LanguageModelResponse = self.next.chat(
+            prompt=prompt, system=system, context=context, **kwargs
+        )
+
+        dirname = self.dirname
+        # Ensure the parent directory exists
+        if not os.path.exists(dirname):
+            os.makedirs(dirname, exist_ok=True)
+
+        transcript = render_system(system)
+
+        for p, _, r in context:
+            transcript = render_interaction(transcript, p, r)
+
+        def write_transcript():
+            transcript_file = datetime.now().strftime("%Y%m%d_%H:%M:%S.%f.md")
+            transcript_ = render_interaction(transcript, prompt, str(response))
+            with open(os.path.join(dirname, transcript_file), "w") as file:
+                file.write(transcript_)
+
+        response.after(write_transcript)
+        return response
