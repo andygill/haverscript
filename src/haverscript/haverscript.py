@@ -15,7 +15,7 @@ from .languagemodel import *
 from .middleware import *
 from .ollama import Ollama
 from .cache import *
-
+from .render import render_system, render_interaction
 
 logger = logging.getLogger(__name__)
 
@@ -77,18 +77,6 @@ class Configuration:
 
     def add_image(self, image):
         return self.copy(images=self.images + (image,))
-
-
-def _canonical_string(string, postfix="\n"):
-    """Adds a newline to a string if needed, for outputting to a file."""
-    if not string:
-        return string
-    if not string.endswith(postfix):
-        overlap_len = next(
-            (i for i in range(1, len(postfix)) if string.endswith(postfix[:i])), 0
-        )
-        string += postfix[overlap_len:]
-    return string
 
 
 @dataclass(frozen=True)
@@ -203,7 +191,7 @@ class Model(ABC):
 
     def render(self) -> str:
         """Return a markdown string of the context."""
-        return _canonical_string(self.configuration.system or "")
+        return render_system(self.configuration.system)
 
     def copy(self, **update):
         return Model(
@@ -225,6 +213,10 @@ class Model(ABC):
 
     def stats(self):
         return self.middleware(lambda next: StatsMiddleware(next))
+
+    def transcript(self, dirname: str):
+        """write a full transcript of every interaction, in a subdirectory."""
+        return self.middleware(lambda next: TranscriptMiddleware(next, dirname))
 
     def outdent(self, outdent: bool = True) -> Self:
         return self.copy(settings=self.settings.copy(outdent=outdent))
@@ -366,19 +358,7 @@ class Response(Model):
 
     def render(self) -> str:
         """Return a markdown string of the context."""
-
-        context = _canonical_string(self.parent.render(), postfix="\n\n")
-
-        if self.prompt:
-            prompt = (
-                "".join([f"> {line}\n" for line in self.prompt.splitlines()]) + "\n"
-            )
-        else:
-            prompt = ">\n\n"
-
-        reply = self.reply or ""
-
-        return context + prompt + _canonical_string(reply.strip())
+        return render_interaction(self.parent.render(), self.prompt, self.reply)
 
     def copy(self, **update):
         return Response(
