@@ -404,12 +404,16 @@ def test_cache(sample_model, tmp_path):
     # Check there was a difference to observe
     assert reply1b.copy(metrics=None) != reply2b.copy(metrics=None)
 
+    # check the fresh flag gives a new value
+    reply2c = model.options(fresh=True).chat(hello)
+    assert reply2.copy(metrics=None) != reply2c.copy(metrics=None)
+
     # now test the read mode
     sys.modules["haverscript.cache"].Cache.connections = {}
     mode = "r"
     model = sample_model.cache(temp_file, mode)
 
-    assert len(model.children()) == 2
+    assert len(model.children()) == 3
     reply1b = model.chat(hello)
 
     scrub = dict(configuration=None, settings=None, parent=None)
