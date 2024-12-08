@@ -111,7 +111,7 @@ class DB:
 
         interactions_args = {
             "system": system.id,
-            #            "parameters": parameters.id,
+            "parameters": parameters.id,
         }
 
         context_args = {
