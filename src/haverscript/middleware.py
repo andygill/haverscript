@@ -5,6 +5,7 @@ import time
 import json
 import os
 from datetime import datetime
+from abc import abstractmethod
 
 from dataclasses import dataclass
 import queue
@@ -18,21 +19,72 @@ from .exceptions import LLMResultError, LLMError
 from .languagemodel import LanguageModel, LanguageModelResponse
 from .cache import Cache
 from .render import *
+from functools import partial
+from abc import ABC
 
 
 @dataclass(frozen=True)
-class Middleware(LanguageModel):
-    """Middleware is a LanguageModel that has next down-the-pipeline LanguageModel."""
+class Middleware(ABC):
+    """Middleware is a bidirectional Prompt and LanguageModelResponse processor.
 
+    Middleware is something you use on a LanguageModel,
+    and a LanguageModel is something you *call*.
+    """
+
+    @abstractmethod
+    def invoke(self, next: LanguageModel, **kwargs) -> LanguageModelResponse:
+        pass
+        return next.chat(**kwargs)
+
+    def first(self) -> Self | None:
+        """get the first Middleware in the pipeline (from the Prompt's point of view)"""
+        return self
+
+    def __or__(self, other: LanguageModel) -> LanguageModel:
+        return AppendMiddleware(self, other)
+
+
+@dataclass(frozen=True)
+class MiddlewareLanguageModel(LanguageModel):
+    """MiddlewareLanguageModel is Middleware with a specific target LanguageModel.
+
+    This combination of is itself a LanguageModel.
+    """
+
+    middleware: Middleware
     next: LanguageModel
+
+    def chat(self, prompt, **kwargs) -> LanguageModelResponse:
+        return self.middleware.invoke(next=self.next, prompt=prompt, **kwargs)
+
+
+@dataclass(frozen=True)
+class AppendMiddleware(Middleware):
+    after: Middleware
+    before: Middleware  # we evaluate from right to left in invoke
+
+    def invoke(self, next: LanguageModel, **kwargs) -> LanguageModelResponse:
+        # The ice is thin here but it holds.
+        return self.before.invoke(MiddlewareLanguageModel(self.after, next), **kwargs)
+
+    def first(self) -> Self:
+        if first := self.before.first():
+            return first
+        return self.after.first()
+
+
+class EmptyMiddleware(Middleware):
+
+    def invoke(self, next: LanguageModel, **kwargs) -> LanguageModelResponse:
+        return next.chat(**kwargs)
 
 
 @dataclass(frozen=True)
 class ModelMiddleware(Middleware):
     model: str
 
-    def chat(self, prompt: str, **kwargs):
-        return self.next.chat(prompt, model=self.model, **kwargs)
+    def invoke(self, next: LanguageModel, prompt: str, **kwargs):
+        return next.chat(prompt, model=self.model, **kwargs)
 
 
 @dataclass(frozen=True)
@@ -45,13 +97,14 @@ class RetryMiddleware(Middleware):
 
     options: dict
 
-    def chat(self, prompt: str, **kwargs):
+    def invoke(self, next: LanguageModel, prompt: str, **kwargs):
         try:
             for attempt in Retrying(**self.options):
                 with attempt:
                     # We turn off streaming, because we want complete results.
-                    return self.next.chat(prompt, streaming=False, **kwargs)
+                    return next.chat(prompt, streaming=False, **kwargs)
         except RetryError as e:
+            print(e)
             raise LLMResultError()
 
 
@@ -61,8 +114,8 @@ class ValidationMiddleware(Middleware):
 
     predicate: Callable[[str], bool]
 
-    def chat(self, prompt: str, **kwargs):
-        response = self.next.chat(prompt, **kwargs)
+    def invoke(self, next: LanguageModel, prompt: str, **kwargs):
+        response = next.chat(prompt, **kwargs)
         # the str forces the full evaluation here
         if not self.predicate(str(response)):
             raise LLMResultError()
@@ -75,9 +128,9 @@ class EchoMiddleware(Middleware):
     prompt: bool = True
     spinner: bool = True
 
-    def chat(self, prompt: str, **kwargs):
+    def invoke(self, next: LanguageModel, prompt: str, **kwargs):
         if prompt is None:
-            return self.next.chat(prompt, **kwargs)
+            return next.chat(prompt, **kwargs)
 
         if self.prompt and prompt:
             print()
@@ -98,14 +151,14 @@ class EchoMiddleware(Middleware):
             spinner_thread.start()
 
             try:
-                response = self.next.chat(prompt, **kwargs)
+                response = next.chat(prompt, **kwargs)
             finally:
                 # stop the spinner
                 event.set()
                 # wait for the spinner thread to stop (and stop printing)
                 spinner_thread.join()
         else:
-            response = self.next.chat(prompt, **kwargs)
+            response = next.chat(prompt, **kwargs)
 
         assert isinstance(response, LanguageModelResponse)
 
@@ -174,7 +227,7 @@ class StatsMiddleware(Middleware):
     width: int = 78
     prompt: bool = True
 
-    def chat(self, prompt: str, **kwargs):
+    def invoke(self, next: LanguageModel, prompt: str, **kwargs):
 
         event = threading.Event()
         channel = queue.Queue()
@@ -221,7 +274,7 @@ class StatsMiddleware(Middleware):
 
             # We turn on streaming to make the echo responsive
             kwargs["stream"] = True
-            response = self.next.chat(prompt, **kwargs)
+            response = next.chat(prompt, **kwargs)
             assert isinstance(response, LanguageModelResponse)
 
             for token in response.tokens():
@@ -245,8 +298,9 @@ class CacheMiddleware(Middleware):
     filename: str
     mode: str  # "r", "a", "a+"
 
-    def chat(
+    def invoke(
         self,
+        next_: LanguageModel,
         prompt: str,
         system: str,
         context: str,
@@ -278,7 +332,7 @@ class CacheMiddleware(Middleware):
                 # just return the (cached) reply
                 return LanguageModelResponse(cached[key][2])
 
-        response = self.next.chat(
+        response = next_.chat(
             prompt=prompt,
             system=system,
             context=context,
@@ -323,8 +377,15 @@ class CacheMiddleware(Middleware):
 class TranscriptMiddleware(Middleware):
     dirname: str
 
-    def chat(self, prompt: str, system: str | None, context: tuple, **kwargs):
-        response: LanguageModelResponse = self.next.chat(
+    def invoke(
+        self,
+        next: LanguageModel,
+        prompt: str,
+        system: str | None,
+        context: tuple,
+        **kwargs,
+    ):
+        response: LanguageModelResponse = next.chat(
             prompt=prompt, system=system, context=context, **kwargs
         )
 
