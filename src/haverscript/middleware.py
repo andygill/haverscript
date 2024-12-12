@@ -108,6 +108,11 @@ class RetryMiddleware(Middleware):
             raise LLMResultError()
 
 
+def retry(**options) -> Self:
+    """retry uses tenacity to wrap the LLM request-response action in retry options."""
+    return RetryMiddleware(options)
+
+
 @dataclass(frozen=True)
 class ValidationMiddleware(Middleware):
     """Validate if a predicate is true for the response."""
@@ -120,6 +125,10 @@ class ValidationMiddleware(Middleware):
         if not self.predicate(str(response)):
             raise LLMResultError()
         return response
+
+
+def validate(predicate: Callable[[str], bool]):
+    return ValidationMiddleware(predicate)
 
 
 @dataclass(frozen=True)
@@ -222,6 +231,15 @@ class EchoMiddleware(Middleware):
         return []
 
 
+def echo(width: int = 78, prompt: bool = True, spinner: bool = True) -> Middleware:
+    """echo prompts and responses to stdout."""
+    assert isinstance(width, int) and not isinstance(width, bool)
+    assert isinstance(prompt, bool)
+    assert isinstance(spinner, bool)
+
+    return EchoMiddleware(width, prompt, spinner)
+
+
 @dataclass(frozen=True)
 class StatsMiddleware(Middleware):
     width: int = 78
@@ -290,6 +308,10 @@ class StatsMiddleware(Middleware):
         spinner_thread.join()
 
         return response
+
+
+def stats() -> Middleware:
+    return StatsMiddleware()
 
 
 @dataclass(frozen=True)
@@ -373,6 +395,11 @@ class CacheMiddleware(Middleware):
         ).values()
 
 
+def cache(filename: str, mode: str | None = "a+") -> Middleware:
+    """Set the cache filename for this model."""
+    return CacheMiddleware(filename, mode)
+
+
 @dataclass(frozen=True)
 class TranscriptMiddleware(Middleware):
     dirname: str
@@ -407,3 +434,8 @@ class TranscriptMiddleware(Middleware):
 
         response.after(write_transcript)
         return response
+
+
+def transcript(dirname: str):
+    """write a full transcript of every interaction, in a subdirectory."""
+    return TranscriptMiddleware(dirname)
