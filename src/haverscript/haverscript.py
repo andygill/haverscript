@@ -30,6 +30,8 @@ class Settings:
 
     service: "Middleware" = None
 
+    middleware: Middleware = field(default_factory=EmptyMiddleware)
+
     def copy(self, **update):
         return Settings(
             **{
@@ -89,7 +91,7 @@ class Service(ABC):
     def model(self, model) -> "Model":
         return Model(
             configuration=Configuration(),
-            settings=Settings(service=ModelMiddleware(self.service, model)),
+            settings=Settings(service=self.service, middleware=ModelMiddleware(model)),
         )
 
 
@@ -131,7 +133,11 @@ class Model(ABC):
 
     def invoke(self, prompt: str | None) -> "Response":
 
-        response = self.settings.service.chat(prompt=prompt, **self._chat_args())
+        middleware: Middleware = self.settings.middleware
+
+        response = middleware.invoke(
+            next=self.settings.service, prompt=prompt, **self._chat_args()
+        )
 
         assert prompt is not None, "Can not build a response with no prompt"
 
@@ -175,14 +181,15 @@ class Model(ABC):
         """Return all already cached replies to this prompt."""
 
         service = self.settings.service
+        first = self.settings.middleware.first()
 
-        if not isinstance(service, CacheMiddleware):
+        if not isinstance(first, CacheMiddleware):
             # only top-level cache can be interrogated.
             raise LLMInternalError(
                 ".children(...) method needs cache to be final middleware"
             )
 
-        replies = service.children(prompt=prompt, **self._chat_args())
+        replies = first.children(prompt=prompt, **self._chat_args())
 
         return [
             self.response(prompt_, prose, fresh=False)
@@ -207,27 +214,25 @@ class Model(ABC):
         assert isinstance(prompt, bool)
         assert isinstance(spinner, bool)
 
-        return self.middleware(
-            lambda next: EchoMiddleware(next, width, prompt, spinner)
-        )
+        return self.middleware(EchoMiddleware(width, prompt, spinner))
 
     def stats(self):
-        return self.middleware(lambda next: StatsMiddleware(next))
+        return self.middleware(StatsMiddleware(next))
 
     def transcript(self, dirname: str):
         """write a full transcript of every interaction, in a subdirectory."""
-        return self.middleware(lambda next: TranscriptMiddleware(next, dirname))
+        return self.middleware(TranscriptMiddleware(dirname))
 
     def outdent(self, outdent: bool = True) -> Self:
         return self.copy(settings=self.settings.copy(outdent=outdent))
 
     def cache(self, filename: str, mode: str | None = "a+"):
         """Set the cache filename for this model."""
-        return self.middleware(lambda next: CacheMiddleware(next, filename, mode))
+        return self.middleware(CacheMiddleware(filename, mode))
 
     def retry(self, **options) -> Self:
         """retry uses tenacity to wrap the LLM request-response action in retry options."""
-        return self.middleware(lambda next: RetryMiddleware(next, options))
+        return self.middleware(RetryMiddleware(options))
 
     def system(self, prompt: str) -> Self:
         """provide a system prompt."""
@@ -238,7 +243,7 @@ class Model(ABC):
         return self.copy(configuration=self.configuration.copy(json=json))
 
     def validate(self, predicate: Callable[[str], bool]):
-        return self.middleware(lambda next: ValidationMiddleware(next, predicate))
+        return self.middleware(ValidationMiddleware(predicate))
 
     def load(self, markdown: str, complete: bool = False) -> Self:
         """Read markdown as system + prompt-reply pairs."""
@@ -322,8 +327,10 @@ class Model(ABC):
         """image must be bytes, path-like object, or file-like object"""
         return self.copy(configuration=self.configuration.add_image(image))
 
-    def middleware(self, f: Callable[["Middleware"], "Middleware"]):
-        return self.copy(settings=self.settings.copy(service=f(self.settings.service)))
+    def middleware(self, after: Middleware):
+        return self.copy(
+            settings=self.settings.copy(middleware=self.settings.middleware | after)
+        )
 
 
 @dataclass(frozen=True)

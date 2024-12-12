@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.2.0] - 2024-XX-YY
 ### Added
+- Adding `Middleware` type for composable prompt and response handlers.
 - Added `middleware(...)` method to `Model`, to support composable
   language models components. We have the following middleware components:
   - `Model.echo()` adds eching of prompts and replies.

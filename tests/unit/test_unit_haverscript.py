@@ -23,6 +23,7 @@ from haverscript import (
     Model,
     Response,
     LanguageModelResponse,
+    LanguageModel,
     connect,
     valid_json,
     LLMError,
@@ -585,15 +586,15 @@ class UpperCase(Middleware):
             if isinstance(token, str):
                 yield token.upper()
 
-    def chat(self, prompt: str, **ksargs):
-        responses = self.next.chat(prompt + " World", **ksargs)
+    def invoke(self, next: LanguageModel, prompt: str, **ksargs):
+        responses = next.chat(prompt + " World", **ksargs)
         return LanguageModelResponse(str(responses).upper())
 
 
 def test_middleware(sample_model: Model):
     reply0 = sample_model.chat("Hello" + " World")
 
-    session = sample_model.middleware(UpperCase)
+    session = sample_model.middleware(UpperCase())
     reply1 = session.chat("Hello")
     reply2 = session.retry(stop=stop_after_attempt(5)).chat("Hello")
 
