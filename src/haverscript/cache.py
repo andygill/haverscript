@@ -2,6 +2,7 @@ import sqlite3
 import json
 from dataclasses import asdict, dataclass, field, fields
 from abc import abstractmethod
+from .languagemodel import LanguageModelExchange
 
 SQL_VERSION = 2
 
@@ -180,6 +181,7 @@ class ReadOnly(DB):
     def text(self, text: str) -> TEXT:
         if text is None:
             return TEXT(None)
+        assert isinstance(text, str), f"text={text}, expecting str"
         # Retrieve the id of the string
         if row := self.conn.execute(
             "SELECT id FROM string_pool WHERE string = ?", (text,)
@@ -324,7 +326,9 @@ class Cache:
         if not context:
             return CONTEXT(None)
 
-        prompt, images, reply = context[-1]
+        top: LanguageModelExchange = context[-1]
+
+        prompt, images, reply = top.prompt, top.images, top.reply
         context = self.context(context[:-1])
         prompt = self.db.text(prompt)
         images = self.db.text(json.dumps(images))
@@ -337,7 +341,9 @@ class Cache:
         assert (
             prompt is not None
         ), f"should not be saving empty prompt, reply = {repr(reply)}"
-        context = context + ((prompt, images, reply),)
+        context = context + (
+            LanguageModelExchange(prompt=prompt, images=images, reply=reply),
+        )
         context = self.context(context)
         system = self.db.text(system)
         parameters = self.db.text(json.dumps(parameters))

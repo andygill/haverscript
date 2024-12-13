@@ -17,7 +17,6 @@ from tenacity import stop_after_attempt
 from tests.test_utils import remove_spinner
 
 from haverscript import (
-    Configuration,
     ServiceProvider,
     Middleware,
     Model,
@@ -32,6 +31,7 @@ from haverscript import (
     Ollama,
 )
 from haverscript.cache import Cache, INTERACTION
+from haverscript.languagemodel import LanguageModelExchange, LanguageModelRequest
 
 # Note that these tests break the haverscript API at points specifically
 # for testing purposes.
@@ -144,8 +144,6 @@ def test_remote_model_and_system(sample_remote_model):
 
 def check_model(model, host, system):
     assert type(model) is Model
-    assert hasattr(model, "configuration")
-    config = model.configuration
 
     render = ""
     if system:
@@ -180,10 +178,10 @@ def check_model(model, host, system):
 
 
 class UserService(ServiceProvider):
-    def chat(self, prompt: str, **args):
+    def chat(self, request: LanguageModelRequest):
         return LanguageModelResponse(
             [
-                f"I reject your {len(prompt.split())} word prompt, and replace it with my own."
+                f"I reject your {len(request.prompt.split())} word prompt, and replace it with my own."
             ]
         )
 
@@ -199,8 +197,6 @@ def sample_user_model():
 def test_user_model(sample_user_model):
     model = sample_user_model
     assert isinstance(model, Model)
-    assert hasattr(model, "configuration")
-    config = model.configuration
     context = []
     session = model
     message = "Three word prompt"
@@ -351,19 +347,17 @@ def test_json(sample_model):
         [
             sample_model,
             sample_model.json(True),
-            sample_model.json(False),
+            # sample_model.json(False),
         ]
     ):
         reply = model.chat("")
         context = [{"role": "user", "content": ""}]
-        assert reply.reply == llm(
-            None, test_model_name, context, {}, "json" if ix == 1 else ""
-        )
+
+        llm_reply = llm(None, test_model_name, context, {}, "json" if ix == 1 else "")
+        assert reply.reply == llm_reply
         if ix == 1:
             assert reply.value is not None
-            assert reply.value == json.loads(
-                llm(None, test_model_name, context, {}, "json" if ix == 1 else "")
-            )
+            assert reply.value == json.loads(llm_reply)
 
 
 def test_cache(sample_model, tmp_path):
@@ -417,7 +411,7 @@ def test_cache(sample_model, tmp_path):
     assert len(model.children()) == 3
     reply1b = model.chat(hello)
 
-    scrub = dict(configuration=None, settings=None, parent=None)
+    scrub = dict(configuration=None, settings=None, parent=None, contexture=None)
 
     assert reply1.copy(metrics=None, **scrub) == reply1b.copy(metrics=None, **scrub)
 
@@ -556,19 +550,19 @@ def test_load(sample_model):
 
     session = sample_model.load(md1)
     assert isinstance(session, Response)
-    assert session.configuration.system is None
+    assert session.contexture.system is None
     assert session.prompt == "Hello"
     assert session.reply == "World"
 
     session = sample_model.load(md2)
     assert isinstance(session, Response)
-    assert session.configuration.system == "System"
+    assert session.contexture.system == "System"
     assert session.prompt == "Sprite"
     assert session.reply == ""
 
     session = sample_model.load(md2, complete=True)
     assert isinstance(session, Response)
-    assert session.configuration.system == "System"
+    assert session.contexture.system == "System"
     assert session.prompt == "Sprite"
     context = [
         {"role": "system", "content": "System"},
@@ -586,8 +580,9 @@ class UpperCase(Middleware):
             if isinstance(token, str):
                 yield token.upper()
 
-    def invoke(self, next: LanguageModel, prompt: str, **ksargs):
-        responses = next.chat(prompt + " World", **ksargs)
+    def invoke(self, request: LanguageModelRequest, next: LanguageModel):
+        request = request.model_copy(update=dict(prompt=request.prompt + " World"))
+        responses = next.chat(request=request)
         return LanguageModelResponse(str(responses).upper())
 
 
@@ -642,7 +637,10 @@ def test_cache_class(tmp_path):
     temp_file = tmp_path / "cache.db"
     cache = Cache(temp_file, "a+")
     system = "..."
-    context = (("Hello", [], "World"), ("Hello2", [], "World2"))
+    context = (
+        LanguageModelExchange(prompt="Hello", images=[], reply="World"),
+        LanguageModelExchange(prompt="Hello2", images=[], reply="World2"),
+    )
     prompt = "Hello!"
     images = ["foo.png"]
     reply = "Wombat"

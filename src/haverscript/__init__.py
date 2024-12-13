@@ -11,7 +11,6 @@ from .exceptions import (
     LLMResultError,
 )
 from .haverscript import (
-    Configuration,
     Model,
     Response,
     ServiceProvider,
@@ -29,7 +28,6 @@ from .middleware import Middleware
 from .together import Together
 
 __all__ = [
-    "Configuration",
     "Middleware",
     "EchoMiddleware",
     "Model",

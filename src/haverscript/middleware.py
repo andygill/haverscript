@@ -6,6 +6,7 @@ import json
 import os
 from datetime import datetime
 from abc import abstractmethod
+import builtins
 
 from dataclasses import dataclass
 import queue
@@ -16,7 +17,7 @@ from tenacity import Retrying, RetryError
 from yaspin import yaspin
 
 from .exceptions import LLMResultError, LLMError
-from .languagemodel import LanguageModel, LanguageModelResponse
+from .languagemodel import LanguageModel, LanguageModelResponse, LanguageModelRequest
 from .cache import Cache
 from .render import *
 from functools import partial
@@ -32,9 +33,10 @@ class Middleware(ABC):
     """
 
     @abstractmethod
-    def invoke(self, next: LanguageModel, **kwargs) -> LanguageModelResponse:
-        pass
-        return next.chat(**kwargs)
+    def invoke(
+        self, request: LanguageModelRequest, next: LanguageModel
+    ) -> LanguageModelResponse:
+        return next.chat(request=request)
 
     def first(self) -> Self | None:
         """get the first Middleware in the pipeline (from the Prompt's point of view)"""
@@ -54,8 +56,8 @@ class MiddlewareLanguageModel(LanguageModel):
     middleware: Middleware
     next: LanguageModel
 
-    def chat(self, prompt, **kwargs) -> LanguageModelResponse:
-        return self.middleware.invoke(next=self.next, prompt=prompt, **kwargs)
+    def chat(self, request: LanguageModelRequest) -> LanguageModelResponse:
+        return self.middleware.invoke(request=request, next=self.next)
 
 
 @dataclass(frozen=True)
@@ -67,6 +69,14 @@ class AppendMiddleware(Middleware):
         # The ice is thin here but it holds.
         return self.before.invoke(MiddlewareLanguageModel(self.after, next), **kwargs)
 
+    def invoke(
+        self, request: LanguageModelRequest, next: LanguageModel
+    ) -> LanguageModelResponse:
+        # The ice is thin here but it holds.
+        return self.before.invoke(
+            request=request, next=MiddlewareLanguageModel(self.after, next)
+        )
+
     def first(self) -> Self:
         if first := self.before.first():
             return first
@@ -75,16 +85,22 @@ class AppendMiddleware(Middleware):
 
 class EmptyMiddleware(Middleware):
 
-    def invoke(self, next: LanguageModel, **kwargs) -> LanguageModelResponse:
-        return next.chat(**kwargs)
+    def invoke(
+        self, request: LanguageModelRequest, next: LanguageModel
+    ) -> LanguageModelResponse:
+        return next.chat(request=request)
 
 
 @dataclass(frozen=True)
 class ModelMiddleware(Middleware):
     model: str
 
-    def invoke(self, next: LanguageModel, prompt: str, **kwargs):
-        return next.chat(prompt, model=self.model, **kwargs)
+    def invoke(
+        self, request: LanguageModelRequest, next: LanguageModel
+    ) -> LanguageModelResponse:
+        contexture = request.contexture.model_copy(update=dict(model=self.model))
+        request = request.model_copy(update=dict(contexture=contexture))
+        return next.chat(request=request)
 
 
 @dataclass(frozen=True)
@@ -97,12 +113,13 @@ class RetryMiddleware(Middleware):
 
     options: dict
 
-    def invoke(self, next: LanguageModel, prompt: str, **kwargs):
+    def invoke(self, request: LanguageModelRequest, next: LanguageModel):
         try:
             for attempt in Retrying(**self.options):
                 with attempt:
                     # We turn off streaming, because we want complete results.
-                    return next.chat(prompt, streaming=False, **kwargs)
+                    request = request.model_copy(update=dict(stream=False))
+                    return next.chat(request=request)
         except RetryError as e:
             print(e)
             raise LLMResultError()
@@ -114,8 +131,8 @@ class ValidationMiddleware(Middleware):
 
     predicate: Callable[[str], bool]
 
-    def invoke(self, next: LanguageModel, prompt: str, **kwargs):
-        response = next.chat(prompt, **kwargs)
+    def invoke(self, request: LanguageModelRequest, next: LanguageModel):
+        response = next.chat(request=request)
         # the str forces the full evaluation here
         if not self.predicate(str(response)):
             raise LLMResultError()
@@ -128,9 +145,12 @@ class EchoMiddleware(Middleware):
     prompt: bool = True
     spinner: bool = True
 
-    def invoke(self, next: LanguageModel, prompt: str, **kwargs):
+    def invoke(self, request: LanguageModelRequest, next: LanguageModel):
+
+        prompt = request.prompt
+
         if prompt is None:
-            return next.chat(prompt, **kwargs)
+            return next.chat(request=request)
 
         if self.prompt and prompt:
             print()
@@ -138,7 +158,7 @@ class EchoMiddleware(Middleware):
             print()
 
         # We turn on streaming to make the echo responsive
-        kwargs["stream"] = True
+        request = request.model_copy(update=dict(stream=True))
 
         if self.spinner:
             event = threading.Event()
@@ -151,14 +171,14 @@ class EchoMiddleware(Middleware):
             spinner_thread.start()
 
             try:
-                response = next.chat(prompt, **kwargs)
+                response = next.chat(request=request)
             finally:
                 # stop the spinner
                 event.set()
                 # wait for the spinner thread to stop (and stop printing)
                 spinner_thread.join()
         else:
-            response = next.chat(prompt, **kwargs)
+            response = next.chat(request=request)
 
         assert isinstance(response, LanguageModelResponse)
 
@@ -227,9 +247,11 @@ class StatsMiddleware(Middleware):
     width: int = 78
     prompt: bool = True
 
-    def invoke(self, next: LanguageModel, prompt: str, **kwargs):
+    def invoke(
+        self, request: LanguageModelRequest, next: LanguageModel
+    ) -> LanguageModelResponse:
 
-        event = threading.Event()
+        prompt = request.prompt
         channel = queue.Queue()
 
         start_time = time.time()
@@ -273,8 +295,8 @@ class StatsMiddleware(Middleware):
             spinner_thread.start()
 
             # We turn on streaming to make the echo responsive
-            kwargs["stream"] = True
-            response = next.chat(prompt, **kwargs)
+            request = request.model_copy(update=dict(stream=True))
+            response = next.chat(request=request)
             assert isinstance(response, LanguageModelResponse)
 
             for token in response.tokens():
@@ -298,20 +320,12 @@ class CacheMiddleware(Middleware):
     filename: str
     mode: str  # "r", "a", "a+"
 
-    def invoke(
-        self,
-        next_: LanguageModel,
-        prompt: str,
-        system: str,
-        context: str,
-        images: list,
-        options: dict,
-        **kwargs,
-    ):
+    def invoke(self, request: LanguageModelRequest, next: LanguageModel):
 
         cache = Cache(self.filename, self.mode)
 
-        parameters = dict(options)
+        parameters = dict(request.contexture.options)
+        # TODO: make this LanguageModelRequest parameter
         fresh = "fresh" in parameters and parameters["fresh"]
         if fresh:
             # fresh is about ignoring cache misses, and nothing else.
@@ -322,47 +336,49 @@ class CacheMiddleware(Middleware):
         if self.mode in {"r", "a+"} and not fresh:
 
             cached = cache.lookup_interactions(
-                system, context, prompt, images, parameters, limit=1, blacklist=True
+                request.contexture.system,
+                request.contexture.context,
+                request.prompt,
+                request.contexture.images,
+                parameters,
+                limit=1,
+                blacklist=True,
             )
 
             if cached:
-                key = next(iter(cached.keys()))
+                key = builtins.next(iter(cached.keys()))
                 if self.mode == "a+":
                     cache.blacklist(key)
                 # just return the (cached) reply
                 return LanguageModelResponse(cached[key][2])
 
-        response = next_.chat(
-            prompt=prompt,
-            system=system,
-            context=context,
-            images=images,
-            options=options,
-            **kwargs,
-        )
+        response = next.chat(request=request)
         if self.mode == "r":
             return response
 
         def save_response():
             cache.insert_interaction(
-                system, context, prompt, images, str(response), parameters
+                request.contexture.system,
+                request.contexture.context,
+                request.prompt,
+                request.contexture.images,
+                str(response),
+                parameters,
             )
 
         response.after(save_response)
 
         return response
 
-    def children(
-        self,
-        prompt: str,
-        system: str,
-        context: str,
-        images: list,
-        options: dict,
-        **kwargs,
-    ):
+    def children(self, request: LanguageModelRequest):
         if self.mode == "a":
             return []
+
+        prompt = request.prompt
+        system = request.contexture.system
+        context = request.contexture.context
+        images = request.contexture.images
+        options = request.contexture.options
 
         cache = Cache(self.filename, self.mode)
 
@@ -378,30 +394,24 @@ class TranscriptMiddleware(Middleware):
     dirname: str
 
     def invoke(
-        self,
-        next: LanguageModel,
-        prompt: str,
-        system: str | None,
-        context: tuple,
-        **kwargs,
-    ):
-        response: LanguageModelResponse = next.chat(
-            prompt=prompt, system=system, context=context, **kwargs
-        )
+        self, request: LanguageModelRequest, next: LanguageModel
+    ) -> LanguageModelResponse:
+
+        response: LanguageModelResponse = next.chat(request=request)
 
         dirname = self.dirname
         # Ensure the parent directory exists
         if not os.path.exists(dirname):
             os.makedirs(dirname, exist_ok=True)
 
-        transcript = render_system(system)
+        transcript = render_system(request.contexture.system)
 
-        for p, _, r in context:
-            transcript = render_interaction(transcript, p, r)
+        for exchange in request.contexture.context:
+            transcript = render_interaction(transcript, exchange.prompt, exchange.reply)
 
         def write_transcript():
             transcript_file = datetime.now().strftime("%Y%m%d_%H:%M:%S.%f.md")
-            transcript_ = render_interaction(transcript, prompt, str(response))
+            transcript_ = render_interaction(transcript, request.prompt, str(response))
             with open(os.path.join(dirname, transcript_file), "w") as file:
                 file.write(transcript_)
 

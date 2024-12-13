@@ -63,7 +63,7 @@ class LanguageModelRequest(BaseModel):
     """Foreground parts of a request"""
 
     contexture: LanguageModelContexture
-    prompt: str
+    prompt: str | None
     stream: bool
 
     model_config = ConfigDict(frozen=True)
@@ -135,15 +135,8 @@ class LanguageModel(ABC):
     """Base class for anything that chats, that is takes a configuration and prompt and returns token(s)."""
 
     @abstractmethod
-    def chat(self, prompt: str, *kwargs) -> LanguageModelResponse:
-        """Call the chat method of an LLM.
-
-        prompt is the main text
-        ksargs contains a dictionary of configuration options
-
-        returns a LanguageModelResponse.
-        """
-        pass
+    def chat(self, request: LanguageModelRequest) -> LanguageModelResponse:
+        """Call the chat method of an LLM."""
 
 
 class ServiceProvider(LanguageModel):
