@@ -29,6 +29,7 @@ from haverscript import (
     stats,
     retry,
     validate,
+    fresh,
     LLMError,
     Service,
     LLMResultError,
@@ -393,8 +394,10 @@ def test_cache(sample_model, tmp_path):
     assert reply1b.copy(metrics=None) != reply2b.copy(metrics=None)
 
     # check the fresh flag gives a new value
-    reply2c = model.options(fresh=True).chat(hello)
+    assert len(model.children()) == 2
+    reply2c = model.chat(hello, middleware=fresh())
     assert reply2.copy(metrics=None) != reply2c.copy(metrics=None)
+    assert len(model.children()) == 3
 
     # now test the read mode
     sys.modules["haverscript.cache"].Cache.connections = {}

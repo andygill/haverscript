@@ -63,6 +63,7 @@ class LanguageModelRequest(BaseModel):
     prompt: str | None
 
     stream: bool = False
+    fresh: bool = False
 
     images: tuple[str, ...] = ()
     format: str | dict = ""  # str is "json" or "", dict is a JSON schema

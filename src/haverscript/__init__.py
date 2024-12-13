@@ -24,7 +24,16 @@ from .haverscript import (
     valid_json,
 )
 from .languagemodel import LanguageModelResponse, LanguageModel, ServiceProvider
-from .middleware import Middleware, echo, stats, transcript, retry, validate, cache
+from .middleware import (
+    Middleware,
+    echo,
+    stats,
+    transcript,
+    retry,
+    validate,
+    cache,
+    fresh,
+)
 from .together import Together
 
 __all__ = [
@@ -42,6 +51,7 @@ __all__ = [
     "retry",
     "validate",
     "transcript",
+    "fresh",
     "cache",
     "LanguageModel",
     "LanguageModelResponse",

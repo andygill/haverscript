@@ -346,14 +346,8 @@ class CacheMiddleware(Middleware):
 
         parameters = dict(request.contexture.options)
         # TODO: make this LanguageModelRequest parameter
-        fresh = "fresh" in parameters and parameters["fresh"]
-        if fresh:
-            # fresh is about ignoring cache misses, and nothing else.
-            # So we do not record if this cache write was triggered
-            # by a previous cache miss, or a request with fresh.
-            del parameters["fresh"]
 
-        if self.mode in {"r", "a+"} and not fresh:
+        if self.mode in {"r", "a+"} and not request.fresh:
 
             cached = cache.lookup_interactions(
                 request.contexture.system,
@@ -447,3 +441,18 @@ class TranscriptMiddleware(Middleware):
 def transcript(dirname: str):
     """write a full transcript of every interaction, in a subdirectory."""
     return TranscriptMiddleware(dirname)
+
+
+@dataclass(frozen=True)
+class FreshMiddleware(Middleware):
+
+    def invoke(
+        self, request: LanguageModelRequest, next: LanguageModel
+    ) -> LanguageModelResponse:
+        request = request.model_copy(update=dict(fresh=True))
+        return next.chat(request=request)
+
+
+def fresh():
+    """require any cached reply be ignored, and a fresh reply be generated."""
+    return FreshMiddleware()
