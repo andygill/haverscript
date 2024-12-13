@@ -42,46 +42,6 @@ class Settings:
 
 
 @dataclass(frozen=True)
-class Configuration:
-    """Full Context and other arguments for the LLM. Needs to be serializable."""
-
-    options: frozendict = field(default_factory=frozendict)
-    json: bool = False
-    system: Optional[str] = None
-    context: Tuple[  # list (using a tuple) of prompt+images response triples
-        Tuple[str, Tuple[str, ...], str], ...
-    ] = ()
-    images: Tuple[str, ...] = ()  # tuple of images
-
-    def copy(self, **update):
-        return Configuration(
-            **{
-                f.name: update[f.name] if f.name in update else getattr(self, f.name)
-                for f in fields(self)
-            }
-        )
-
-    def add_context(self, prompt: str, response: str):
-        return self.copy(
-            context=self.context + ((prompt, self.images, response),), images=()
-        )
-
-    def add_options(self, **options):
-        return self.copy(
-            options=frozendict(
-                {
-                    key: value
-                    for key, value in {**self.options, **options}.items()
-                    if value is not None
-                }
-            )
-        )
-
-    def add_image(self, image):
-        return self.copy(images=self.images + (image,))
-
-
-@dataclass(frozen=True)
 class Service(ABC):
     service: "ServiceProvider"
 
@@ -90,16 +50,18 @@ class Service(ABC):
 
     def model(self, model) -> "Model":
         return Model(
-            configuration=Configuration(),
+            #            configuration=Configuration(),
             settings=Settings(service=self.service, middleware=ModelMiddleware(model)),
+            contexture=LanguageModelContexture(model=model),
         )
 
 
 @dataclass(frozen=True)
 class Model(ABC):
 
-    configuration: Configuration
+    #    configuration: Configuration
     settings: Settings
+    contexture: LanguageModelContexture
 
     def chat(
         self,
@@ -124,11 +86,16 @@ class Model(ABC):
 
     def _chat_args(self):
         return dict(
-            options=self.configuration.options,
-            json=self.configuration.json,
-            system=self.configuration.system,
-            context=self.configuration.context,
-            images=self.configuration.images,
+            options=self.contexture.options.copy(),
+            json=self.contexture.format,
+            system=self.contexture.system,
+            context=self.contexture.context,
+            images=self.contexture.images,
+        )
+
+    def request(self, prompt: str | None) -> LanguageModelRequest:
+        return LanguageModelRequest(
+            contexture=self.contexture, prompt=prompt, stream=False
         )
 
     def invoke(self, prompt: str | None) -> "Response":
@@ -136,7 +103,7 @@ class Model(ABC):
         middleware: Middleware = self.settings.middleware
 
         response = middleware.invoke(
-            next=self.settings.service, prompt=prompt, **self._chat_args()
+            request=self.request(prompt), next=self.settings.service
         )
 
         assert prompt is not None, "Can not build a response with no prompt"
@@ -169,8 +136,12 @@ class Model(ABC):
         assert isinstance(fresh, bool)
         assert isinstance(metrics, (Metrics, type(None)))
         return Response(
-            configuration=self.configuration.add_context(prompt, reply),
             settings=self.settings,
+            contexture=self.contexture.append_exchange(
+                LanguageModelExchange(
+                    prompt=prompt, images=self.contexture.images, reply=reply
+                )
+            ),
             parent=self,
             fresh=fresh,
             metrics=metrics,
@@ -189,7 +160,7 @@ class Model(ABC):
                 ".children(...) method needs cache to be final middleware"
             )
 
-        replies = first.children(prompt=prompt, **self._chat_args())
+        replies = first.children(self.request(prompt))
 
         return [
             self.response(prompt_, prose, fresh=False)
@@ -198,7 +169,7 @@ class Model(ABC):
 
     def render(self) -> str:
         """Return a markdown string of the context."""
-        return render_system(self.configuration.system)
+        return render_system(self.contexture.system)
 
     def copy(self, **update):
         return Model(
@@ -234,13 +205,19 @@ class Model(ABC):
         """retry uses tenacity to wrap the LLM request-response action in retry options."""
         return self.middleware(RetryMiddleware(options))
 
-    def system(self, prompt: str) -> Self:
+    def system(self, system: str) -> Self:
         """provide a system prompt."""
-        return self.copy(configuration=self.configuration.copy(system=prompt))
+        return self.copy(
+            contexture=self.contexture.model_copy(update=dict(system=system))
+        )
 
     def json(self, json: bool = True):
         """request a json result."""
-        return self.copy(configuration=self.configuration.copy(json=json))
+        assert isinstance(json, bool)
+        format = "json" if json else ""
+        return self.copy(
+            contexture=self.contexture.model_copy(update=dict(format=format))
+        )
 
     def validate(self, predicate: Callable[[str], bool]):
         return self.middleware(ValidationMiddleware(predicate))
@@ -321,11 +298,11 @@ class Model(ABC):
         penalize_newline: bool
         stop: Sequence[str]
         """
-        return self.copy(configuration=self.configuration.add_options(**kwargs))
+        return self.copy(contexture=self.contexture.add_options(**kwargs))
 
     def image(self, image: AnyStr):
         """image must be bytes, path-like object, or file-like object"""
-        return self.copy(configuration=self.configuration.add_image(image))
+        return self.copy(contexture=self.contexture.append_image(image))
 
     def middleware(self, after: Middleware):
         return self.copy(
@@ -344,24 +321,21 @@ class Response(Model):
 
     @property
     def prompt(self) -> str:
-        assert len(self.configuration.context) > 0
-        return self.configuration.context[-1][0]
+        assert len(self.contexture.context) > 0
+        return self.contexture.context[-1].prompt
 
     @property
     def reply(self) -> str:
-        assert len(self.configuration.context) > 0
-        return self.configuration.context[-1][2]
+        assert len(self.contexture.context) > 0
+        return self.contexture.context[-1].reply
 
     @property
     def value(self) -> str:
         """return a value of the reply in its requested format"""
-        if self.configuration.json:
-            try:
-                return json.loads(self.reply)
-            except json.JSONDecodeError as e:
-                return None
-
-        return self.reply
+        try:
+            return json.loads(self.reply)
+        except json.JSONDecodeError as e:
+            return None
 
     def render(self) -> str:
         """Return a markdown string of the context."""
@@ -390,10 +364,10 @@ class Response(Model):
         If the Response used a seed, the seed is incremented.
         """
         model = self.parent
-        if "seed" in model.configuration.options:
+        if "seed" in model.contexture.options:
             # if we have set a seed, do not redo with the same seed,
             # because you would get the same result (even if cached).
-            model = model.options(seed=model.configuration.options["seed"] + 1)
+            model = model.options(seed=model.contexture.options["seed"] + 1)
         return model.invoke(self.prompt)
 
 

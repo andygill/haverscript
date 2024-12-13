@@ -6,20 +6,12 @@ from typing import AnyStr, Callable, Optional, Self, Tuple, NoReturn, Generator
 
 import ollama
 
-from .languagemodel import Metrics, ServiceProvider, LanguageModelResponse
-
-
-@dataclass(frozen=True)
-class Configuration:
-    """This will be factored out soon"""
-
-    options: frozendict = field(default_factory=frozendict)
-    json: bool = False
-    system: Optional[str] = None
-    context: Tuple[  # list (using a tuple) of prompt+images response triples
-        Tuple[str, Tuple[str, ...], str], ...
-    ] = ()
-    images: Tuple[str, ...] = ()  # tuple of images
+from .languagemodel import (
+    Metrics,
+    ServiceProvider,
+    LanguageModelResponse,
+    LanguageModelRequest,
+)
 
 
 @dataclass(frozen=True)
@@ -73,15 +65,17 @@ class Ollama(ServiceProvider):
                 **{k: response[k] for k in OllamaMetrics.__dataclass_fields__.keys()}
             )
 
-    def chat(self, prompt: str, model: str, **kwargs):
+    def chat(self, request: LanguageModelRequest):
 
-        configuration = Configuration(
-            options=kwargs["options"],
-            json=kwargs["json"],
-            system=kwargs["system"],
-            context=kwargs["context"],
-            images=kwargs["images"],
-        )
+        prompt = request.prompt
+        model = request.contexture.model
+
+        kwargs = {}
+        kwargs["options"] = request.contexture.options
+        kwargs["system"] = request.contexture.system
+        kwargs["context"] = request.contexture.context
+        kwargs["images"] = request.contexture.images
+        kwargs["stream"] = request.stream
 
         messages = []
 
@@ -89,10 +83,11 @@ class Ollama(ServiceProvider):
 
         options = copy.deepcopy(kwargs["options"]) if "options" in kwargs else {}
 
-        if "system" in kwargs and kwargs["system"]:
-            messages.append({"role": "system", "content": configuration.system})
+        if request.contexture.system:
+            messages.append({"role": "system", "content": request.contexture.system})
 
-        for pmt, imgs, resp in configuration.context:
+        for exchange in request.contexture.context:
+            pmt, imgs, resp = exchange.prompt, exchange.images, exchange.reply
             messages.append(
                 {"role": "user", "content": pmt}
                 | ({"images": list(imgs)} if imgs else {})
@@ -101,7 +96,11 @@ class Ollama(ServiceProvider):
 
         messages.append(
             {"role": "user", "content": prompt}
-            | ({"images": list(configuration.images)} if configuration.images else {})
+            | (
+                {"images": list(request.contexture.images)}
+                if request.contexture.images
+                else {}
+            )
         )
 
         try:
@@ -110,7 +109,7 @@ class Ollama(ServiceProvider):
                 stream=stream,
                 messages=messages,
                 options=options,
-                format="json" if configuration.json else "",
+                format=request.contexture.format,
             )
 
             return LanguageModelResponse(self.generator(response))

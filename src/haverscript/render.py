@@ -15,6 +15,12 @@ def render_system(system) -> str:
 
 
 def render_interaction(context: str, prompt: str, reply: str) -> str:
+    assert isinstance(context, str)
+    assert isinstance(
+        prompt, str
+    ), f"expecting prompt:str, found {type(prompt)}, {prompt}"
+    assert isinstance(reply, str)
+
     context = _canonical_string(context, postfix="\n\n")
 
     if prompt:

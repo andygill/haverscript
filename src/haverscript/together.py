@@ -5,8 +5,8 @@ from dataclasses import dataclass
 
 import requests
 
-from .haverscript import Configuration, Metrics
-from .languagemodel import ServiceProvider, LanguageModelResponse
+from .haverscript import Metrics
+from .languagemodel import ServiceProvider, LanguageModelResponse, LanguageModelRequest
 from .exceptions import LLMRateLimitError
 
 
@@ -79,23 +79,23 @@ class Together(ServiceProvider):
                 if json_data is not None:
                     yield json_data["choices"][0]["text"]
 
-    def chat(self, prompt: str, model: str, **kwargs):
+    def chat(self, request: LanguageModelRequest):
         messages = []
 
-        configuration = Configuration(
-            options=kwargs["options"],
-            json=kwargs["json"],
-            system=kwargs["system"],
-            context=kwargs["context"],
-            images=kwargs["images"],
-        )
+        prompt = request.prompt
+        model = request.contexture.model
 
-        stream = "stream" in kwargs and kwargs["stream"]
+        kwargs = {}
+        kwargs["options"] = request.contexture.options
+        kwargs["context"] = request.contexture.context
+        kwargs["images"] = request.contexture.images
+        kwargs["stream"] = request.stream
 
-        if configuration.system:
-            messages.append({"role": "system", "content": configuration.system})
+        if request.contexture.system:
+            messages.append({"role": "system", "content": request.contexture.system})
 
-        for pmt, imgs, resp in configuration.context:
+        for exchange in request.contexture.context:
+            pmt, imgs, resp = exchange.prompt, exchange.images, exchange.reply
             assert imgs == (), f"imgs={imgs}"
             messages.append({"role": "user", "content": pmt})
             messages.append({"role": "assistant", "content": resp})
@@ -113,12 +113,14 @@ class Together(ServiceProvider):
         payload = {
             "model": model,
             "messages": messages,
-            "stream": stream,
-        } | configuration.options
+            "stream": request.stream,
+        } | request.contexture.options.copy()
 
-        response = requests.post(url, json=payload, headers=headers, stream=stream)
+        response = requests.post(
+            url, json=payload, headers=headers, stream=request.stream
+        )
 
-        if stream:
+        if request.stream:
             return LanguageModelResponse(self._streaming(response))
         else:
             reply = response.json()
