@@ -25,6 +25,10 @@ from haverscript import (
     LanguageModel,
     connect,
     valid_json,
+    transcript,
+    stats,
+    retry,
+    validate,
     LLMError,
     Service,
     LLMResultError,
@@ -32,6 +36,7 @@ from haverscript import (
 )
 from haverscript.cache import Cache, INTERACTION
 from haverscript.languagemodel import LanguageModelExchange, LanguageModelRequest
+
 
 # Note that these tests break the haverscript API at points specifically
 # for testing purposes.
@@ -439,22 +444,23 @@ def test_cache(sample_model, tmp_path):
 def test_check(sample_model):
     # simple check
     assert repr(
-        sample_model.validate(lambda reply: "Squirrel" in reply).chat("Squirrel")
+        sample_model.middleware(validate(lambda reply: "Squirrel" in reply)).chat(
+            "Squirrel"
+        )
     ).startswith("Response")
 
     # failing check
     with pytest.raises(LLMResultError):
-        sample_model.validate(lambda reply: "Squirrel" not in reply).chat(
-            "Squirrel"
-        ).retry(stop=stop_after_attempt(5))
+        sample_model.middleware(
+            validate(lambda reply: "Squirrel" not in reply)
+            | retry(stop=stop_after_attempt(5))
+        ).chat("Squirrel")
 
     # chaining checks
-    sample_model.validate(
-        lambda reply: "Squirrel" in reply
-    ).validate(  # add on check for Haggis
-        lambda reply: "Haggis" in reply
-    ).validate(
-        valid_json
+    sample_model.middleware(
+        validate(lambda reply: "Squirrel" in reply)
+        | validate(lambda reply: "Haggis" in reply)  # add on check for Haggis
+        | validate(valid_json)
     ).chat(  # check output is valid JSON (the test stub used JSON for output)
         "Squirrel Haggis"
     )
@@ -495,34 +501,37 @@ def test_retry(sample_model):
         sample_model.chat("FAIL(0)")
 
     extra = sample_model.json().chat("###").value["extra"]
-    sample_model.retry(stop=stop_after_attempt(5)).chat(f"FAIL({extra+4})")
+    sample_model.middleware(retry(stop=stop_after_attempt(5))).chat(f"FAIL({extra+4})")
 
 
-def test_validate(sample_model):
+def test_validate(sample_model: Model):
     with pytest.raises(LLMError):
-        sample_model.validate(lambda txt: "$$$" in txt).chat("...")
+        sample_model.middleware(validate(lambda txt: "$$$" in txt)).chat("...")
 
-    sample_model.validate(lambda txt: "$$$" in txt).chat("$$$")
+    sample_model.middleware(validate(lambda txt: "$$$" in txt)).chat("$$$")
 
     extra = sample_model.json().chat("###").value["extra"]
 
     with pytest.raises(LLMError):
-        sample_model.validate(lambda txt: f'"extra": {extra + 10}' in txt).retry(
-            stop=stop_after_attempt(5)
+        sample_model.middleware(
+            validate(lambda txt: f'"extra": {extra + 10}' in txt)
+            | (retry(stop=stop_after_attempt(5)))
         ).chat("###")
 
     extra = sample_model.json().chat("###").value["extra"]
 
-    sample_model.validate(lambda txt: f'"extra": {extra + 3}' in txt).retry(
-        stop=stop_after_attempt(5)
+    sample_model.middleware(
+        validate(lambda txt: f'"extra": {extra + 3}' in txt)
+        | (retry(stop=stop_after_attempt(5)))
     ).chat("###")
 
     extra = sample_model.json().chat("###").value["extra"]
 
     with pytest.raises(LLMError):
         # wrong order; retry is bellow validate.
-        sample_model.retry(stop=stop_after_attempt(5)).validate(
-            lambda txt: f'"extra": {extra + 3}' in txt
+        sample_model.middleware(
+            retry(stop=stop_after_attempt(5))
+            | validate(lambda txt: f'"extra": {extra + 3}' in txt)
         ).chat("###")
 
 
@@ -591,7 +600,7 @@ def test_middleware(sample_model: Model):
 
     session = sample_model.middleware(UpperCase())
     reply1 = session.chat("Hello")
-    reply2 = session.retry(stop=stop_after_attempt(5)).chat("Hello")
+    reply2 = session.middleware(retry(stop=stop_after_attempt(5))).chat("Hello")
 
     assert reply0.reply.upper() == reply1.reply
     assert reply0.reply.upper() == reply2.reply
@@ -759,7 +768,8 @@ def test_transcript(sample_model: Model, tmp_path: str):
     temp_dir = tmp_path / "transcripts"
 
     transcripts = []
-    model = sample_model.transcript(temp_dir)
+
+    model = sample_model.middleware(transcript(temp_dir))
     session = model.chat("Hello")
     transcripts.append(session.render())
     session = session.chat("World")
@@ -777,7 +787,17 @@ def test_transcript(sample_model: Model, tmp_path: str):
 
     assert len(files) == len(transcripts)
 
-    for file, transcript in zip(files, transcripts):
+    for file, transcript_content in zip(files, transcripts):
         with open(os.path.join(temp_dir, file), "r", encoding="utf-8") as f:
             content = f.read()
-            assert content == transcript
+            assert content == transcript_content
+
+
+def test_stats(sample_model, capfd):
+    capfd.readouterr()
+
+    resp = sample_model.middleware(stats()).chat("Hello")
+    assert re.search(
+        r"^- prompt : 5b, reply : 133t, first token : 0.\d+s, tokens/s : \d+$",
+        remove_spinner(capfd.readouterr().out),
+    )

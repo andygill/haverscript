@@ -10,11 +10,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Adding `Middleware` type for composable prompt and response handlers.
 - Added `middleware(...)` method to `Model`, to support composable
   language models components. We have the following middleware components:
-  - `Model.echo()` adds eching of prompts and replies.
-  - `Model.retry()` which uses the tenacity package to provide a generic retry.
-  - `Model.validate()` which checks the response for a predicate.
-  - `Model.stats()` adds a dynamic single line summary of each LLM call.
-  - `Model.cache()` add a caching component.
+
+  - `echo()` adds eching of prompts and replies.
+  - `retry()` which uses the tenacity package to provide a generic retry.
+  - `validate()` which checks the response for a predicate.
+  - `stats()` adds a dynamic single line summary of each LLM call.
+  - `cache()` add a caching component.
+  - `transcript()` adds a transcript component (transcripts the session to a file).
+
+- We also have convenence methods that automatically append to the middleware
+  in `Model`: `Model.echo()`, `Model.retry()`, ...
+
 - Added `Service` class, that can be asked about models, and can generate `Model`s.
 - Added `image(...)` method to `Model`, for multi-modal models.
 - Added `response.value`, which return the JSON `dict` of the reply, or `None`.

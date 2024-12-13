@@ -179,31 +179,33 @@ class Model(ABC):
             }
         )
 
+    # middleware methods
+
     def echo(self, width: int = 78, prompt: bool = True, spinner: bool = True) -> Self:
         """echo prompts and responses to stdout."""
-        assert isinstance(width, int) and not isinstance(width, bool)
-        assert isinstance(prompt, bool)
-        assert isinstance(spinner, bool)
+        return self.middleware(echo(width, prompt, spinner))
 
-        return self.middleware(EchoMiddleware(width, prompt, spinner))
+    def cache(self, filename: str, mode: str | None = "a+") -> Self:
+        """Set the cache filename for this model."""
+        return self.middleware(cache(filename, mode))
+
+    def retry(self, **options) -> Self:
+        """Set the cache filename for this model."""
+        return self.middleware(retry(**options))
 
     def stats(self):
-        return self.middleware(StatsMiddleware(next))
+        return self.middleware(stats())
 
     def transcript(self, dirname: str):
-        """write a full transcript of every interaction, in a subdirectory."""
-        return self.middleware(TranscriptMiddleware(dirname))
+        return self.middleware(transcript(dirname))
+
+    def validate(self, predicate: Callable[[str], bool]):
+        return self.middleware(validate(predicate))
+
+    # Content methods
 
     def outdent(self, outdent: bool = True) -> Self:
         return self.copy(settings=self.settings.copy(outdent=outdent))
-
-    def cache(self, filename: str, mode: str | None = "a+"):
-        """Set the cache filename for this model."""
-        return self.middleware(CacheMiddleware(filename, mode))
-
-    def retry(self, **options) -> Self:
-        """retry uses tenacity to wrap the LLM request-response action in retry options."""
-        return self.middleware(RetryMiddleware(options))
 
     def system(self, system: str) -> Self:
         """provide a system prompt."""
@@ -218,9 +220,6 @@ class Model(ABC):
         return self.copy(
             contexture=self.contexture.model_copy(update=dict(format=format))
         )
-
-    def validate(self, predicate: Callable[[str], bool]):
-        return self.middleware(ValidationMiddleware(predicate))
 
     def load(self, markdown: str, complete: bool = False) -> Self:
         """Read markdown as system + prompt-reply pairs."""
