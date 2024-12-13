@@ -5,11 +5,68 @@ import threading
 from collections.abc import Iterable
 from typing import Iterator
 from typing import Callable
+from pydantic import BaseModel, ConfigDict, Field
+from frozendict import frozendict
 
 
 @dataclass(frozen=True)
 class Metrics(ABC):
     pass
+
+
+class LanguageModelExchange(BaseModel):
+    prompt: str
+    images: tuple[str, ...] | None
+    reply: str
+
+    model_config = ConfigDict(frozen=True)
+
+
+class LanguageModelContexture(BaseModel):
+    """Background parts of a request"""
+
+    context: tuple[LanguageModelExchange, ...] = ()
+    system: str | None = None
+    options: dict = Field(default_factory=dict)
+    model: str
+
+    # TODO: to move both of these into LanguageModelRequest
+    images: tuple[str, ...] = ()
+    format: str | dict = ""  # str is "json" or "", dict is a JSON schema
+
+    model_config = ConfigDict(frozen=True)
+
+    def append_exchange(self, exchange: LanguageModelExchange):
+        return self.model_copy(
+            update={"context": self.context + (exchange,), "images": ()}
+        )
+
+    def append_image(self, image: str):
+        return self.model_copy(update={"images": self.images + (image,)})
+
+    def add_options(self, **options):
+        # using this pattern exclude None value in dict
+        return self.model_copy(
+            update=dict(
+                options=dict(
+                    {
+                        key: value
+                        for key, value in {**self.options, **options}.items()
+                        if value is not None
+                    }
+                )
+            )
+        )
+
+
+class LanguageModelRequest(BaseModel):
+    """Foreground parts of a request"""
+
+    contexture: LanguageModelContexture
+    prompt: str
+    stream: bool
+
+    model_config = ConfigDict(frozen=True)
 
 
 class LanguageModelResponse:

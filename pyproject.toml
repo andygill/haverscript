@@ -14,6 +14,7 @@ dependencies = [
     "requests>=2.32.0",
     "tenacity>=9.0.0",
     "yaspin>=3.0.0",
+    "pydantic>=2.9.0",
 ]
 
 [build-system]
