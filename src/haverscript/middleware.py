@@ -70,10 +70,6 @@ class AppendMiddleware(Middleware):
     after: Middleware
     before: Middleware  # we evaluate from right to left in invoke
 
-    def invoke(self, next: LanguageModel, **kwargs) -> LanguageModelResponse:
-        # The ice is thin here but it holds.
-        return self.before.invoke(MiddlewareLanguageModel(self.after, next), **kwargs)
-
     def invoke(
         self, request: LanguageModelRequest, next: LanguageModel
     ) -> LanguageModelResponse:
@@ -88,23 +84,12 @@ class AppendMiddleware(Middleware):
         return self.after.first()
 
 
+@dataclass(frozen=True)
 class EmptyMiddleware(Middleware):
 
     def invoke(
         self, request: LanguageModelRequest, next: LanguageModel
     ) -> LanguageModelResponse:
-        return next.chat(request=request)
-
-
-@dataclass(frozen=True)
-class ModelMiddleware(Middleware):
-    model: str
-
-    def invoke(
-        self, request: LanguageModelRequest, next: LanguageModel
-    ) -> LanguageModelResponse:
-        contexture = request.contexture.model_copy(update=dict(model=self.model))
-        request = request.model_copy(update=dict(contexture=contexture))
         return next.chat(request=request)
 
 

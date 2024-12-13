@@ -50,8 +50,7 @@ class Service(ABC):
 
     def model(self, model) -> "Model":
         return Model(
-            #            configuration=Configuration(),
-            settings=Settings(service=self.service, middleware=ModelMiddleware(model)),
+            settings=Settings(service=self.service, middleware=EmptyMiddleware()),
             contexture=LanguageModelContexture(model=model),
         )
 
