@@ -36,19 +36,10 @@ class LanguageModelContexture(BaseModel):
     options: dict = Field(default_factory=dict)
     model: str
 
-    # TODO: to move both of these into LanguageModelRequest
-    images: tuple[str, ...] = ()
-    format: str | dict = ""  # str is "json" or "", dict is a JSON schema
-
     model_config = ConfigDict(frozen=True)
 
     def append_exchange(self, exchange: LanguageModelExchange):
-        return self.model_copy(
-            update={"context": self.context + (exchange,), "images": ()}
-        )
-
-    def append_image(self, image: str):
-        return self.model_copy(update={"images": self.images + (image,)})
+        return self.model_copy(update=dict(context=self.context + (exchange,)))
 
     def add_options(self, **options):
         # using this pattern exclude None value in dict
@@ -70,7 +61,11 @@ class LanguageModelRequest(BaseModel):
 
     contexture: LanguageModelContexture
     prompt: str | None
-    stream: bool
+
+    stream: bool = False
+
+    images: tuple[str, ...] = ()
+    format: str | dict = ""  # str is "json" or "", dict is a JSON schema
 
     model_config = ConfigDict(frozen=True)
 
