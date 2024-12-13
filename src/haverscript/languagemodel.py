@@ -14,6 +14,12 @@ class Metrics(ABC):
     pass
 
 
+class Informational(BaseModel):
+    message: str
+
+    model_config = ConfigDict(frozen=True)
+
+
 class LanguageModelExchange(BaseModel):
     prompt: str
     images: tuple[str, ...] | None
@@ -72,7 +78,7 @@ class LanguageModelRequest(BaseModel):
 class LanguageModelResponse:
     """A potentially tokenized response to a large language model"""
 
-    def __init__(self, packets: Iterable[str | Metrics]):
+    def __init__(self, packets: Iterable[str | Metrics | Informational]):
         self._packets = iter(packets)
         # We always have at least one item in our sequence.
         # This typically will cause as small pause before

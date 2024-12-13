@@ -17,7 +17,12 @@ from tenacity import Retrying, RetryError
 from yaspin import yaspin
 
 from .exceptions import LLMResultError, LLMError
-from .languagemodel import LanguageModel, LanguageModelResponse, LanguageModelRequest
+from .languagemodel import (
+    LanguageModel,
+    LanguageModelResponse,
+    LanguageModelRequest,
+    Informational,
+)
 from .cache import Cache
 from .render import *
 from functools import partial
@@ -117,8 +122,6 @@ class RetryMiddleware(Middleware):
         try:
             for attempt in Retrying(**self.options):
                 with attempt:
-                    # We turn off streaming, because we want complete results.
-                    request = request.model_copy(update=dict(stream=False))
                     return next.chat(request=request)
         except RetryError as e:
             print(e)
@@ -171,19 +174,29 @@ class EchoMiddleware(Middleware):
 
         if self.spinner:
             event = threading.Event()
+            channel = queue.Queue()
 
             def wait_for_event():
                 with yaspin() as spinner:
-                    event.wait()  # Wait until the event is set
+                    while True:
+                        message = channel.get()
+                        if message is None:
+                            break
+                        spinner.text = message + " "
 
             spinner_thread = threading.Thread(target=wait_for_event)
             spinner_thread.start()
 
             try:
                 response = next.chat(request=request)
+                for token in response:
+                    if isinstance(token, Informational):
+                        channel.put(token.message)
+                    else:
+                        break
             finally:
                 # stop the spinner
-                event.set()
+                channel.put(None)
                 # wait for the spinner thread to stop (and stop printing)
                 spinner_thread.join()
         else:
