@@ -21,16 +21,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - We also have convenence methods that automatically append to the middleware
   in `Model`: `Model.echo()`, `Model.retry()`, ...
 
+- Adding prompt specific flags to `Model.chat`.
+  - `format: str | dict` is a request for a specially formated output.
+  - `images : list[str]` are images to be passed to the model.
+  - `fresh: bool` is a request to generate a new response.
+  - `raw: bool` turns off prompt indentation cleanup (rarely needed)
 - Added `Service` class, that can be asked about models, and can generate `Model`s.
-- Added `image(...)` method to `Model`, for multi-modal models.
-- Added `response.value`, which return the JSON `dict` of the reply, or `None`.
+- Added `response.value`, which return the JSON `dict` of the reply (or `None`).
 - Added new `host` argument to `connect`, which allows for user "virtual" models.
-- Added top-level `list_models` function to list model options available.
-- Added spinner when waiting for the first token from LLM.
+- Added spinner when waiting for the first token from LLM when using `echo`.
 - Added `metrics` to `Response`, which contains basic metrics about the LLM call.
 - Added `render()` method to `Model`, for outputing markdown-style session viewing.
 - Added `load()` method to `Model`, for parsing markdown-style sessions.
-- Added LLMError, and subclasses. 
+- Added `LLMError`, and subclasses. 
 - Added `reject()` to `Response`, which raises a `LLMResultError` exception.
 - Added support for together.ai's API as a first-class alternative to ollama.
 ### Fixed
@@ -40,12 +43,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   string pool.
 - Using the cache now uses LLM results in order, until exhausted, then calls the LLM.
 ### Removed
-- Removed `check()` from `Response`. Replace it with `validate()` *before* the call to chat.
-  The idea is tha `validate` can be paired with `retry` to build a custom repeater,
-  and replaces the ad-hoc `check` which was doing redo's. Use middleware to build
-  a LLM stack that works for you, not fix things afterwards.
-- Removed `fresh` function. The concept of fresh responses has been replaced
-  with a more robust caching middleware.
+There are some breaking API changes. In all cases, the functionality has been
+replaced with something more general and principled.
+
+The concepts that caused changes are
+- One you have a `Response`, that interaction with the LLM is considered done.
+  There are no longer functions that attempt to re-run the call. Instead, middleware
+  functions can be used to filter out responses as needed.
+- The is not longer the concept of a `Response` being "fresh". Instead, the
+  cache uses a cursor when reading cached responses, and it is possible to ask 
+  that a specific interaction bypasses the cache.
+- Formated output is a property of the specific call to chat, not the session.
+
+Specifically, here are the changes:
+- Removed `check()` and `redo()` from `Response`.
+  Replace it with `validate()` and `retry()` *before* the call to chat,
+  or as chat-specific middleware.
+- Removed `fresh` from `Response`. The concept of fresh responses has been replaced
+  with a more robust caching middleware. There is now `fresh : bool = ...`
+  argument to `Model.chat`, if a fresh output is needed.
+- Removed `json()` from `Model`. It is replaced with the more general
+  `format = "json"` as an argument to `Model.chat`.
 
 ## [0.1.0] - 2024-09-23
 ### Initial release

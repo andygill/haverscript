@@ -74,7 +74,7 @@ class Ollama(ServiceProvider):
         kwargs["options"] = request.contexture.options
         kwargs["system"] = request.contexture.system
         kwargs["context"] = request.contexture.context
-        kwargs["images"] = request.contexture.images
+        kwargs["images"] = request.images
         kwargs["stream"] = request.stream
 
         messages = []
@@ -96,11 +96,7 @@ class Ollama(ServiceProvider):
 
         messages.append(
             {"role": "user", "content": prompt}
-            | (
-                {"images": list(request.contexture.images)}
-                if request.contexture.images
-                else {}
-            )
+            | ({"images": list(request.images)} if request.images else {})
         )
 
         try:
@@ -109,7 +105,7 @@ class Ollama(ServiceProvider):
                 stream=stream,
                 messages=messages,
                 options=options,
-                format=request.contexture.format,
+                format=request.format,
             )
 
             return LanguageModelResponse(self.generator(response))

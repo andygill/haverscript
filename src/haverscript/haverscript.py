@@ -66,47 +66,49 @@ class Model(ABC):
     def chat(
         self,
         prompt: str,
+        format: str | dict = "",
+        images: list[AnyStr] = [],
+        middleware: Middleware | None = None,
+        fresh: bool = False,
+        raw: bool = False,
     ) -> "Response":
         """
-        Take a simple single prompt, and call a pre-specifed LLM,
-        with optional context, returning a generated response.
+        Take a prompt and call the LLM in a previously provided context.
+
+        Args:
+            prompt (str): the prompt
+            format (str | dict): the requested format of the reply
+            images: (list): images to pass to the LLM
+            middleware (Middleware): extra middleware specifically for this prompt
+            fresh (bool): ignore any previously cached results
+            raw (bool): do not reformat the prompt (rarely needed)
+
+        Returns:
+            A Response that contains the reply, and context for any future
+            calls to chat.
         """
-        if self.settings.outdent:
+        if not raw:
             prompt = textwrap.dedent(prompt).strip()
 
         logger.info(f"chat prompt {prompt}")
 
-        if self.settings.cache is not None:
-            cache = services.cache(self.settings.cache)
-            prose = cache.next(self, prompt)
-            if prose:
-                return self.response(prompt, prose, fresh=False)
-
-        return self.invoke(prompt)
-
-    def _chat_args(self):
-        return dict(
-            options=self.contexture.options.copy(),
-            json=self.contexture.format,
-            system=self.contexture.system,
-            context=self.contexture.context,
-            images=self.contexture.images,
+        return self.invoke(
+            self.request(prompt, images=images, format=format, fresh=fresh),
+            middleware=middleware,
         )
 
-    def request(self, prompt: str | None) -> LanguageModelRequest:
-        return LanguageModelRequest(
-            contexture=self.contexture, prompt=prompt, stream=False
-        )
+    def invoke(
+        self, request: LanguageModelRequest, middleware: Middleware | None = None
+    ) -> "Response":
 
-    def invoke(self, prompt: str | None) -> "Response":
+        assert request.prompt is not None, "Can not build a response with no prompt"
 
-        middleware: Middleware = self.settings.middleware
+        if middleware is not None:
+            middleware = self.settings.middleware | middleware
+        else:
+            middleware = self.settings.middleware
 
-        response = middleware.invoke(
-            request=self.request(prompt), next=self.settings.service
-        )
-
-        assert prompt is not None, "Can not build a response with no prompt"
+        response = middleware.invoke(request=request, next=self.settings.service)
 
         assert isinstance(
             response, LanguageModelResponse
@@ -116,7 +118,10 @@ class Model(ABC):
         response.close()
 
         response = self.response(
-            prompt, str(response), fresh=True, metrics=response.metrics()
+            request.prompt,
+            str(response),
+            images=tuple(request.images),
+            metrics=response.metrics(),
         )
 
         if self.settings.cache is not None:
@@ -124,31 +129,42 @@ class Model(ABC):
 
         return response
 
+    def request(
+        self,
+        prompt: str | None,
+        images: list[AnyStr] = [],
+        format: str | dict = "",
+        fresh: bool = False,
+    ) -> LanguageModelRequest:
+        return LanguageModelRequest(
+            contexture=self.contexture,
+            prompt=prompt,
+            images=tuple(images),
+            format=format,
+            fresh=fresh,
+            stream=False,
+        )
+
     def response(
         self,
         prompt: str,
         reply: str,
-        fresh: bool,
+        images: list[AnyStr] = [],
         metrics: Metrics | None = None,
     ):
         assert isinstance(prompt, str)
         assert isinstance(reply, str)
-        assert isinstance(fresh, bool)
         assert isinstance(metrics, (Metrics, type(None)))
         return Response(
             settings=self.settings,
             contexture=self.contexture.append_exchange(
-                LanguageModelExchange(
-                    prompt=prompt, images=self.contexture.images, reply=reply
-                )
+                LanguageModelExchange(prompt=prompt, images=tuple(images), reply=reply)
             ),
             parent=self,
-            fresh=fresh,
             metrics=metrics,
-            _predicates=(),
         )
 
-    def children(self, prompt: str | None = None, images: list[str] | None = None):
+    def children(self, prompt: str | None = None, images: list[str] | None = []):
         """Return all already cached replies to this prompt."""
 
         service = self.settings.service
@@ -160,11 +176,11 @@ class Model(ABC):
                 ".children(...) method needs cache to be final middleware"
             )
 
-        replies = first.children(self.request(prompt))
+        replies = first.children(self.request(prompt, images=images))
 
         return [
-            self.response(prompt_, prose, fresh=False)
-            for prompt_, imgs, prose in replies
+            self.response(prompt_, prose, images=list(images))
+            for prompt_, images, prose in replies
         ]
 
     def render(self) -> str:
@@ -213,14 +229,6 @@ class Model(ABC):
             contexture=self.contexture.model_copy(update=dict(system=system))
         )
 
-    def json(self, json: bool = True):
-        """request a json result."""
-        assert isinstance(json, bool)
-        format = "json" if json else ""
-        return self.copy(
-            contexture=self.contexture.model_copy(update=dict(format=format))
-        )
-
     def load(self, markdown: str, complete: bool = False) -> Self:
         """Read markdown as system + prompt-reply pairs."""
 
@@ -266,7 +274,7 @@ class Model(ABC):
             if complete and reply in ("", "..."):
                 model = model.chat(prompt)
             else:
-                model = model.response(prompt, reply, fresh=False)
+                model = model.response(prompt, reply)
 
             result = result[2:]
 
@@ -299,10 +307,6 @@ class Model(ABC):
         """
         return self.copy(contexture=self.contexture.add_options(**kwargs))
 
-    def image(self, image: AnyStr):
-        """image must be bytes, path-like object, or file-like object"""
-        return self.copy(contexture=self.contexture.append_image(image))
-
     def middleware(self, after: Middleware):
         return self.copy(
             settings=self.settings.copy(middleware=self.settings.middleware | after)
@@ -313,10 +317,7 @@ class Model(ABC):
 class Response(Model):
 
     parent: Model
-    fresh: bool  # was freshly generated (vs extracted from cache)
     metrics: Metrics | None
-
-    _predicates: tuple  # [Callable[[Self], bool]]
 
     @property
     def prompt(self) -> str:
@@ -355,19 +356,6 @@ class Response(Model):
         if message:
             raise LLMResultError(message)
         raise LLMResultError()
-
-    def redo(self) -> Self:
-        """Rerun a chat with the previous prompt.
-
-        If the Response has check(s), they are also re-run.
-        If the Response used a seed, the seed is incremented.
-        """
-        model = self.parent
-        if "seed" in model.contexture.options:
-            # if we have set a seed, do not redo with the same seed,
-            # because you would get the same result (even if cached).
-            model = model.options(seed=model.contexture.options["seed"] + 1)
-        return model.invoke(self.prompt)
 
 
 def valid_json(response):

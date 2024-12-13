@@ -88,7 +88,7 @@ class Together(ServiceProvider):
         kwargs = {}
         kwargs["options"] = request.contexture.options
         kwargs["context"] = request.contexture.context
-        kwargs["images"] = request.contexture.images
+        kwargs["images"] = request.images
         kwargs["stream"] = request.stream
 
         if request.contexture.system:

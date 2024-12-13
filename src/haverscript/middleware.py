@@ -361,7 +361,7 @@ class CacheMiddleware(Middleware):
                 request.contexture.system,
                 request.contexture.context,
                 request.prompt,
-                request.contexture.images,
+                request.images,
                 parameters,
                 limit=1,
                 blacklist=True,
@@ -383,7 +383,7 @@ class CacheMiddleware(Middleware):
                 request.contexture.system,
                 request.contexture.context,
                 request.prompt,
-                request.contexture.images,
+                request.images,
                 str(response),
                 parameters,
             )
@@ -399,7 +399,7 @@ class CacheMiddleware(Middleware):
         prompt = request.prompt
         system = request.contexture.system
         context = request.contexture.context
-        images = request.contexture.images
+        images = request.images
         options = request.contexture.options
 
         cache = Cache(self.filename, self.mode)

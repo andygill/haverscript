@@ -317,15 +317,9 @@ def test_outdent(sample_model):
     """,
     ]
     model = sample_model
-    for ix, model in enumerate(
-        [
-            sample_model,
-            sample_model.outdent(True),
-            sample_model.outdent(False),
-        ]
-    ):
+    for ix, ksargs in enumerate([dict(), dict(raw=False), dict(raw=True)]):
         for message in messages:
-            reply = model.chat(message)
+            reply = model.chat(message, **ksargs)
             actual_message = message
             if ix != 2:
                 actual_message = "\n".join(
@@ -348,14 +342,8 @@ def test_system(sample_model):
 
 
 def test_json(sample_model):
-    for ix, model in enumerate(
-        [
-            sample_model,
-            sample_model.json(True),
-            # sample_model.json(False),
-        ]
-    ):
-        reply = model.chat("")
+    for ix, kwargs in enumerate([dict(), dict(format="json")]):
+        reply = sample_model.chat("", **kwargs)
         context = [{"role": "user", "content": ""}]
 
         llm_reply = llm(None, test_model_name, context, {}, "json" if ix == 1 else "")
@@ -466,6 +454,13 @@ def test_check(sample_model):
     )
 
 
+def test_chat_middleware(sample_model: Model):
+    with pytest.raises(LLMResultError):
+        sample_model.chat(  # check output is valid JSON (the test stub used JSON for output)
+            "Haggis", middleware=validate(lambda reply: "Squirrel" in reply)
+        )
+
+
 def valid_json(txt):
     try:
         json.loads(str(txt))
@@ -477,7 +472,7 @@ def valid_json(txt):
 def test_image(sample_model):
     image_src = f"{Path(__file__).parent}/../examples/images/edinburgh.png"
     prompt = "Describe this image"
-    resp = sample_model.image(image_src).chat(prompt)
+    resp = sample_model.chat(prompt, images=[image_src])
     context = [{"role": "user", "content": prompt, "images": [image_src]}]
     reply = resp.reply
     assert reply == llm(None, test_model_name, context, {}, "")
@@ -500,8 +495,8 @@ def test_retry(sample_model):
     with pytest.raises(LLMError):
         sample_model.chat("FAIL(0)")
 
-    extra = sample_model.json().chat("###").value["extra"]
-    sample_model.middleware(retry(stop=stop_after_attempt(5))).chat(f"FAIL({extra+4})")
+    extra = sample_model.chat("###", format="json").value["extra"]
+    sample_model.retry(stop=stop_after_attempt(5)).chat(f"FAIL({extra+4})")
 
 
 def test_validate(sample_model: Model):
@@ -510,7 +505,7 @@ def test_validate(sample_model: Model):
 
     sample_model.middleware(validate(lambda txt: "$$$" in txt)).chat("$$$")
 
-    extra = sample_model.json().chat("###").value["extra"]
+    extra = sample_model.chat("###", format="json").value["extra"]
 
     with pytest.raises(LLMError):
         sample_model.middleware(
@@ -518,14 +513,14 @@ def test_validate(sample_model: Model):
             | (retry(stop=stop_after_attempt(5)))
         ).chat("###")
 
-    extra = sample_model.json().chat("###").value["extra"]
+    extra = sample_model.chat("###", format="json").value["extra"]
 
     sample_model.middleware(
         validate(lambda txt: f'"extra": {extra + 3}' in txt)
         | (retry(stop=stop_after_attempt(5)))
     ).chat("###")
 
-    extra = sample_model.json().chat("###").value["extra"]
+    extra = sample_model.chat("###", format="json").value["extra"]
 
     with pytest.raises(LLMError):
         # wrong order; retry is bellow validate.
