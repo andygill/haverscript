@@ -626,15 +626,16 @@ def test_LanguageModelResponse():
             time.sleep(0.01)
             yield f"{x} "
 
-    input = list(range(10))
+    def input(n):
+        return list(range(10))
 
-    lmr = LanguageModelResponse(gen(input))
+    lmr = LanguageModelResponse(gen(input(10)))
 
     def consume():
         result = []
         for x in lmr.tokens():
             result.append(int(x))
-        assert result == input
+        assert result == input(10)
 
     def metrics():
         assert lmr.metrics() is None
@@ -652,6 +653,23 @@ def test_LanguageModelResponse():
 
     for t in ts:
         t.join()
+
+    closing = [False, False]
+
+    def close(n):
+        closing[n] = True
+
+    m1 = LanguageModelResponse(gen(input(10)))
+    m1.after(lambda: close(0))
+    m2 = LanguageModelResponse(gen(input(5)))
+    m2.after(lambda: close(1))
+    m3 = m1 + m2
+
+    assert str(m3).strip() == " ".join([str(i) for i in input(10) + input(5)])
+
+    assert closing == [False, False]
+    m3.close()
+    assert closing == [True, True]
 
 
 def test_cache_class(tmp_path):
