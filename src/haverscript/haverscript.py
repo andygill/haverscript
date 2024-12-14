@@ -68,7 +68,6 @@ class Model(ABC):
         format: str | dict = "",
         images: list[AnyStr] = [],
         middleware: Middleware | None = None,
-        fresh: bool = False,
         raw: bool = False,
     ) -> "Response":
         """
@@ -91,16 +90,32 @@ class Model(ABC):
 
         logger.info(f"chat prompt {prompt}")
 
-        return self.invoke(
-            self.request(prompt, images=images, format=format, fresh=fresh),
-            middleware=middleware,
-        )
+        request, response = self.ask(prompt, format, images, middleware)
 
-    def invoke(
-        self, request: LanguageModelRequest, middleware: Middleware | None = None
-    ) -> "Response":
+        return self.process(request, response)
 
-        assert request.prompt is not None, "Can not build a response with no prompt"
+    def ask(
+        self,
+        prompt: str,
+        format: str | dict = "",
+        images: list[AnyStr] = [],
+        middleware: Middleware | None = None,
+    ) -> tuple[LanguageModelRequest, LanguageModelResponse]:
+        """
+        Take a prompt and call the LLM in a previously provided context.
+
+        Args:
+            prompt (str): the prompt
+            format (str | dict): the requested format of the reply
+            images: (list): images to pass to the LLM
+            middleware (Middleware): extra middleware specifically for this prompt
+
+        Returns:
+            An internal Request/Response pair.
+        """
+        assert prompt is not None, "Can not build a response with no prompt"
+
+        request = self.request(prompt, images=images, format=format)
 
         if middleware is not None:
             middleware = self.settings.middleware | middleware
@@ -109,24 +124,21 @@ class Model(ABC):
 
         response = middleware.invoke(request=request, next=self.settings.service)
 
-        assert isinstance(
-            response, LanguageModelResponse
-        ), f"response : {type(response)}, expecting LanguageModelResponse"
+        return (request, response)
+
+    def process(
+        self, request: LanguageModelRequest, response: LanguageModelResponse
+    ) -> "Response":
 
         # Run for any continuations before returning
         response.close()
 
-        response = self.response(
+        return self.response(
             request.prompt,
             str(response),
             images=tuple(request.images),
             metrics=response.metrics(),
         )
-
-        if self.settings.cache is not None:
-            services.cache(self.settings.cache).insert(response)
-
-        return response
 
     def request(
         self,
