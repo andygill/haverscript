@@ -132,6 +132,25 @@ class LanguageModelResponse:
         for completion in self.closers:
             completion()
 
+    def __add__(self, other: "LanguageModelResponse"):
+
+        # Need to append both streams of tokens and other values.
+        # Need to correctly thread the close,
+        # because the outer close needs the inner close to be called.
+        def streaming():
+            yield from self
+            yield from other
+
+        response = LanguageModelResponse(streaming())
+
+        def after():
+            self.close()
+            other.close()
+
+        response.after(after)
+
+        return response
+
 
 class LanguageModel(ABC):
     """Base class for anything that chats, that is takes a configuration and prompt and returns token(s)."""
