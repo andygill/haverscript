@@ -36,6 +36,7 @@ from haverscript import (
     Ollama,
 )
 from haverscript.cache import Cache, INTERACTION
+from haverscript.middleware import *
 from haverscript.languagemodel import LanguageModelExchange, LanguageModelRequest
 
 
@@ -462,6 +463,19 @@ def test_chat_middleware(sample_model: Model):
         sample_model.chat(  # check output is valid JSON (the test stub used JSON for output)
             "Haggis", middleware=validate(lambda reply: "Squirrel" in reply)
         )
+
+    result = sample_model.chat("Hello", middleware=model("new-model"))
+    assert '"model": "new-model"' in repr(result)
+
+    result = sample_model.options(fst="Hello").chat(
+        "Hello", middleware=options(foo="json")
+    )
+    assert '"options": {"fst": "Hello", "foo": "json"}' in repr(result)
+
+    result = sample_model.options(fst="Hello").chat(
+        "Hello", middleware=options(fst="World")
+    )
+    assert '"options": {"fst": "World"}' in repr(result)
 
 
 def valid_json(txt):
