@@ -17,14 +17,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `stats()` adds a dynamic single line summary of each LLM call.
   - `cache()` add a caching component.
   - `transcript()` adds a transcript component (transcripts the session to a file).
-
-- We also have convenence methods that automatically append to the middleware
+  - `options()` overrides specific options.
+  - `model()` overrides the model being used.
+  
+- We also have convenence methods that automatically append to the middleware,
   in `Model`: `Model.echo()`, `Model.retry()`, ...
 
 - Adding prompt specific flags to `Model.chat`.
   - `format: str | dict` is a request for a specially formated output.
   - `images : list[str]` are images to be passed to the model.
   - `fresh: bool` is a request to generate a new response.
+  - `middleware: Middleware` appends a chat-specific middleware to the call.
   - `raw: bool` turns off prompt indentation cleanup (rarely needed)
 - Added `Service` class, that can be asked about models, and can generate `Model`s.
 - Added `response.value`, which return the JSON `dict` of the reply (or `None`).

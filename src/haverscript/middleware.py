@@ -456,3 +456,37 @@ class FreshMiddleware(Middleware):
 def fresh():
     """require any cached reply be ignored, and a fresh reply be generated."""
     return FreshMiddleware()
+
+
+@dataclass(frozen=True)
+class ModelMiddleware(Middleware):
+    model: str
+
+    def invoke(
+        self, request: LanguageModelRequest, next: LanguageModel
+    ) -> LanguageModelResponse:
+        contexture = request.contexture.model_copy(update=dict(model=self.model))
+        request = request.model_copy(update=dict(contexture=contexture))
+        return next.chat(request=request)
+
+
+def model(model: str) -> Middleware:
+    return ModelMiddleware(model)
+
+
+@dataclass(frozen=True)
+class OptionsMiddleware(Middleware):
+    options: dict
+
+    def invoke(
+        self, request: LanguageModelRequest, next: LanguageModel
+    ) -> LanguageModelResponse:
+        contexture = request.contexture.model_copy(
+            update=dict(options=request.contexture.options | self.options)
+        )
+        request = request.model_copy(update=dict(contexture=contexture))
+        return next.chat(request=request)
+
+
+def options(**kwargs) -> Middleware:
+    return OptionsMiddleware(kwargs)
