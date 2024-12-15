@@ -41,7 +41,7 @@ class ExampleMetaModel(MetaModel):
             format=Translate.model_json_schema(),
         )
         response = next.chat(request)
-        translated = Translate.model_validate(json.loads(str(response)))
+        translated = response.parse(Translate)
 
         self.previous.append(translated)
         remaining = 3 - len(self.previous)

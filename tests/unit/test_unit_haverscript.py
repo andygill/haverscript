@@ -10,6 +10,7 @@ from collections.abc import Iterator
 import time
 import threading
 import subprocess
+from pydantic import BaseModel
 
 import pytest
 from tenacity import stop_after_attempt
@@ -838,4 +839,18 @@ def test_stats(sample_model, capfd):
     assert re.search(
         r"^- prompt : 5b, reply : 133t, first token : 0.\d+s, tokens/s : \d+$",
         remove_spinner(capfd.readouterr().out),
+    )
+
+
+class Reply(BaseModel):
+    reply: bool
+
+
+def test_parse(sample_model: Model):
+    assert sample_model.response("Hello", '{"reply": true}').parse(Reply) == Reply(
+        reply=True
+    )
+
+    assert LanguageModelResponse(["{", '"reply":', "false", "}"]).parse(Reply) == Reply(
+        reply=False
     )

@@ -6,6 +6,7 @@ from abc import ABC
 from dataclasses import asdict, dataclass, field, fields
 from itertools import tee
 from typing import AnyStr, Callable, Optional, Self, Tuple, NoReturn
+from pydantic import BaseModel
 
 from yaspin import yaspin
 from frozendict import frozendict
@@ -341,12 +342,15 @@ class Response(Model):
         return self.contexture.context[-1].reply
 
     @property
-    def value(self) -> str:
+    def value(self) -> dict:
         """return a value of the reply in its requested format"""
         try:
             return json.loads(self.reply)
         except json.JSONDecodeError as e:
             return None
+
+    def parse(self, cls: Type[BaseModel]) -> BaseModel:
+        return cls.model_validate_json(str(self))
 
     def render(self) -> str:
         """Return a markdown string of the context."""

@@ -38,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `load()` method to `Model`, for parsing markdown-style sessions.
 - Added `LLMError`, and subclasses. 
 - Added `reject()` to `Response`, which raises a `LLMResultError` exception.
+- Adding `parse()` to `Response`, which parses a JSON reply into a Pydantic class.
 - Added support for together.ai's API as a first-class alternative to ollama.
 ### Fixed
 ### Changed
