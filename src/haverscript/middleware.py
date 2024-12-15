@@ -158,40 +158,57 @@ class EchoMiddleware(Middleware):
         # We turn on streaming to make the echo responsive
         request = request.model_copy(update=dict(stream=True))
 
+        channel = queue.Queue()
+        back_channel = queue.Queue()
+
         if self.spinner:
-            event = threading.Event()
-            channel = queue.Queue()
 
             def wait_for_event():
-                with yaspin() as spinner:
+                loop = True
+                while loop:
+                    try:
+                        # we wait a fraction of a second before reading the message
+                        message = channel.get(timeout=0.1)
+                    except queue.Empty:
+                        with yaspin() as spinner:
+                            while True:
+                                message = channel.get()
+                                if message == "done" or message == "stop":
+                                    break
+                                spinner.text = message + " "
+                    if message == "done":
+                        return
+                    back_channel.put("waiting")
                     while True:
                         message = channel.get()
-                        if message is None:
+                        if message == "start":
                             break
-                        spinner.text = message + " "
+                        if message == "done":
+                            return
 
             spinner_thread = threading.Thread(target=wait_for_event)
             spinner_thread.start()
 
-            try:
-                response = next.chat(request=request)
-                for token in response:
-                    if isinstance(token, Informational):
-                        channel.put(token.message)
-                    else:
-                        break
-            finally:
-                # stop the spinner
-                channel.put(None)
-                # wait for the spinner thread to stop (and stop printing)
+        response: LanguageModelResponse = next.chat(request=request)
+
+        newline = True
+        try:
+            for token in self._wrap(response):
+                if isinstance(token, str):
+                    if newline and self.spinner:
+                        channel.put("stop")
+                        back_channel.get()
+                    print(token, end="", flush=True)
+                    newline = token.endswith("\n")
+                    if newline and self.spinner:
+                        channel.put("start")
+                if isinstance(token, Informational):
+                    channel.put(token.message)
+        finally:
+            if self.spinner:
+                channel.put("done")
                 spinner_thread.join()
-        else:
-            response = next.chat(request=request)
 
-        assert isinstance(response, LanguageModelResponse)
-
-        for token in self._wrap(response.tokens()):
-            print(token, end="", flush=True)
         print()  # finish with a newline
 
         return response
@@ -204,6 +221,13 @@ class EchoMiddleware(Middleware):
         prequel = ""
 
         for s in stream:
+
+            if isinstance(s, Informational):
+                s = s.message
+
+            if not isinstance(s, str):
+                yield s
+                continue
 
             for t in re.split(r"(\n|\S+)", s):
 
