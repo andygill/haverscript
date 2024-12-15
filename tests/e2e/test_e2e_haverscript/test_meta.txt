@@ -1,0 +1,53 @@
+--[ User-facing conversation ]------
+
+> Three blind mice
+
+Three blind mice in French is Trois souris aveugles
+2 translation(s) left.
+
+> Such is life
+
+Such is life in French is C'est la vie comme ça
+1 translation(s) left.
+
+> All roads lead to Rome
+
+All roads lead to Rome in French is Toutes les routes mènent à Rome
+0 translation(s) left.
+
+> The quick brown fox
+
+Sorry. French lesson over.
+Your 3 translations:
+* english='Three blind mice' french='Trois souris aveugles'
+* english='Such is life' french="C'est la vie comme ça"
+* english='All roads lead to Rome' french='Toutes les routes mènent à Rome'
+
+--[ LLM-facing conversation ]------
+
+> You are a translator, translating from English to French. Give your answer as a JSON record with two fields, "english", and "french". The "english" field should contain the original English text, and only the original text.The "french" field should contain the translated French text, and only the translated text.
+> 
+> English Text: Three blind mice
+
+{
+"english": "Three blind mice",
+"french": "Trois souris aveugles"
+}
+
+> You are a translator, translating from English to French. Give your answer as a JSON record with two fields, "english", and "french". The "english" field should contain the original English text, and only the original text.The "french" field should contain the translated French text, and only the translated text.
+> 
+> English Text: Such is life
+
+{
+"english": "Such is life",
+"french": "C'est la vie comme ça"
+}
+
+> You are a translator, translating from English to French. Give your answer as a JSON record with two fields, "english", and "french". The "english" field should contain the original English text, and only the original text.The "french" field should contain the translated French text, and only the translated text.
+> 
+> English Text: All roads lead to Rome
+
+{
+"english": "All roads lead to Rome",
+"french": "Toutes les routes mènent à Rome"
+}

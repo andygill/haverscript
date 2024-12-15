@@ -8,7 +8,7 @@ from datetime import datetime
 from abc import abstractmethod
 import builtins
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import queue
 import time
 from typing import AnyStr, Callable, Optional, Self, Tuple, NoReturn
@@ -22,6 +22,7 @@ from .languagemodel import (
     LanguageModelResponse,
     LanguageModelRequest,
     Informational,
+    LanguageModelExchange,
 )
 from .cache import Cache
 from .render import *
@@ -490,3 +491,58 @@ class OptionsMiddleware(Middleware):
 
 def options(**kwargs) -> Middleware:
     return OptionsMiddleware(kwargs)
+
+
+@dataclass
+class MetaModel(ABC):
+    system: str | None
+
+    @abstractmethod
+    def copy(self) -> "MetaModel":
+        """Make a copy so the copy can be updated."""
+
+    @abstractmethod
+    def prompt(self, prompt, next: LanguageModel) -> LanguageModelResponse:
+        """Turn a prompt into a follow-on call the next model."""
+
+
+@dataclass(frozen=True)
+class MetaMiddleware(Middleware):
+    model: MetaModel
+
+    _model_cache: dict = field(init=False, default_factory=dict)
+
+    def invoke(
+        self, request: LanguageModelRequest, next: LanguageModel
+    ) -> LanguageModelResponse:
+        system = request.contexture.system
+        context = request.contexture.context
+
+        try:
+            model = self._model_cache[system, context]
+        except KeyError:
+            if context == ():
+                model = self.model(system)
+                self._model_cache[system, ()] = model
+            else:
+                # We has a context we've never seen
+                # Which means we did not generate it
+                # Which means we reject it
+                assert False, "unknown system or context"
+
+        model = model.copy()
+
+        response: LanguageModelResponse = model.prompt(request.prompt, next)
+
+        def after():
+            exchange = LanguageModelExchange(
+                prompt=request.prompt, images=(), reply=str(response)
+            )
+            self._model_cache[system, context + (exchange,)] = model
+
+        response.after(after)
+        return response
+
+
+def meta(model: MetaModel):
+    return MetaMiddleware(model)
