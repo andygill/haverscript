@@ -162,3 +162,14 @@ def test_list():
     assert isinstance(models, list)
     assert "mistral:v0.3" in models
     assert "llava:v1.6" in models
+
+
+def test_meta(tmp_path, file_regression):
+    file_regression.check(
+        run_example(
+            "examples/meta_model/main.py",
+            tmp_path,
+            {'"mistral"': '"mistral:v0.3"'},
+        ),
+        extension=".txt",
+    )

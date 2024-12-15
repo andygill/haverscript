@@ -34,7 +34,7 @@ class LanguageModelContexture(BaseModel):
     context: tuple[LanguageModelExchange, ...] = ()
     system: str | None = None
     options: dict = Field(default_factory=dict)
-    model: str
+    model: str | None = None
 
     model_config = ConfigDict(frozen=True)
 
