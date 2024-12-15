@@ -112,24 +112,30 @@ class _TestClient:
             }
 
     def list(self):
-        return {"models": [{"name": x} for x in ["A", "B", "C"]]}
+        @dataclass
+        class Model:
+            model: str
+
+        return {"models": [Model(x) for x in ["A", "B", "C"]]}
 
 
 # inject the TestClient
-models = sys.modules["haverscript.haverscript"].services._model_providers
-models = sys.modules["haverscript.ollama"].Ollama.client = {
-    None: _TestClient(None),
-    test_model_host: _TestClient(test_model_host),
-}
+def inject():
+    sys.modules["haverscript.ollama"].Ollama.client = {
+        None: _TestClient(None),
+        test_model_host: _TestClient(test_model_host),
+    }
 
 
 @pytest.fixture
 def sample_model():
+    inject()
     return connect(test_model_name)
 
 
 @pytest.fixture
 def sample_remote_model():
+    inject()
     return connect(test_model_name, service=Ollama(test_model_host))
 
 
@@ -198,6 +204,7 @@ class UserService(ServiceProvider):
 
 @pytest.fixture
 def sample_user_model():
+    inject()
     return connect("some-model", service=UserService())
 
 
@@ -215,6 +222,7 @@ def test_user_model(sample_user_model):
 
 
 def test_list_models():
+    inject()
     service = connect()
     assert isinstance(service, Service)
     assert service.list() == ["A", "B", "C"]

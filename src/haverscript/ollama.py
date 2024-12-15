@@ -35,7 +35,7 @@ class Ollama(ServiceProvider):
     def list(self) -> list[str]:
         models = self.client[self.hostname].list()
         assert "models" in models
-        return [model["name"] for model in models["models"]]
+        return [model.model for model in models["models"]]
 
     def _suggestions(self, e: Exception):
         # Slighty better message. Should really have a type of reply for failure.

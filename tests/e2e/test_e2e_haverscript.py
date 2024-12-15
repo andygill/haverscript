@@ -5,6 +5,7 @@ import sys
 import os
 
 import pytest
+import haverscript
 
 from tests.test_utils import remove_spinner
 
@@ -154,3 +155,10 @@ def test_images(tmp_path, file_regression):
         ),
         extension=".txt",
     )
+
+
+def test_list():
+    models = haverscript.connect().list()
+    assert isinstance(models, list)
+    assert "mistral:v0.3" in models
+    assert "llava:v1.6" in models
