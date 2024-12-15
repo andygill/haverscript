@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from concurrent.futures import Future
 import threading
 from collections.abc import Iterable
-from typing import Iterator
+from typing import Iterator, Type
 from typing import Callable
 from pydantic import BaseModel, ConfigDict, Field
 from frozendict import frozendict
@@ -150,6 +150,9 @@ class LanguageModelResponse:
         response.after(after)
 
         return response
+
+    def parse(self, cls: Type[BaseModel]) -> BaseModel:
+        return cls.model_validate_json(str(self))
 
 
 class LanguageModel(ABC):
