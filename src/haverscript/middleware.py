@@ -459,6 +459,13 @@ class TranscriptMiddleware(Middleware):
             with open(os.path.join(dirname, transcript_file), "w") as file:
                 file.write(transcript_)
 
+            latest_symlink = os.path.join(dirname, "latest.md")
+
+            if os.path.islink(latest_symlink):
+                os.unlink(latest_symlink)
+
+            os.symlink(transcript_file, latest_symlink)
+
         response.after(write_transcript)
         return response
 
