@@ -824,7 +824,8 @@ def test_transcript(sample_model: Model, tmp_path: str):
     files = [f for f in files if os.path.isfile(os.path.join(temp_dir, f))]
     files.sort()
 
-    assert len(files) == len(transcripts)
+    # we also have the "latest.md" symbolic link
+    assert len(files) - 1 == len(transcripts)
 
     for file, transcript_content in zip(files, transcripts):
         with open(os.path.join(temp_dir, file), "r", encoding="utf-8") as f:
