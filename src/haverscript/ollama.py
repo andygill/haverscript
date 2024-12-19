@@ -9,8 +9,8 @@ import ollama
 from .languagemodel import (
     Metrics,
     ServiceProvider,
-    LanguageModelResponse,
-    LanguageModelRequest,
+    Reply,
+    Request,
 )
 
 
@@ -65,7 +65,7 @@ class Ollama(ServiceProvider):
                 **{k: response[k] for k in OllamaMetrics.__dataclass_fields__.keys()}
             )
 
-    def chat(self, request: LanguageModelRequest):
+    def ask(self, request: Request):
 
         prompt = request.prompt
         model = request.contexture.model
@@ -108,7 +108,7 @@ class Ollama(ServiceProvider):
                 format=request.format,
             )
 
-            return LanguageModelResponse(self.generator(response))
+            return Reply(self.generator(response))
 
         except Exception as e:
             raise self._suggestions(e)

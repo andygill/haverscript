@@ -20,7 +20,7 @@ class Informational(BaseModel):
     model_config = ConfigDict(frozen=True)
 
 
-class LanguageModelExchange(BaseModel):
+class Exchange(BaseModel):
     prompt: str
     images: tuple[str, ...] | None
     reply: str
@@ -28,17 +28,17 @@ class LanguageModelExchange(BaseModel):
     model_config = ConfigDict(frozen=True)
 
 
-class LanguageModelContexture(BaseModel):
+class Contexture(BaseModel):
     """Background parts of a request"""
 
-    context: tuple[LanguageModelExchange, ...] = ()
+    context: tuple[Exchange, ...] = ()
     system: str | None = None
     options: dict = Field(default_factory=dict)
     model: str | None = None
 
     model_config = ConfigDict(frozen=True)
 
-    def append_exchange(self, exchange: LanguageModelExchange):
+    def append_exchange(self, exchange: Exchange):
         return self.model_copy(update=dict(context=self.context + (exchange,)))
 
     def add_options(self, **options):
@@ -56,10 +56,10 @@ class LanguageModelContexture(BaseModel):
         )
 
 
-class LanguageModelRequest(BaseModel):
+class Request(BaseModel):
     """Foreground parts of a request"""
 
-    contexture: LanguageModelContexture
+    contexture: Contexture
     prompt: str | None
 
     stream: bool = False
@@ -71,18 +71,18 @@ class LanguageModelRequest(BaseModel):
     model_config = ConfigDict(frozen=True)
 
 
-class LanguageModelResponse:
+class Reply:
     """A potentially tokenized response to a large language model"""
 
     def __init__(self, packets: Iterable[str | Metrics | Informational]):
         self._packets = iter(packets)
         # We always have at least one item in our sequence.
         # This typically will cause as small pause before
-        # returning the LanguageModelResponse constructor.
+        # returning the Reply constructor.
         # It does mean, by design, that the generator
         # has started producing tokens, so the context
         # has already been processed. If you have a
-        # LanguageModelResponse, you can assume that tokens
+        # Reply, you can assume that tokens
         # are in flight, and the LLM worked.
         try:
             self._cache = [next(self._packets)]
@@ -147,7 +147,7 @@ class LanguageModelResponse:
         # we have completed, so just call completion callback.
         completion()
 
-    def __add__(self, other: "LanguageModelResponse"):
+    def __add__(self, other: "Reply"):
 
         # Need to append both streams of tokens and other values.
         # Need to correctly thread the close,
@@ -156,24 +156,23 @@ class LanguageModelResponse:
             yield from self
             yield from other
 
-        return LanguageModelResponse(streaming())
+        return Reply(streaming())
 
     def parse(self, cls: Type[BaseModel]) -> BaseModel:
         return cls.model_validate_json(str(self))
 
 
 class LanguageModel(ABC):
-    """Base class for anything that chats, that is takes a configuration and prompt and returns token(s)."""
+    """Base class for anything that can asked things, that is takes a configuration/prompt and returns token(s)."""
 
     @abstractmethod
-    def chat(self, request: LanguageModelRequest) -> LanguageModelResponse:
-        """Call the chat method of an LLM."""
+    def ask(self, request: Request) -> Reply:
+        """Ask a LLM a specific request."""
 
 
 class ServiceProvider(LanguageModel):
     """A ServiceProvider is a LanguageModel that serves specific models."""
 
+    @abstractmethod
     def list(self) -> list[str]:
-        models = self.client[self.hostname].list()
-        assert "models" in models
-        return [model["name"] for model in models["models"]]
+        """Return the list of valid models for this provider."""

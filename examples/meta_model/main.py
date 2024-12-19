@@ -20,19 +20,17 @@ class ExampleMetaModel(MetaModel):
     def copy(self) -> "MetaModel":
         return replace(self, previous=self.previous[:])
 
-    def prompt(self, prompt, next: LanguageModel) -> LanguageModelResponse:
+    def prompt(self, prompt, next: LanguageModel) -> Reply:
 
         if len(self.previous) >= 3:
-            response = LanguageModelResponse(
-                "Sorry. French lesson over.\nYour 3 translations:\n"
-            )
+            response = Reply("Sorry. French lesson over.\nYour 3 translations:\n")
             for resp in self.previous:
-                response += LanguageModelResponse(f"* {resp}\n")
+                response += Reply(f"* {resp}\n")
 
             return response
 
-        request = LanguageModelRequest(
-            contexture=LanguageModelContexture(model="mistral"),
+        request = Request(
+            contexture=Contexture(model="mistral"),
             prompt=f"You are a translator, translating from English to French. "
             f'Give your answer as a JSON record with two fields, "english", and "french". '
             f'The "english" field should contain the original English text, and only the original text.'
@@ -40,13 +38,13 @@ class ExampleMetaModel(MetaModel):
             f"\n\nEnglish Text: {prompt}",
             format=Translate.model_json_schema(),
         )
-        response = next.chat(request)
+        response = next.ask(request)
         translated = response.parse(Translate)
 
         self.previous.append(translated)
         remaining = 3 - len(self.previous)
 
-        return LanguageModelResponse(
+        return Reply(
             f"{translated.english} in French is {translated.french}\n{remaining} translation(s) left."
         )
 

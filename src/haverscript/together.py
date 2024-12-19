@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import requests
 
 from .haverscript import Metrics
-from .languagemodel import ServiceProvider, LanguageModelResponse, LanguageModelRequest
+from .languagemodel import ServiceProvider, Reply, Request
 from .exceptions import LLMRateLimitError
 
 
@@ -80,7 +80,7 @@ class Together(ServiceProvider):
             except ValueError:
                 pass
 
-    def chat(self, request: LanguageModelRequest):
+    def ask(self, request: Request):
         messages = []
 
         prompt = request.prompt
@@ -122,7 +122,7 @@ class Together(ServiceProvider):
         )
 
         if request.stream:
-            return LanguageModelResponse(self._streaming(response))
+            return Reply(self._streaming(response))
         else:
             reply = response.json()
             choices = reply["choices"]
@@ -136,4 +136,4 @@ class Together(ServiceProvider):
                         for k in TogetherMetrics.__dataclass_fields__.keys()
                     }
                 )
-            return LanguageModelResponse([choice["message"]["content"], metrics])
+            return Reply([choice["message"]["content"], metrics])
