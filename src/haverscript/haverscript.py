@@ -52,7 +52,7 @@ class Service(ABC):
     def model(self, model) -> "Model":
         return Model(
             settings=Settings(service=self.service, middleware=EmptyMiddleware()),
-            contexture=LanguageModelContexture(model=model),
+            contexture=Contexture(model=model),
         )
 
 
@@ -61,7 +61,7 @@ class Model(ABC):
 
     #    configuration: Configuration
     settings: Settings
-    contexture: LanguageModelContexture
+    contexture: Contexture
 
     def chat(
         self,
@@ -101,7 +101,7 @@ class Model(ABC):
         format: str | dict = "",
         images: list[AnyStr] = [],
         middleware: Middleware | None = None,
-    ) -> tuple[LanguageModelRequest, LanguageModelResponse]:
+    ) -> tuple[Request, Reply]:
         """
         Take a prompt and call the LLM in a previously provided context.
 
@@ -127,9 +127,7 @@ class Model(ABC):
 
         return (request, response)
 
-    def process(
-        self, request: LanguageModelRequest, response: LanguageModelResponse
-    ) -> "Response":
+    def process(self, request: Request, response: Reply) -> "Response":
 
         return self.response(
             request.prompt,
@@ -144,8 +142,8 @@ class Model(ABC):
         images: list[AnyStr] = [],
         format: str | dict = "",
         fresh: bool = False,
-    ) -> LanguageModelRequest:
-        return LanguageModelRequest(
+    ) -> Request:
+        return Request(
             contexture=self.contexture,
             prompt=prompt,
             images=tuple(images),
@@ -167,7 +165,7 @@ class Model(ABC):
         return Response(
             settings=self.settings,
             contexture=self.contexture.append_exchange(
-                LanguageModelExchange(prompt=prompt, images=tuple(images), reply=reply)
+                Exchange(prompt=prompt, images=tuple(images), reply=reply)
             ),
             parent=self,
             metrics=metrics,

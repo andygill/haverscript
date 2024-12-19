@@ -22,7 +22,7 @@ from haverscript import (
     Middleware,
     Model,
     Response,
-    LanguageModelResponse,
+    Reply,
     LanguageModel,
     connect,
     valid_json,
@@ -38,7 +38,7 @@ from haverscript import (
 )
 from haverscript.cache import Cache, INTERACTION
 from haverscript.middleware import *
-from haverscript.languagemodel import LanguageModelExchange, LanguageModelRequest
+from haverscript.languagemodel import Exchange, Request
 
 
 # Note that these tests break the haverscript API at points specifically
@@ -192,8 +192,8 @@ def check_model(model, host, system):
 
 
 class UserService(ServiceProvider):
-    def chat(self, request: LanguageModelRequest):
-        return LanguageModelResponse(
+    def ask(self, request: Request):
+        return Reply(
             [
                 f"I reject your {len(request.prompt.split())} word prompt, and replace it with my own."
             ]
@@ -635,10 +635,10 @@ class UpperCase(Middleware):
             if isinstance(token, str):
                 yield token.upper()
 
-    def invoke(self, request: LanguageModelRequest, next: LanguageModel):
+    def invoke(self, request: Request, next: LanguageModel):
         request = request.model_copy(update=dict(prompt=request.prompt + " World"))
-        responses = next.chat(request=request)
-        return LanguageModelResponse(str(responses).upper())
+        responses = next.ask(request=request)
+        return Reply(str(responses).upper())
 
 
 def test_middleware(sample_model: Model):
@@ -652,8 +652,8 @@ def test_middleware(sample_model: Model):
     assert reply0.reply.upper() == reply2.reply
 
 
-def test_LanguageModelResponse():
-    """Test that LanguageModelResponse responses in a thread-safe manner"""
+def test_Reply():
+    """Test that Reply responses in a thread-safe manner"""
 
     def gen(xs):
         for x in xs:
@@ -663,7 +663,7 @@ def test_LanguageModelResponse():
     def input(n):
         return list(range(10))
 
-    lmr = LanguageModelResponse(gen(input(10)))
+    lmr = Reply(gen(input(10)))
 
     def consume():
         result = []
@@ -693,13 +693,13 @@ def test_LanguageModelResponse():
     def close(n):
         closing[n] = True
 
-    m1 = LanguageModelResponse(gen(input(10)))
+    m1 = Reply(gen(input(10)))
     m1.after(lambda: close(0))
-    m2 = LanguageModelResponse(gen(input(5)))
+    m2 = Reply(gen(input(5)))
     m2.after(lambda: close(1))
-    m3 = LanguageModelResponse(gen(input(7)))
+    m3 = Reply(gen(input(7)))
     m3.after(lambda: close(2))
-    m4 = LanguageModelResponse(gen(input(7)))
+    m4 = Reply(gen(input(7)))
     m4.after(lambda: close(3))
     # we ignore m3, and only poke at m4
     m12 = m1 + m2
@@ -717,8 +717,8 @@ def test_cache_class(tmp_path):
     cache = Cache(temp_file, "a+")
     system = "..."
     context = (
-        LanguageModelExchange(prompt="Hello", images=[], reply="World"),
-        LanguageModelExchange(prompt="Hello2", images=[], reply="World2"),
+        Exchange(prompt="Hello", images=[], reply="World"),
+        Exchange(prompt="Hello2", images=[], reply="World2"),
     )
     prompt = "Hello!"
     images = ["foo.png"]
@@ -874,15 +874,15 @@ def test_stats(sample_model, capfd):
     )
 
 
-class Reply(BaseModel):
+class ReplyClass(BaseModel):
     reply: bool
 
 
 def test_parse(sample_model: Model):
-    assert sample_model.response("Hello", '{"reply": true}').parse(Reply) == Reply(
-        reply=True
-    )
+    assert sample_model.response("Hello", '{"reply": true}').parse(
+        ReplyClass
+    ) == ReplyClass(reply=True)
 
-    assert LanguageModelResponse(["{", '"reply":', "false", "}"]).parse(Reply) == Reply(
+    assert Reply(["{", '"reply":', "false", "}"]).parse(ReplyClass) == ReplyClass(
         reply=False
     )

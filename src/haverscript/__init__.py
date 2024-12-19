@@ -18,12 +18,12 @@ from .haverscript import (
     EchoMiddleware,
     Ollama,
     Service,
-    LanguageModelResponse,
+    Reply,
     accept,
     connect,
     valid_json,
 )
-from .languagemodel import LanguageModelResponse, LanguageModel, ServiceProvider
+from .languagemodel import Reply, LanguageModel, ServiceProvider
 from .middleware import (
     Middleware,
     echo,
@@ -54,7 +54,7 @@ __all__ = [
     "fresh",
     "cache",
     "LanguageModel",
-    "LanguageModelResponse",
+    "Reply",
     "ServiceProvider",
     "Middleware",
     "Together",
