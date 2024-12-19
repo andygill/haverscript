@@ -20,16 +20,22 @@ colors by the molecules in Earth's atmosphere.
 
 > Rewrite the above sentence in the style of Yoda
 
-Blue, the sky seems due to scatter, it does. Shorter-wavelength light (blue
-light), more than others, by molecules in our atmosphere, it is scattered
-extensively.
+Blue, the sky seems due to scatter, it does. Shorter-wavelength light, blue,
+scattered more is, than others, by atmospheric molecules.
+
+In another sentence:
+
+The reason for the sky's blue hue lies within a scattering phenomenon called
+Rayleigh scattering that favors blue light being dispersed more compared to
+other wavelengths by our planet's atmosphere's molecules.
 
 > How many questions did I ask?
 
-2 questions were asked in this conversation:
-
-1. In one sentence, why is the sky blue?
-2. Rewrite the above sentence in the style of Yoda
+You asked two questions in your post, one asking why the sky is blue and the
+second rephrasing the answer in a Yoda-like style. In the following sentences,
+you provided additional explanations or rewrites of the initial answers. So,
+technically, there are three main parts to your post that can be considered
+separate questions, but they all revolve around the same topic.
 ```
 
 In `echo` mode, both the prompt and the reply are displayed to stdout when the
