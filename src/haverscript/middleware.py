@@ -161,38 +161,37 @@ class EchoMiddleware(Middleware):
         channel = queue.Queue()
         back_channel = queue.Queue()
 
-        if self.spinner:
-
-            def wait_for_event():
-                loop = True
-                while loop:
-                    try:
-                        # we wait a fraction of a second before reading the message
-                        message = channel.get(timeout=0.1)
-                    except queue.Empty:
-                        with yaspin() as spinner:
-                            while True:
-                                message = channel.get()
-                                if message == "done" or message == "stop":
-                                    break
-                                spinner.text = message + " "
+        def wait_for_event():
+            loop = True
+            while loop:
+                try:
+                    # we wait a fraction of a second before reading the message
+                    message = channel.get(timeout=0.1)
+                except queue.Empty:
+                    with yaspin() as spinner:
+                        while True:
+                            message = channel.get()
+                            if message == "done" or message == "stop":
+                                break
+                            spinner.text = message + " "
+                if message == "done":
+                    return
+                back_channel.put("waiting")
+                while True:
+                    message = channel.get()
+                    if message == "start":
+                        break
                     if message == "done":
                         return
-                    back_channel.put("waiting")
-                    while True:
-                        message = channel.get()
-                        if message == "start":
-                            break
-                        if message == "done":
-                            return
 
-            spinner_thread = threading.Thread(target=wait_for_event)
-            spinner_thread.start()
-
-        response: LanguageModelResponse = next.chat(request=request)
-
-        newline = True
         try:
+            if self.spinner:
+                spinner_thread = threading.Thread(target=wait_for_event)
+                spinner_thread.start()
+
+            response: LanguageModelResponse = next.chat(request=request)
+
+            newline = True
             for token in self._wrap(response):
                 if isinstance(token, str):
                     if newline and self.spinner:

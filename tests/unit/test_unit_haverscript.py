@@ -467,7 +467,7 @@ def test_check(sample_model):
     )
 
 
-def test_chat_middleware(sample_model: Model):
+def test_chat_middleware(sample_model: Model, capfd):
     with pytest.raises(LLMResultError):
         sample_model.chat(  # check output is valid JSON (the test stub used JSON for output)
             "Haggis", middleware=validate(lambda reply: "Squirrel" in reply)
@@ -485,6 +485,31 @@ def test_chat_middleware(sample_model: Model):
         "Hello", middleware=options(fst="World")
     )
     assert '"options": {"fst": "World"}' in repr(result)
+
+    # check that middleware cleanly removes threads
+    threads_before = len(threading.enumerate())
+    capfd.readouterr()
+    with pytest.raises(LLMResultError):
+        result = sample_model.chat(  # check output is valid JSON (the test stub used JSON for output)
+            "Haggis", middleware=validate(lambda reply: "Squirrel" in reply) | echo()
+        )
+
+    threads_after = len(threading.enumerate())
+
+    assert remove_spinner(capfd.readouterr().out) == "\n> Haggis\n\n"
+    assert threads_before == threads_after, "remaining thread outstanding"
+
+    with pytest.raises(LLMResultError):
+        result = sample_model.chat(  # check output is valid JSON (the test stub used JSON for output)
+            "Haggis", middleware=validate(lambda reply: "Squirrel" in reply) | stats()
+        )
+
+    threads_after = len(threading.enumerate())
+    assert (
+        remove_spinner(capfd.readouterr().out)
+        == "- prompt : 6b, LLMError Exception raised\n"
+    )
+    assert threads_before == threads_after, "remaining thread outstanding"
 
 
 def valid_json(txt):
