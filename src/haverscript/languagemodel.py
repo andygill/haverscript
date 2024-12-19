@@ -91,6 +91,7 @@ class LanguageModelResponse:
             self._cache = []
         self._lock = threading.Lock()
         self.closers = []
+        self.closing = False
 
     def __str__(self):
         return "".join(self.tokens())
@@ -109,10 +110,22 @@ class LanguageModelResponse:
                     try:
                         result = next(self._packets)
                     except StopIteration:
-                        return
+                        break
                     self._cache.append(result)
-            ix += 1
+
+            ix += 1  # this a local ix, so does not need guarded
             yield result
+
+        # auto close
+        with self._lock:
+            if self.closing:
+                return
+            # first past the post
+            self.closing = True
+
+        # close all completers
+        for completion in self.closers:
+            completion()
 
     def tokens(self) -> Iterable[str]:
         """Returns all str tokens."""
@@ -126,11 +139,13 @@ class LanguageModelResponse:
         return None
 
     def after(self, completion: Callable[[], None]) -> None:
-        self.closers.append(completion)
+        with self._lock:
+            if not self.closing:
+                self.closers.append(completion)
+                return
 
-    def close(self):
-        for completion in self.closers:
-            completion()
+        # we have completed, so just call completion callback.
+        completion()
 
     def __add__(self, other: "LanguageModelResponse"):
 
@@ -141,15 +156,7 @@ class LanguageModelResponse:
             yield from self
             yield from other
 
-        response = LanguageModelResponse(streaming())
-
-        def after():
-            self.close()
-            other.close()
-
-        response.after(after)
-
-        return response
+        return LanguageModelResponse(streaming())
 
     def parse(self, cls: Type[BaseModel]) -> BaseModel:
         return cls.model_validate_json(str(self))

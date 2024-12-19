@@ -131,9 +131,6 @@ class Model(ABC):
         self, request: LanguageModelRequest, response: LanguageModelResponse
     ) -> "Response":
 
-        # Run for any continuations before returning
-        response.close()
-
         return self.response(
             request.prompt,
             str(response),
