@@ -663,7 +663,7 @@ def test_LanguageModelResponse():
     for t in ts:
         t.join()
 
-    closing = [False, False]
+    closing = [False, False, False, False]
 
     def close(n):
         closing[n] = True
@@ -672,13 +672,19 @@ def test_LanguageModelResponse():
     m1.after(lambda: close(0))
     m2 = LanguageModelResponse(gen(input(5)))
     m2.after(lambda: close(1))
-    m3 = m1 + m2
+    m3 = LanguageModelResponse(gen(input(7)))
+    m3.after(lambda: close(2))
+    m4 = LanguageModelResponse(gen(input(7)))
+    m4.after(lambda: close(3))
+    # we ignore m3, and only poke at m4
+    m12 = m1 + m2
 
-    assert str(m3).strip() == " ".join([str(i) for i in input(10) + input(5)])
+    assert str(m12).strip() == " ".join([str(i) for i in input(10) + input(5)])
 
-    assert closing == [False, False]
-    m3.close()
-    assert closing == [True, True]
+    for token in m4:
+        break  # just read one token
+
+    assert closing == [True, True, False, False]
 
 
 def test_cache_class(tmp_path):
