@@ -1,10 +1,9 @@
-from haverscript import connect, fresh, valid_json
+from haverscript import connect, fresh, valid_json, echo, Model
 import json
 
-model = connect("mistral")
-session = (
-    model.echo().chat("In one sentence, why is the sky blue?").check(fresh)
-)  # will ignore cache if cache enabled
+model: Model = connect("mistral")
+session = model | echo()
+session = session.chat("In one sentence, why is the sky blue?", fresh=True)
 session = session.chat("Rewrite the above sentence in the style of Yoda")
 session = session.chat("How many questions did I ask? Give a one sentence reply.")
 

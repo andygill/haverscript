@@ -113,12 +113,13 @@ print(connect("mistral").chat("What is a haver?"))
 
 ---
 
-What about having a chat session? Turn on echo, and chat away.
+What about having a chat session? Turn on echo, and chat away. We turn on echo
+by using a pipe after the `connect`, and piping the response into `echo`.
 
 ```python
 from haverscript import connect
 
-session = connect("mistral").echo()
+session = connect("mistral") | echo()
 session = session.chat("In one sentence, why is the sky blue?")
 session = session.chat("Rewrite the above sentence in the style of Yoda")
 session = session.chat("How many questions did I ask?")
@@ -133,7 +134,7 @@ describe the second prompt.
 ```python
 from haverscript import connect
 
-model = connect("mistral").echo()
+model = connect("mistral") | echo()
 
 best = model.chat("Name the best basketball player. Only name one player and do not give commentary.")
 
@@ -145,7 +146,7 @@ composable, making it easy to build upon previous interactions.
 
 ## Principles of Haverscript as a DSL
 
-Haverscript is built around five core principles:
+Haverscript is built around three core principles:
 
 **LLM Interactions as String-to-String Operations**
 
@@ -164,24 +165,28 @@ tuples. Managing state is as simple as assigning names to things. For example,
 running the same prompt multiple times on the same context is straightforward
 because there is no hidden state that might be updated.
 
-**LLM Call Caching**
+
+**Middleware**
+
+Haverscript provides extensions to the basic chat using middleware and a pipe syntax.
+Things between the call to chat and the call
+to the actual LLM service can be augmented.
+
+*LLM Call Caching*
 
 All LLM calls can be cached in a [SQLite](https://www.sqlite.org/) database. If
 a query with identical context and parameters has been generated before, the
 cached result can be reused. This allows for deep scripting, efficient session
 management, and instant replay of interactions.
 
-**Response Rejection and Reruns**
+*Response Rejection and Reruns*
 
-Rejecting a specific response and rerunning an LLM request is built-in, using
-the post-condition hook `check`. This hook interacts with the cache, allowing
-for cache invalidation when necessary. check predicates are simply Python
-functions that return a bool, making it easy to assert specific conditions and
-re-execute when needed.
+Rejecting a specific response and rerunning an LLM request can be handled using `validate`
+and `retry`.
 
-**Echo Mode for Interactive Use and Debugging**
+*Echo Mode for Interactive Use and Debugging*
 
-Haverscript includes an echo mode, which shows interactions in markdown-style
+Haverscript includes an echo middleware, which shows interactions in markdown-style
 format in real-time, This allows a Haverscript program to function similarly to
 a traditional LLM chat session, making it a useful tool for both development and
 live interaction.

@@ -8,8 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.0] - 2024-XX-YY
 ### Added
 - Adding `Middleware` type for composable prompt and response handlers.
-- Added `middleware(...)` method to `Model`, to support composable
-  language models components. We have the following middleware components:
+- `Middleware` can be added using `|`, giving a small pipe-based representation of flow.
+  We have the following middleware components:
 
   - `echo()` adds eching of prompts and replies.
   - `retry()` which uses the tenacity package to provide a generic retry.
@@ -17,12 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `stats()` adds a dynamic single line summary of each LLM call.
   - `cache()` add a caching component.
   - `transcript()` adds a transcript component (transcripts the session to a file).
-  - `options()` overrides specific options.
-  - `model()` overrides the model being used.
+  - `options()` sets specific options.
+  - `model()` set the model being used.
   
-- We also have convenence methods that automatically append to the middleware,
-  in `Model`: `Model.echo()`, `Model.retry()`, ...
-
 - Adding prompt specific flags to `Model.chat`.
   - `format: str | dict` is a request for a specially formated output.
   - `images : list[str]` are images to be passed to the model.
