@@ -29,8 +29,8 @@ class Ollama(ServiceProvider):
 
     def __init__(self, hostname: str | None = None) -> None:
         self.hostname = hostname
-        if hostname not in Ollama.client:
-            Ollama.client[hostname] = ollama.Client(host=hostname)
+        if hostname not in self.client:
+            self.client[hostname] = ollama.Client(host=hostname)
 
     def list(self) -> list[str]:
         models = self.client[self.hostname].list()
@@ -67,44 +67,29 @@ class Ollama(ServiceProvider):
 
     def ask(self, request: Request):
 
-        prompt = request.prompt
-        model = request.contexture.model
-
-        kwargs = {}
-        kwargs["options"] = request.contexture.options
-        kwargs["system"] = request.contexture.system
-        kwargs["context"] = request.contexture.context
-        kwargs["images"] = request.images
-        kwargs["stream"] = request.stream
-
         messages = []
-
-        stream = "stream" in kwargs and kwargs["stream"]
-
-        options = copy.deepcopy(kwargs["options"]) if "options" in kwargs else {}
 
         if request.contexture.system:
             messages.append({"role": "system", "content": request.contexture.system})
 
         for exchange in request.contexture.context:
-            pmt, imgs, resp = exchange.prompt, exchange.images, exchange.reply
             messages.append(
-                {"role": "user", "content": pmt}
-                | ({"images": list(imgs)} if imgs else {})
+                {"role": "user", "content": exchange.prompt}
+                | ({"images": list(exchange.images)} if exchange.images else {})
             )
-            messages.append({"role": "assistant", "content": resp})
+            messages.append({"role": "assistant", "content": exchange.reply})
 
         messages.append(
-            {"role": "user", "content": prompt}
+            {"role": "user", "content": request.prompt}
             | ({"images": list(request.images)} if request.images else {})
         )
 
         try:
             response = self.client[self.hostname].chat(
-                model=model,
-                stream=stream,
+                model=request.contexture.model,
+                stream=request.stream,
                 messages=messages,
-                options=options,
+                options=request.contexture.options,
                 format=request.format,
             )
 
