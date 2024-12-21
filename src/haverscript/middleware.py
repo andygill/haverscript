@@ -494,18 +494,53 @@ def model(model: str) -> Middleware:
 
 
 @dataclass(frozen=True)
+class SystemMiddleware(Middleware):
+    system: str
+
+    def invoke(self, request: Request, next: LanguageModel) -> Reply:
+        contexture = request.contexture.model_copy(update=dict(system=self.system))
+        request = request.model_copy(update=dict(contexture=contexture))
+        return next.ask(request=request)
+
+
+def system(system: str) -> Middleware:
+    return SystemMiddleware(model)
+
+
+@dataclass(frozen=True)
 class OptionsMiddleware(Middleware):
     options: dict
 
     def invoke(self, request: Request, next: LanguageModel) -> Reply:
         contexture = request.contexture.model_copy(
-            update=dict(options=request.contexture.options | self.options)
+            update=dict(options=self.options | request.contexture.options)
         )
         request = request.model_copy(update=dict(contexture=contexture))
         return next.ask(request=request)
 
 
 def options(**kwargs) -> Middleware:
+    """Options to pass to the model, such as temperature and seed.
+
+    num_ctx: int
+    num_keep: int
+    seed: int
+    num_predict: int
+    top_k: int
+    top_p: float
+    tfs_z: float
+    typical_p: float
+    repeat_last_n: int
+    temperature: float
+    repeat_penalty: float
+    presence_penalty: float
+    frequency_penalty: float
+    mirostat: int
+    mirostat_tau: float
+    mirostat_eta: float
+    penalize_newline: bool
+    stop: Sequence[str]
+    """
     return OptionsMiddleware(kwargs)
 
 
@@ -539,7 +574,7 @@ class MetaMiddleware(Middleware):
                 # Which means we reject it
                 assert False, "unknown system or context"
 
-        model: MetaModel = model.__class__(**deepcopy(model.dict()))
+        model: MetaModel = deepcopy(model)
 
         response: Reply = model.chat(request.prompt, next)
 
