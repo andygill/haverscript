@@ -41,7 +41,10 @@ def test_first_example(tmp_path, file_regression):
         run_example(
             "examples/first_example/main.py",
             tmp_path,
-            {'("mistral")': '("mistral:v0.3").options(seed=12345)'},
+            {
+                '("mistral")': '("mistral:v0.3") | haverscript.options(seed=12345)',
+                "from haverscript": "import haverscript\nfrom haverscript",
+            },
         ),
         extension=".txt",
     )
@@ -54,11 +57,11 @@ def test_first_example_together(tmp_path, file_regression):
             tmp_path,
             {
                 "session = connect": """
+import haverscript
 from haverscript.together import Together
-from tenacity import stop_after_attempt, wait_fixed
 
 session = connect""",
-                '("mistral")': '("meta-llama/Meta-Llama-3-8B-Instruct-Lite", service=Together()).retry(stop=stop_after_attempt(5), wait=wait_fixed(2))',
+                '("mistral")': '("meta-llama/Meta-Llama-3-8B-Instruct-Lite", service=Together()) | haverscript.retry(stop=haverscript.stop_after_attempt(5), wait=haverscript.wait_fixed(2))',
             },
         ).splitlines()
     )
@@ -70,7 +73,7 @@ def test_together(tmp_path, file_regression):
         run_example(
             "examples/together/main.py",
             tmp_path,
-            {"connect(model, service=Together)": "connect(model, service=Together())"},
+            {},
         ).splitlines()
     )
     assert lines > 10 and lines < 1000

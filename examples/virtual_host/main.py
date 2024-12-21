@@ -1,5 +1,5 @@
 import re
-from haverscript import connect, Host, Configuration
+from haverscript import connect, Host, Configuration, echo
 
 
 class MyHost(Host):
@@ -10,5 +10,5 @@ class MyHost(Host):
         return f"I reject your {len(prompt.split())} word prompt, and replace it with my own."
 
 
-session = connect(host=MyHost()).echo()
+session = connect(host=MyHost()) | echo()
 session = session.chat("In one sentence, why is the sky blue?")

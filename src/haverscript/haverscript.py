@@ -1,3 +1,4 @@
+from __future__ import annotations
 import json
 import logging
 import sqlite3
@@ -71,7 +72,7 @@ class Model(ABC):
         images: list[AnyStr] = [],
         middleware: Middleware | None = None,
         raw: bool = False,
-    ) -> "Response":
+    ) -> Response:
         """
         Take a prompt and call the LLM in a previously provided context.
 
@@ -203,36 +204,13 @@ class Model(ABC):
             }
         )
 
-    # middleware methods
+    # Content methods
 
-    def echo(self, width: int = 78, prompt: bool = True, spinner: bool = True) -> Self:
-        """echo prompts and responses to stdout."""
-        return self | echo(width, prompt, spinner)
-
-    def cache(self, filename: str, mode: str | None = "a+") -> Self:
-        """Set the cache filename for this model."""
-        return self | cache(filename, mode)
-
-    def retry(self, **options) -> Self:
-        """Set the cache filename for this model."""
-        return self | retry(**options)
-
-    def stats(self):
-        return self | stats()
-
-    def transcript(self, dirname: str):
-        return self | transcript(dirname)
-
-    def validate(self, predicate: Callable[[str], bool]):
-        return self | validate(predicate)
-
-    def system(self, system: str) -> Self:
+    def system(self, prompt: str) -> Self:
         """provide a system prompt."""
         return self.copy(
-            contexture=self.contexture.model_copy(update=dict(system=system))
+            contexture=self.contexture.model_copy(update=dict(system=prompt))
         )
-
-    # Content methods
 
     def outdent(self, outdent: bool = True) -> Self:
         return self.copy(settings=self.settings.copy(outdent=outdent))
@@ -315,14 +293,20 @@ class Model(ABC):
         """
         return self.copy(contexture=self.contexture.add_options(**kwargs))
 
-    def middleware(self, after: Middleware):
-        return self.copy(
-            settings=self.settings.copy(middleware=self.settings.middleware | after)
-        )
+    def middleware(self, after: Middleware) -> Self:
+        """helper method to append middleware to a model
 
-    def __or__(self, other: Middleware):
+        Same as `self | after`.
+        Sometimes it is cleaner in code to use the method.
+        """
+        return self | after
+
+    def __or__(self, other: Middleware) -> Self:
+        """pipe to append middleware to a model"""
         assert isinstance(other, Middleware), "Can only pipe with middleware"
-        return self.middleware(other)
+        return self.copy(
+            settings=self.settings.copy(middleware=self.settings.middleware | other)
+        )
 
 
 @dataclass(frozen=True)

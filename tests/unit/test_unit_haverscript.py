@@ -279,25 +279,25 @@ def test_echo(sample_model, capfd):
     for line in reply_to_hello.splitlines():
         assert len(line) <= 78
 
-    resp = sample_model.echo().chat("Hello")
+    resp = (sample_model | echo()).chat("Hello")
     assert remove_spinner(capfd.readouterr().out) == reply_to_hello
 
-    resp = sample_model.echo(spinner=False).chat("Hello")
+    resp = (sample_model | echo(spinner=False)).chat("Hello")
     assert capfd.readouterr().out == reply_to_hello
 
     for line in reply_to_hello_48.splitlines():
         assert len(line) <= 48
 
-    resp = sample_model.echo(width=48).chat("Hello")
+    resp = (sample_model | echo(width=48)).chat("Hello")
     assert remove_spinner(capfd.readouterr().out) == reply_to_hello_48
 
     for line in reply_to_hello_8.splitlines():
         assert len(line) <= 8 or " " not in line
 
-    resp = sample_model.echo(width=8).chat("Hello")
+    resp = (sample_model | echo(width=8)).chat("Hello")
     assert remove_spinner(capfd.readouterr().out) == reply_to_hello_8
 
-    resp = sample_model.echo(prompt=False).chat("Hello")
+    resp = (sample_model | echo(prompt=False)).chat("Hello")
     assert remove_spinner(capfd.readouterr().out) == reply_to_hello_no_prompt
 
 
@@ -367,7 +367,7 @@ def test_json(sample_model):
 def test_cache(sample_model, tmp_path):
     temp_file = tmp_path / "cache.db"
     mode = "a+"
-    model = sample_model.cache(temp_file, mode)
+    model = sample_model | cache(temp_file, mode)
 
     hello = "### Hello"
     assert len(model.children(hello)) == 0
@@ -391,7 +391,7 @@ def test_cache(sample_model, tmp_path):
 
     # reset the cursor, to simulate a new execute
     sys.modules["haverscript.cache"].Cache.connections = {}
-    model = sample_model.cache(temp_file, mode)
+    model = sample_model | cache(temp_file, mode)
 
     assert len(model.children()) == 2
     reply1b = model.chat(hello)
@@ -412,7 +412,7 @@ def test_cache(sample_model, tmp_path):
     # now test the read mode
     sys.modules["haverscript.cache"].Cache.connections = {}
     mode = "r"
-    model = sample_model.cache(temp_file, mode)
+    model = sample_model | cache(temp_file, mode)
 
     assert len(model.children()) == 3
     reply1b = model.chat(hello)
@@ -430,7 +430,7 @@ def test_cache(sample_model, tmp_path):
 
     sys.modules["haverscript.cache"].Cache.connections = {}
     mode = "a"
-    model = sample_model.cache(temp_file, mode)
+    model = sample_model | cache(temp_file, mode)
 
     hello = "### Hello"
     assert len(model.children(hello)) == 0
@@ -544,7 +544,8 @@ def test_retry(sample_model):
         sample_model.chat("FAIL(0)")
 
     extra = sample_model.chat("###", format="json").value["extra"]
-    sample_model.retry(stop=stop_after_attempt(5)).chat(f"FAIL({extra+4})")
+    model = sample_model | retry(stop=stop_after_attempt(5))
+    model.chat(f"FAIL({extra+4})")
 
 
 def test_validate(sample_model: Model):
