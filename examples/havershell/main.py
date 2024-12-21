@@ -7,7 +7,7 @@ from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.history import InMemoryHistory
 
-from haverscript import Response, connect
+from haverscript import Response, connect, echo
 
 
 def bell():
@@ -86,7 +86,7 @@ def main():
 
     terminal_size = shutil.get_terminal_size(fallback=(80, 24))
     terminal_width = terminal_size.columns
-    llm = connect(args.model).echo(width=terminal_width - 2, prompt=False)
+    llm = connect(args.model) | echo(width=terminal_width - 2, prompt=False)
 
     if args.temperature is not None:
         llm = llm.options(temperature=args.temperature)
