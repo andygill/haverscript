@@ -32,7 +32,7 @@ class Together(ServiceProvider):
         models = response.json()
         return [model["id"] for model in models]
 
-    def _streaming(self, response):
+    def _streaming(self, response: requests.Response):
 
         buffer = ""
 
@@ -45,7 +45,7 @@ class Together(ServiceProvider):
                     json_data = json.loads(json_str)
                     return json_data
                 except json.JSONDecodeError as e:
-                    logging.error(f"JSON decoding failed: {e}")
+                    raise ValueError("JSON decoding failed: {e}, <<{json_str}>>")
             else:
                 packet_data = json.loads(packet)
                 if (
@@ -54,8 +54,6 @@ class Together(ServiceProvider):
                     and packet_data["error"]["type"] == "credit_limit"
                 ):
                     raise LLMRateLimitError
-
-            return None
 
         for chunk in response.iter_content(chunk_size=None, decode_unicode=True):
             buffer += chunk
@@ -73,11 +71,14 @@ class Together(ServiceProvider):
 
                     yield json_data["choices"][0]["text"]
 
-            # Handle any remaining data in the buffer after the loop ends
-            if buffer.strip():
+        # Handle any remaining data in the buffer after the loop ends
+        if buffer.strip():
+            try:
                 json_data = process_packet(buffer.strip())
                 if json_data is not None:
                     yield json_data["choices"][0]["text"]
+            except ValueError:
+                pass
 
     def chat(self, request: LanguageModelRequest):
         messages = []
