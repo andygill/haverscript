@@ -19,9 +19,9 @@ All roads lead to Rome in French is Toutes les routes mènent à Rome
 
 Sorry. French lesson over.
 Your 3 translations:
-* english='Three blind mice' french='Trois souris aveugles'
-* english='Such is life' french="C'est la vie comme ça"
-* english='All roads lead to Rome' french='Toutes les routes mènent à Rome'
+* Three blind mice => Trois souris aveugles
+* Such is life => C'est la vie comme ça
+* All roads lead to Rome => Toutes les routes mènent à Rome
 
 --[ LLM-facing conversation ]------
 
