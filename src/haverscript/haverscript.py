@@ -49,10 +49,11 @@ class Service(ABC):
     def list(self):
         return self.service.list()
 
-    def model(self, model) -> "Model":
+    def __or__(self, other: Middleware):
+        assert isinstance(other, Middleware), "Can only pipe with middleware"
         return Model(
-            settings=Settings(service=self.service, middleware=EmptyMiddleware()),
-            contexture=Contexture(model=model),
+            settings=Settings(service=self.service, middleware=other),
+            contexture=Contexture(),
         )
 
 
@@ -225,16 +226,16 @@ class Model(ABC):
     def validate(self, predicate: Callable[[str], bool]):
         return self | validate(predicate)
 
-    # Content methods
-
-    def outdent(self, outdent: bool = True) -> Self:
-        return self.copy(settings=self.settings.copy(outdent=outdent))
-
     def system(self, system: str) -> Self:
         """provide a system prompt."""
         return self.copy(
             contexture=self.contexture.model_copy(update=dict(system=system))
         )
+
+    # Content methods
+
+    def outdent(self, outdent: bool = True) -> Self:
+        return self.copy(settings=self.settings.copy(outdent=outdent))
 
     def load(self, markdown: str, complete: bool = False) -> Self:
         """Read markdown as system + prompt-reply pairs."""
@@ -416,6 +417,6 @@ def connect(
     service = Service(service)
 
     if modelname is not None:
-        return service.model(modelname)
+        return service | model(modelname)
 
     return service

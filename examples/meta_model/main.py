@@ -21,7 +21,8 @@ class ExampleMetaModel(MetaModel):
         if len(self.previous) >= 3:
             response = Reply("Sorry. French lesson over.\nYour 3 translations:\n")
             for resp in self.previous:
-                response += Reply(f"* {resp}\n")
+                assert isinstance(resp, Translate)
+                response += Reply(f"* {resp.english} => {resp.french}\n")
 
             return response
 
@@ -35,7 +36,7 @@ class ExampleMetaModel(MetaModel):
             format=Translate.model_json_schema(),
         )
         response = next.ask(request)
-        translated = response.parse(Translate)
+        translated: Translate = response.parse(Translate)
 
         self.previous.append(translated)
         remaining = 3 - len(self.previous)
@@ -46,7 +47,7 @@ class ExampleMetaModel(MetaModel):
 
 
 # In a real example, validate and retry would be added to provide robustness.
-model = connect("mistral").options(seed=12345) | meta(ExampleMetaModel) | echo()
+model = connect("mistral") | meta(ExampleMetaModel) | echo()
 
 
 print("--[ User-facing conversation ]------")
@@ -55,7 +56,7 @@ session = session.chat("Such is life")
 session = session.chat("All roads lead to Rome")
 session = session.chat("The quick brown fox")
 
-model = connect("mistral").options(seed=12345) | echo() | meta(ExampleMetaModel)
+model = connect("mistral") | echo() | meta(ExampleMetaModel)
 
 print("--[ LLM-facing conversation ]------")
 session = model.chat("Three blind mice")

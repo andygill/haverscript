@@ -169,7 +169,7 @@ def test_meta(tmp_path, file_regression):
         run_example(
             "examples/meta_model/main.py",
             tmp_path,
-            {'"mistral"': '"mistral:v0.3"'},
+            {'("mistral")': '("mistral:v0.3") | options(seed=12345)'},
         ),
         extension=".txt",
     )
