@@ -7,6 +7,8 @@ import os
 from datetime import datetime
 from abc import abstractmethod
 import builtins
+from copy import deepcopy
+from pydantic import BaseModel
 
 from dataclasses import dataclass, field
 import queue
@@ -507,17 +509,12 @@ def options(**kwargs) -> Middleware:
     return OptionsMiddleware(kwargs)
 
 
-@dataclass
-class MetaModel(ABC):
+class MetaModel(BaseModel):
     system: str | None
 
     @abstractmethod
-    def copy(self) -> "MetaModel":
-        """Make a copy so the copy can be updated."""
-
-    @abstractmethod
-    def prompt(self, prompt, next: LanguageModel) -> Reply:
-        """Turn a prompt into a follow-on call the next model."""
+    def chat(self, prompt, next: LanguageModel) -> Reply:
+        """Turn a chat-with-prompt into a follow-on call of the next model."""
 
 
 @dataclass(frozen=True)
@@ -534,7 +531,7 @@ class MetaMiddleware(Middleware):
             model = self._model_cache[system, context]
         except KeyError:
             if context == ():
-                model = self.model(system)
+                model = self.model(system=system)
                 self._model_cache[system, ()] = model
             else:
                 # We has a context we've never seen
@@ -542,9 +539,9 @@ class MetaMiddleware(Middleware):
                 # Which means we reject it
                 assert False, "unknown system or context"
 
-        model = model.copy()
+        model: MetaModel = model.__class__(**deepcopy(model.dict()))
 
-        response: Reply = model.prompt(request.prompt, next)
+        response: Reply = model.chat(request.prompt, next)
 
         def after():
             exchange = Exchange(prompt=request.prompt, images=(), reply=str(response))

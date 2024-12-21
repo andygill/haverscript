@@ -1,7 +1,7 @@
 import json
 from dataclasses import dataclass, field, replace
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from haverscript import *
 from haverscript.languagemodel import *
@@ -13,14 +13,10 @@ class Translate(BaseModel):
     french: str
 
 
-@dataclass
 class ExampleMetaModel(MetaModel):
-    previous: list = field(default_factory=list)
+    previous: list = Field(default_factory=list)
 
-    def copy(self) -> "MetaModel":
-        return replace(self, previous=self.previous[:])
-
-    def prompt(self, prompt, next: LanguageModel) -> Reply:
+    def chat(self, prompt, next: LanguageModel) -> Reply:
 
         if len(self.previous) >= 3:
             response = Reply("Sorry. French lesson over.\nYour 3 translations:\n")
@@ -50,9 +46,8 @@ class ExampleMetaModel(MetaModel):
 
 
 # In a real example, validate and retry would be added to provide robustness.
-model = connect("mistral").middleware(
-    options(seed=12345) | meta(ExampleMetaModel) | echo()
-)
+model = connect("mistral").options(seed=12345) | meta(ExampleMetaModel) | echo()
+
 
 print("--[ User-facing conversation ]------")
 session = model.chat("Three blind mice")
@@ -60,9 +55,7 @@ session = session.chat("Such is life")
 session = session.chat("All roads lead to Rome")
 session = session.chat("The quick brown fox")
 
-model = connect("mistral").middleware(
-    echo() | options(seed=12345) | meta(ExampleMetaModel)
-)
+model = connect("mistral").options(seed=12345) | echo() | meta(ExampleMetaModel)
 
 print("--[ LLM-facing conversation ]------")
 session = model.chat("Three blind mice")
