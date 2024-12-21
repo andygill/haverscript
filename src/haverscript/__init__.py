@@ -1,4 +1,4 @@
-from tenacity import stop_after_attempt
+from tenacity import stop_after_attempt, wait_fixed
 
 from .exceptions import (
     LLMConfigurationError,
@@ -33,6 +33,7 @@ from .middleware import (
     validate,
     cache,
     fresh,
+    options,
 )
 from .together import Together
 
@@ -53,6 +54,7 @@ __all__ = [
     "transcript",
     "fresh",
     "cache",
+    "options",
     "LanguageModel",
     "Reply",
     "ServiceProvider",
@@ -67,4 +69,5 @@ __all__ = [
     "LLMResponseError",
     "LLMResultError",
     "stop_after_attempt",
+    "wait_fixed",
 ]

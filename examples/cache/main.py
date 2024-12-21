@@ -1,8 +1,8 @@
-from haverscript import connect
+from haverscript import connect, cache
 import time
 import sys
 
-model = connect("mistral").cache("cache.db")
+model = connect("mistral") | cache("cache.db")
 
 prompt = "In one sentence, why is the sky blue?"
 times = []

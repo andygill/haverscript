@@ -494,20 +494,6 @@ def model(model: str) -> Middleware:
 
 
 @dataclass(frozen=True)
-class SystemMiddleware(Middleware):
-    system: str
-
-    def invoke(self, request: Request, next: LanguageModel) -> Reply:
-        contexture = request.contexture.model_copy(update=dict(system=self.system))
-        request = request.model_copy(update=dict(contexture=contexture))
-        return next.ask(request=request)
-
-
-def system(system: str) -> Middleware:
-    return SystemMiddleware(model)
-
-
-@dataclass(frozen=True)
 class OptionsMiddleware(Middleware):
     options: dict
 

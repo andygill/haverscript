@@ -4,7 +4,7 @@ In this example, we use `.check()` several times.
 from haverscript import connect, fresh, valid_json
 import json
 
-model = connect("mistral").echo()
+model = connect("mistral") | echo()
 session = model.chat("In one sentence, why is the sky blue?").check(
     fresh
 )  # will ignore cache if cache enabled
