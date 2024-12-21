@@ -206,24 +206,24 @@ class Model(ABC):
 
     def echo(self, width: int = 78, prompt: bool = True, spinner: bool = True) -> Self:
         """echo prompts and responses to stdout."""
-        return self.middleware(echo(width, prompt, spinner))
+        return self | echo(width, prompt, spinner)
 
     def cache(self, filename: str, mode: str | None = "a+") -> Self:
         """Set the cache filename for this model."""
-        return self.middleware(cache(filename, mode))
+        return self | cache(filename, mode)
 
     def retry(self, **options) -> Self:
         """Set the cache filename for this model."""
-        return self.middleware(retry(**options))
+        return self | retry(**options)
 
     def stats(self):
-        return self.middleware(stats())
+        return self | stats()
 
     def transcript(self, dirname: str):
-        return self.middleware(transcript(dirname))
+        return self | transcript(dirname)
 
     def validate(self, predicate: Callable[[str], bool]):
-        return self.middleware(validate(predicate))
+        return self | validate(predicate)
 
     # Content methods
 
@@ -318,6 +318,10 @@ class Model(ABC):
         return self.copy(
             settings=self.settings.copy(middleware=self.settings.middleware | after)
         )
+
+    def __or__(self, other: Middleware):
+        assert isinstance(other, Middleware), "Can only pipe with middleware"
+        return self.middleware(other)
 
 
 @dataclass(frozen=True)
