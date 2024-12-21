@@ -96,17 +96,37 @@ class RetryMiddleware(Middleware):
 
     There is a cavet here. If the lower chat returns an in-progress and working streaming,
     then this will be accepted by this retry. We wait for the first token, though.
+
+    We need to increment the seed, if any, each time.
     """
 
     options: dict
 
     def invoke(self, request: Request, next: LanguageModel):
         try:
+            seed = None
             for attempt in Retrying(**self.options):
+
+                if seed:
+                    request.model_copy(
+                        update=dict(
+                            contexture=self.contexture.model_copy(
+                                update=dict(
+                                    options=request.contexture.options | dict(seed=seed)
+                                )
+                            )
+                        )
+                    )
                 with attempt:
-                    return next.ask(request=request)
+                    try:
+                        return next.ask(request=request)
+                    finally:
+                        seed = (
+                            request.contexture.options["seed"] + 1
+                            if "seed" in request.contexture.options
+                            else None
+                        )
         except RetryError as e:
-            print(e)
             raise LLMResultError()
 
 
