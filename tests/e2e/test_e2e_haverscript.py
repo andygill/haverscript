@@ -137,13 +137,18 @@ def test_cache(tmp_path, file_regression):
     )
 
 
-@pytest.mark.xfail
-def test_check(tmp_path, file_regression):
+def test_validate(tmp_path, file_regression):
     file_regression.check(
         run_example(
-            "examples/check/main.py",
+            "examples/validate/main.py",
             tmp_path,
-            {'("mistral")': '("mistral:v0.3").options(seed=12345)'},
+            {
+                '("mistral")': '("mistral:v0.3")',
+                'blue?")': 'blue?", middleware=haverscript.options(seed=12345))',
+                'Yoda")': 'Yoda", middleware=haverscript.options(seed=12345))',
+                "retry(stop=stop_after_attempt(10))": "retry(stop=stop_after_attempt(10)) | haverscript.options(seed=12345)",
+                "from haverscript": "import haverscript\nfrom haverscript",
+            },
         ),
         extension=".txt",
     )
