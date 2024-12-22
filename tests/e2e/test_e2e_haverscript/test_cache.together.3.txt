@@ -1,0 +1,12 @@
+chat #0
+reply: The sky appears blue because of a phenomenon called Rayleigh scattering, in which shorter (blue) wavelengths of light are scattered more than longer (red) wavelengths by the tiny molecules of gases in the Earth's atmosphere, resulting in the blue color we see.
+fast (used cache)
+
+chat #1
+reply: The sky appears blue because of a phenomenon called Rayleigh scattering, in which shorter (blue) wavelengths of light are scattered more than longer (red) wavelengths by the tiny molecules of gases in the Earth's atmosphere, resulting in the blue color we see.
+fast (used cache)
+
+chat #2
+reply: The sky appears blue because of a phenomenon called Rayleigh scattering, in which shorter (blue) wavelengths of light are scattered more than longer (red) wavelengths by the tiny molecules of gases in the Earth's atmosphere, resulting in the blue color we see.
+slower (used LLM)
+

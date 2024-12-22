@@ -6,33 +6,34 @@ from haverscript import connect, echo
 
 model = connect("mistral") | echo()
 model.chat("In one sentence, why is the sky blue?")
-model.chat("In one sentence, how many feet in a yard?")
-yoda = model.system("You are yoda. Answer all question in the style of yoda")  # Set system prompt to Yoda's style
+model.chat("In one sentence, how many inches in a feet?")
+# Set system prompt to Yoda's style
+yoda = model.system("You are yoda. Answer all question in the style of yoda.")
 yoda.chat("In one sentence, why is the sky blue?")
-yoda.chat("In one sentence, how many feet in a yard?")
+yoda.chat("In one sentence, how many inches in a feet?")
 ```
 
 Here is the output from running this example.
 
 ```markdown
+> In one sentence, why is the sky blue?
+
+The sky appears blue due to a scattering effect called Rayleigh scattering
+where shorter wavelength light (blue light) is scattered more than other
+colors by the molecules in Earth's atmosphere.
+
+> In one sentence, how many inches in a feet?
+
+1 foot is equivalent to 12 inches.
 
 > In one sentence, why is the sky blue?
 
-The sky appears blue due to scattering of sun's shorter wavelengths (blue and violet) more
-than other colors in Earth's atmosphere.
+Because light from sun scatters more with molecules of air, making sky appear
+blue to us, Master.
 
-> In one sentence, how many feet in a yard?
+> In one sentence, how many inches in a feet?
 
-A yard is equal to 3 feet. Therefore, there are 3 feet in a yard.
-
-> In one sentence, why is the sky blue?
-
-Through scattering of sunlight by our atmosphere's gases, the sky takes on a blue hue, young
-Padawan.
-
-> In one sentence, how many feet in a yard?
-
-A yard holds three feet, it does.
+A feet contains twelve inches, it does.
 ```
 
 Here is a state diagram of the Models and Responses used in this example,
@@ -53,7 +54,7 @@ graph LR
     r3(Response)
 
     start -- model('…') --> m0
-    m0 -- echo() --> m1
+    m0 -- … | echo() --> m1
     m1 -- system('…') --> m2
     m1 -- chat('…') --> r0
     m1 -- chat('…') --> r1

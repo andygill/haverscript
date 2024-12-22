@@ -1,17 +1,12 @@
 
 > In one sentence, why is the sky blue?
 
-The sky appears blue due to scattering of shorter wavelengths (blue and
-violet) of sunlight more than other colors as they travel through the Earth's
-atmosphere.
+The sky appears blue due to a scattering effect called Rayleigh scattering
+where shorter wavelength light (blue light) is scattered more than other
+colors by the molecules in Earth's atmosphere.
 
 > In one sentence, why is the sky blue?
 
-The sky appears blue due to scattering of shorter wavelengths (blue and
-violet) of sunlight more than other colors as they travel through the Earth's
-atmosphere.
-
-> In one sentence, why is the sky blue?
-
-The sky appears blue due to scattering of sunlight by molecules and particles
-in the Earth's atmosphere.
+The sky appears blue due to a scattering effect called Rayleigh scattering
+where shorter wavelength light (blue light) is scattered more than other
+colors by the molecules in Earth's atmosphere.

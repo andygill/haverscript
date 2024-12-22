@@ -18,6 +18,7 @@ from .haverscript import (
     EchoMiddleware,
     Service,
     Reply,
+    Request,
     accept,
     valid_json,
 )
@@ -33,6 +34,7 @@ from .middleware import (
     fresh,
     options,
     trace,
+    model,
 )
 from .ollama import connect
 
@@ -55,6 +57,7 @@ __all__ = [
     "options",
     "LanguageModel",
     "Reply",
+    "Request",
     "ServiceProvider",
     "Middleware",
     "LLMError",
@@ -68,4 +71,5 @@ __all__ = [
     "stop_after_attempt",
     "wait_fixed",
     "trace",
+    "model",
 ]
