@@ -3,6 +3,7 @@ import threading
 import queue
 import time
 import json
+import logging as log
 import os
 from datetime import datetime
 from abc import abstractmethod
@@ -30,6 +31,8 @@ from .cache import Cache
 from .render import *
 from functools import partial
 from abc import ABC
+
+logger = log.getLogger("haverscript")
 
 
 @dataclass(frozen=True)
@@ -484,6 +487,33 @@ class TranscriptMiddleware(Middleware):
 def transcript(dirname: str):
     """write a full transcript of every interaction, in a subdirectory."""
     return TranscriptMiddleware(dirname)
+
+
+@dataclass(frozen=True)
+class TraceMiddleware(Middleware):
+    level: int = log.DEBUG
+
+    def invoke(self, request: Request, next: LanguageModel) -> Reply:
+
+        logger.log(self.level, f"request={repr(request)}")
+
+        reply: Reply = next.ask(request=request)
+
+        # we give the reply twice, once when we first get it,
+        # and second after the reply is complete.
+        logger.log(self.level, f"initial reply={repr(reply)}")
+
+        def after():
+            logger.log(self.level, f"final reply={repr(reply)}")
+
+        reply.after(after)
+
+        return reply
+
+
+def trace(level: int = log.DEBUG) -> Middleware:
+    """Log all requests and responses"""
+    return TraceMiddleware(level)
 
 
 @dataclass(frozen=True)
