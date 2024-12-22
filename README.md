@@ -1,11 +1,12 @@
 # Haverscript
 
-Haverscript is a lightweight Python library designed to manage LLM interactions,
-built on top of [Ollama](https://ollama.com), and its [Python
-API](https://github.com/ollama/ollama-python). Haverscript streamlines LLM
-interactions by focusing on immutability, automating retries, and utilizing
-SQLite caching. This ensures efficient, reliable, and repeatable outcomes while
-reducing the complexity of managing LLM workflows.
+Haverscript is a lightweight Python library designed to manage LLM interactions.
+Haverscript used [Ollama](https://ollama.com) by default but can use any API
+with a simple adapter. Haverscript streamlines LLM
+interactions by utilizing immutability, taking care of context construction
+automatically, and having a flexible and composable middleware support.
+This reduces the complexity of managing LLM workflows, and allows
+for rapid experimentation of ideas.
 
 ## First Example
 
@@ -42,7 +43,7 @@ confirming how many questions you had asked.
 
 The [examples](examples/README.md) directory contains several examples.
 
-The [DSL Design](DSL_DESIGN.md) page compares Haverscript to other LLM APIs,
+The [DSL Design](docs/DSL_DESIGN.md) page compares Haverscript to other LLM APIs,
 and gives rationale behind the design.
 
 ## Installing Haverscript
@@ -73,7 +74,7 @@ source venv/bin/activate  # On Windows: .\venv\Scripts\activate
 2. Install Haverscript directly from the GitHub repository:
 
 ```bash
-pip install git+https://github.com/andygill/haverscript.git@v0.1.0
+pip install git+https://github.com/andygill/haverscript.git@v0.2.0
 ```
 
 In the future, if there’s enough interest, I plan to push Haverscript to PyPI
@@ -87,12 +88,10 @@ The `chat` method is the main function available in both the `Model` and
 `Response` classes (with `Response` inheriting it from `Model`):
 
 ```python
-@dataclass(frozen=True)
 class Model:
     ...
     def chat(self, prompt: str) -> Response:
 
-@dataclass(frozen=True)
 class Response(Model):
     ...
 ```
@@ -117,18 +116,13 @@ Key points:
       )
   ```
 
-- **Automatic Outdenting**: To accommodate common formatting practices where
-  `chat` is called with multi-line literal strings (often indented), the
-  "docstrings" algorithm is applied to remove unnecessary whitespace from the
-  prompt. You can disable this by setting the `raw` option before calling
-  `chat`.
-
 ### The `Response` Class
 
 The result of a `chat` call is a `Response`. This class contains several useful
 attributes and defines a `__str__` method for convenient string representation.
 
 ```python 
+@dataclass
 class Response(Model):
     prompt: str
     reply: str
@@ -150,20 +144,23 @@ Key Points:
 
   For and example, see [Chaining answers together](examples/chaining_answers/README.md)
 
-- **`str` and `repr`**: The design of the `str` method in Haverscript is
-  intentional. It allows you to seamlessly include responses directly in
-  f-strings. If you need to inspect more detailed information or structure, you
-  can use `repr` or `dataclasses.asdict`.
+- **`str` and `repr`**: The design of the `str` method in Haverscript's
+  `Response` is intentional. It allows you to seamlessly include responses
+  directly in f-strings. If you need to inspect more detailed information or
+  structure, you can use `repr`.
+
+How do we modify `Model` if everything is immutable? Instead of modifying them
+directly, we create a new copy with every call to `.chat`, following the
+principles of functional programming. 
 
 ### The `Model` Class
 
 The `connect(...)` function is the main entry point of the library, allowing you
-to create and access an initial model. This function always requires a model
-name and can optionally accept a hostname (which is typically omitted when
-running Ollama locally).
+to create and access an initial model. This function takes a model
+name and returns a `Model` that will connect to Ollama and this model.
 
 ```python
-def connect(modelname: str, hostname: str = None):
+def connect(modelname: str | None = None):
     ...
 ```
 
@@ -180,42 +177,6 @@ print(f"Response: {response}")
 You can create multiple models, including duplicates of the same model, without
 any issues. No external actions are triggered until the `chat` method is called;
 the external `connect` is deferred until needed.
-
-### Setting Parameters
-
-How do we modify a `Model` or `Response` if everything is immutable? Instead of
-modifying them directly, we create new versions with the desired changes,
-following the principles of functional programming. Helper methods make it easy
-to create updated versions of these objects while preserving immutability.
-
-```python
-class Model:
-    ...
-    def echo(self, echo: bool = True, colorize: Optional[str] = None, width: int = 78) -> Self:
-        """Echo prompts and responses to stdout."""
-
-    def cache(self, filename: Optional[str] = None):
-        """Set the cache filename for this model."""
-
-    def system(self, prompt: str) -> Self:
-        """Add a system prompt."""
-
-    def json(self, json: bool = True) -> Self:
-        """Request a JSON result."""
-
-    def options(self, **kwargs) -> Self:
-        """Set additional options for the model, like temperature and seed."""
-```
-
-These methods can be called on both `Model` and `Response`, returning a new
-instance of the same type with the specified attributes updated.
-
-For examples, see 
-
-* [System prompt](examples/tree_of_calls/README.md) in tree of calls,
-* [enabling the cache](examples/cache/README.md), 
-* [JSON output](examples/check/README.md) in checking output, and
-* [setting ollama options](examples/options/README.md).
 
 ### Chaining calls
 
@@ -275,40 +236,105 @@ cases you want to play a different persona, or do not allow the previous reply
 to cloud the next request. See [tree of calls](examples/tree_of_calls/README.md)
 for an example.
 
-### Post-conditions
 
-A `Response` can have post-conditions added using the `check` method.
+### Middleware
 
-```python
-class Response(Model):
-    ...
-    def check(self, predicate) -> Self:
-        """Verify that a predicate is true, and if not, rerun the prompt."""
-```
-
-For example, you might use `check` to verify that an output is formatted
-correctly. Calls to `check` can be chained, and all post-conditions must be
-satisfied for the process to continue.
-
-There are three predicate functions provided:
+Middleware is a mechansim to have fine control over everything between
+calling `.chat` and Haverscript calling the LLM.
+As a example, consider the creation of a session.
 
 ```python
-from haverscript import fresh, accept, valid_json
-
-  response.check(fresh)  # Ensures the response is freshly generated (not cached).
-  response.check(accept)  # Asks the user to confirm if the response is acceptable.
-  response.check(valid_json)  # Check to see if the response reply is valid JSON.
+session = connect("mistral") | echo()
 ```
 
-For examples, see [post-conditions](examples/check/README.md).
+You can combine multiple middlewares, as deep as needed.
+
+```python
+session = connect("mistral") | echo() | options(seed=12345)
+```
+
+Finally, you can also add middleware to a specific call to chat.
+
+```python
+session = connect("mistral") | echo()
+print(session.chat("Hello", middleware=options(seed=12345)))
+```
+
+
+Haverscript provides following middleware:
+
+| Middleware | Purpose | Class |
+|------------|---------|-------|
+| Retry      | retry on failure (using tenacity)           | reliablity |
+| Validation | Fail under given condition                  | reliablity |
+| Cache      | Store and/or query prompt-reply pairs in DB | efficency | 
+| Fresh      | Request a fresh reply (not cached)          | efficency |
+| Echo       | Print prompt and reply                      | observation |
+| Stats      | Print basic stats about LLM                 | observation |
+| Debug      | Log requests and responses                  | observation |
+| Transcript | Store a complete transcript of every call   | observation |
+| Model      | Request a specific model be used            | configuration | 
+| Options    | Set specific LLM options (such as seed)     | configuration |
+| format     | Set specific format for output              | configuration |
+| Meta       | Support for generalized prompt and response transformation | generalization |
+
+
+
+
+For more details, see [Middleware Docs](docs/MIDDLEWARE.md), and 
+for examples, see
+
+* [System prompt](examples/tree_of_calls/README.md) in tree of calls,
+* [enabling the cache](examples/cache/README.md), 
+* [JSON output](examples/check/README.md) in checking output, and
+* [setting ollama options](examples/options/README.md).
+
+### Chat Options
+
+The `.chat()` method has additional parameters that are specific
+to the chat call.
+
+```python
+    def chat(
+        self,
+        prompt: str,
+        format: str | dict = "", # middleware
+        images: list[AnyStr] = [], # not middleware (part of context)
+        middleware: Middleware | None = None,
+        raw: bool = False, # remove?
+    ) -> Response:
+```
+
+### Other APIs
+
+We support [together.ai](https://www.together.ai/). You need to provide your
+own API KEY. Import `together` (which is a module), and use its `connect`.
+
+```python
+from haverscript import echo, together
+session = together.connect("mistral") | echo()
+session = session.chat("In one sentence, why is the sky blue?")
+session = session.chat("Rewrite the above sentence in the style of Yoda")
+session = session.chat("How many questions did I ask?")
+```
+
+You need to set the TOGETHER_API_KEY environmental variable.
+
+```shell
+export TOGETHER_API_KEY=...
+python example.py
+```
+
+PRs supporting other API are welcome! There are two examples in the source,
+so it should be straightforward to add more.
 
 ## FAQ
 
 Q: How do I make the context window larger to (say) 16K?
 
-A: set the `num_ctx` option.
+A: set the `num_ctx` option using middleware.
 ```python
-model = model.options(num_ctx=16 * 1024)
+model = model | options(num_ctx=16 * 1024)
 ```
 
 Q: What is "haver"?
@@ -320,25 +346,3 @@ making sense.
 
 Generative AI was used as a tool to help with code authoring and documentation
 writing.
-
-## Future Plans
-
-Models
-
-* Add support for the OpenAI API, and other APIs.
-* Introduce pseudo-models for tasks such as random selection.
-
-External Artifacts
-
-* ~~Enable image input for multi-modal models during chats~~.
-* Provide an API for LLM-based function calls.
-* Incorporate Retrieval-Augmented Generation (RAG) capabilities.
-
-Interface
-
-* Develop a [gradio](https://www.gradio.app/) interface for replaying scripts and monitoring LLM usage.
-
-LLM Hacking
-
-* Implement context compression and support for rewriting conversation
-  histories.
