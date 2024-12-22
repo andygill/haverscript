@@ -146,7 +146,7 @@ composable, making it easy to build upon previous interactions.
 
 ## Principles of Haverscript as a DSL
 
-Haverscript is built around three core principles:
+Haverscript is built around four core principles:
 
 **LLM Interactions as String-to-String Operations**
 
@@ -160,33 +160,26 @@ integral part of the Haverscript domain-specific design.
 
 **Immutable Core Structures**
 
-The primary classes in Haverscript are immutable, similar to Python strings or
+The user-facing classes in Haverscript are immutable, similar to Python strings or
 tuples. Managing state is as simple as assigning names to things. For example,
 running the same prompt multiple times on the same context is straightforward
 because there is no hidden state that might be updated.
 
+**Chat as a Chain of Responses**
 
-**Middleware**
+Using immutable structures, `.chat` is a chain of responses, taking care of the
+context of calls behind the scenes. Calling `.chat` both calls the LLM, and builds
+the complete context needed to make this call. 
+
+**Middleware for Effects**
 
 Haverscript provides extensions to the basic chat using middleware and a pipe syntax.
-Things between the call to chat and the call
-to the actual LLM service can be augmented.
+Things between the call to chat and the call to the actual LLM service can be augmented.
+These include Caching (using SQLite), retry and validation, echo capability, and
+The user can build the pipeline between the call to `.chat`, and the call of the LLM,
+that works for them.
 
-*LLM Call Caching*
+For example, if we want to both echo and use a cache, then there are two choices:
+echo every response, or echo only the non-cached resposes. The user picks what works
+for them using composable parts.
 
-All LLM calls can be cached in a [SQLite](https://www.sqlite.org/) database. If
-a query with identical context and parameters has been generated before, the
-cached result can be reused. This allows for deep scripting, efficient session
-management, and instant replay of interactions.
-
-*Response Rejection and Reruns*
-
-Rejecting a specific response and rerunning an LLM request can be handled using `validate`
-and `retry`.
-
-*Echo Mode for Interactive Use and Debugging*
-
-Haverscript includes an echo middleware, which shows interactions in markdown-style
-format in real-time, This allows a Haverscript program to function similarly to
-a traditional LLM chat session, making it a useful tool for both development and
-live interaction.
