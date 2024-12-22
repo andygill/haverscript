@@ -37,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `reject()` to `Response`, which raises a `LLMResultError` exception.
 - Adding `parse()` to `Response`, which parses a JSON reply into a Pydantic class.
 - Added support for together.ai's API as a first-class alternative to ollama.
+- Added many more examples.
 ### Fixed
 ### Changed
 - Updated `children` method to return all children when no prompt is supplied.
@@ -55,6 +56,8 @@ The concepts that caused changes are
   cache uses a cursor when reading cached responses, and it is possible to ask 
   that a specific interaction bypasses the cache.
 - Formated output is a property of the specific call to chat, not the session.
+- Most helper methods (`echo()`, `cache()`, etc) are now Middleware, and thus
+  more flexable.
 
 Specifically, here are the changes:
 - Removed `check()` and `redo()` from `Response`.
@@ -65,6 +68,12 @@ Specifically, here are the changes:
   argument to `Model.chat`, if a fresh output is needed.
 - Removed `json()` from `Model`. It is replaced with the more general
   `format = "json"` as an argument to `Model.chat`.
+- `echo()` and `cache()` are no longer `Model` methods, and now `Middleware` instances.
+
+So, previously we would have `sesssion = connect("modelname").echo()`, and we now have
+`sesssion = connect("modelname") | echo()`.
+
+
 
 ## [0.1.0] - 2024-09-23
 ### Initial release
