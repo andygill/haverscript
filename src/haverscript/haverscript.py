@@ -1,6 +1,5 @@
 from __future__ import annotations
 import json
-import logging
 import sqlite3
 import textwrap
 from abc import ABC
@@ -18,8 +17,6 @@ from .middleware import *
 from .ollama import Ollama
 from .cache import *
 from .render import render_system, render_interaction
-
-logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -90,8 +87,6 @@ class Model(ABC):
         """
         if not raw:
             prompt = textwrap.dedent(prompt).strip()
-
-        logger.info(f"chat prompt {prompt}")
 
         request, response = self.ask(prompt, format, images, middleware)
 
