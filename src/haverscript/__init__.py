@@ -34,6 +34,7 @@ from .middleware import (
     cache,
     fresh,
     options,
+    trace,
 )
 from .together import Together
 
@@ -70,4 +71,5 @@ __all__ = [
     "LLMResultError",
     "stop_after_attempt",
     "wait_fixed",
+    "trace",
 ]

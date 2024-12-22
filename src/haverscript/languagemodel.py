@@ -96,6 +96,9 @@ class Reply:
     def __str__(self):
         return "".join(self.tokens())
 
+    def __repr__(self):
+        return f"Reply([{", ".join([repr(t) for t in self._cache])}{"]" if self.closing else ", ..."})"
+
     def __iter__(self):
         ix = 0
         while True:
