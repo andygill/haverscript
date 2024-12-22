@@ -304,14 +304,14 @@ def test_echo(sample_model, capfd):
 def test_stats(sample_model, capfd):
     capfd.readouterr()
 
-    sample_model.stats().chat("Hello")
+    (sample_model | stats()).chat("Hello")
     txt = remove_spinner(capfd.readouterr().out)
     pattern = r"prompt\s*:\s*\d+b,\s*reply\s*:\s*\d+t,\s*first\s*token\s*:\s*\d+(\.\d+)?s,\s*tokens\/s\s*:\s*\d+"
     assert re.search(pattern, txt), f"found: {txt}"
 
     capfd.readouterr()
     try:
-        sample_model.stats().chat("FAIL(1)")
+        (sample_model | stats()).chat("FAIL(1)")
     except Exception:
         ...
     txt = remove_spinner(capfd.readouterr().out)
@@ -860,16 +860,6 @@ def test_transcript(sample_model: Model, tmp_path: str):
         with open(os.path.join(temp_dir, file), "r", encoding="utf-8") as f:
             content = f.read()
             assert content == transcript_content
-
-
-def test_stats(sample_model, capfd):
-    capfd.readouterr()
-
-    resp = sample_model.middleware(stats()).chat("Hello")
-    assert re.search(
-        r"^- prompt : 5b, reply : 133t, first token : 0.\d+s, tokens/s : \d+$",
-        remove_spinner(capfd.readouterr().out),
-    )
 
 
 class ReplyClass(BaseModel):
