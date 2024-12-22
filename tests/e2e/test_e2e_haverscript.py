@@ -1,28 +1,74 @@
 # End to end tests for HaverScript.
 
+import os
 import subprocess
 import sys
-import os
-from pydantic import BaseModel, ConfigDict, Field
 
 import pytest
-import haverscript
-from haverscript.together import connect
+from pydantic import BaseModel, ConfigDict, Field
 
+import haverscript
+import haverscript.together as together
+from haverscript.together import connect
 from tests.test_utils import remove_spinner
 
+DEBUG = False
 
-def run_example(example, tmp_path, header, changes, args=[]) -> str:
-    filename = tmp_path / os.path.basename(example)
 
-    with open(example, "r", encoding="utf-8") as f:
+def open_as_is(filename, tmp_path):
+    with open(filename, "r", encoding="utf-8") as f:
         content = f.read()
 
-    # Apply the diffs
-    if header:
-        content = header.strip() + "\n" + content
+    return content
+
+
+def open_for_ollama(filename, tmp_path):
+    with open(filename, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    content = "import haverscript as hs\n" + content
+    changes = {
+        'connect("mistral")': '(connect("mistral:v0.3") | hs.options(seed=12345))',
+        'connect("llava")': '(connect("llava:v1.6") | hs.options(seed=12345))',
+        'cache("cache.db")': f'cache("{tmp_path}/ollama.cache.db")',
+    }
     for old_text, new_text in changes.items():
         content = content.replace(old_text, new_text)
+
+    if DEBUG:
+        print(content)
+
+    return content
+
+
+def open_for_together(filename, tmp_path):
+    with open(filename, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    content = (
+        "import haverscript as hs\nimport haverscript.together as together\n" + content
+    )
+    changes = {
+        'connect("mistral")': '(together.connect("meta-llama/Meta-Llama-3-8B-Instruct-Lite") | hs.options(seed=12345))',
+        'cache("cache.db")': f'cache("{tmp_path}/cache.together.db")',
+        "connect(model)": "(connect(model) |  hs.options(seed=12345))",
+    }
+    for old_text, new_text in changes.items():
+        content = content.replace(old_text, new_text)
+
+    if DEBUG:
+        print("# TOGETHER")
+        print(content)
+
+    return content
+
+
+def run_example(example, tmp_path, open_me, args=[]) -> str:
+    if DEBUG:
+        print("run_example", example, tmp_path, open_me, args)
+    filename = tmp_path / os.path.basename(example)
+
+    content = open_me(example, tmp_path)
 
     # Write the modified content to the output file
     with open(filename, "w", encoding="utf-8") as f:
@@ -38,7 +84,8 @@ def run_example(example, tmp_path, header, changes, args=[]) -> str:
     if result.stderr:
         print(result.stderr.decode("utf-8"))
 
-    print(result.stdout.decode("utf-8"))
+    if DEBUG:
+        print(result.stdout.decode("utf-8"))
 
     assert not result.stderr, "{result.stderr}"
 
@@ -83,154 +130,99 @@ article 2 : {s2}
         raise AssertionError()
 
 
+def run_examples(
+    tmp_path,
+    file_regression,
+    src,
+    as_is: bool = False,
+    ollama: bool = True,
+    together: bool = True,
+    arg: str | None = None,
+):
+    suffix = ".txt"
+    args = []
+    if arg:
+        suffix = f".{arg}.txt"
+        args = [arg]
+    # Check the given example actually compiles and runs
+    example = run_example(
+        src,
+        tmp_path,
+        open_as_is,
+        args=args,
+    )
+
+    if as_is:
+        file_regression.check(
+            example,
+            extension=f".as_is{suffix}",
+        )
+    # Check vs golden output for ollama
+    if ollama:
+        file_regression.check(
+            run_example(
+                src,
+                tmp_path,
+                open_for_ollama,
+                args=args,
+            ),
+            extension=suffix,
+        )
+    # Check vs golden output for together
+    if together:
+        file_regression.check(
+            run_example(
+                src,
+                tmp_path,
+                open_for_together,
+                args=args,
+            ),
+            check_fn=check_together,
+            extension=f".together{suffix}",
+        )
+
+
 def test_first_example(tmp_path, file_regression):
-    file_regression.check(
-        run_example(
-            "examples/first_example/main.py",
-            tmp_path,
-            "import haverscript as hs",
-            {
-                '("mistral")': '("mistral:v0.3") | hs.options(seed=12345)',
-            },
-        ),
-        extension=".txt",
-    )
-
-
-def test_first_example_together(tmp_path, file_regression):
-    file_regression.check(
-        run_example(
-            "examples/first_example/main.py",
-            tmp_path,
-            "import haverscript as hs\nimport haverscript.together as together",
-            {
-                '("mistral")': '("meta-llama/Meta-Llama-3-8B-Instruct-Lite") | hs.retry(stop=hs.stop_after_attempt(5), wait=hs.wait_fixed(2)) | hs.options(seed=12345)',
-                "connect(": "together.connect(",
-            },
-        ),
-        extension=".txt",
-        check_fn=check_together,
-    )
-
-
-def test_together(tmp_path, file_regression):
-    file_regression.check(
-        run_example(
-            "examples/together/main.py",
-            tmp_path,
-            "import haverscript as hs\n",
-            {"connect(model)": "connect(model) | hs.options(seed=12345)"},
-        ),
-        extension=".txt",
-        check_fn=check_together,
-    )
-
-
-def test_tree_of_calls(tmp_path, file_regression):
-    file_regression.check(
-        run_example(
-            "examples/tree_of_calls/main.py",
-            tmp_path,
-            "",
-            {'("mistral")': '("mistral:v0.3").options(seed=23456)'},
-        ),
-        extension=".txt",
-    )
-
-
-def test_tree_of_calls_together(tmp_path, file_regression):
-    file_regression.check(
-        run_example(
-            "examples/tree_of_calls/main.py",
-            tmp_path,
-            "import haverscript as hs\nimport haverscript.together as together",
-            {
-                '("mistral")': '("meta-llama/Meta-Llama-3-8B-Instruct-Lite") | hs.options(seed=12345)',
-                "connect(": "together.connect(",
-            },
-        ),
-        extension=".txt",
-    )
+    run_examples(tmp_path, file_regression, "examples/first_example/main.py")
 
 
 def test_chaining_answers(tmp_path, file_regression):
-    file_regression.check(
-        run_example(
-            "examples/chaining_answers/main.py",
-            tmp_path,
-            "",
-            {'("mistral")': '("mistral:v0.3").options(seed=12345)'},
-        ),
-        extension=".txt",
-    )
+    run_examples(tmp_path, file_regression, "examples/chaining_answers/main.py")
 
 
-def test_options(tmp_path, file_regression):
-    file_regression.check(
-        run_example(
-            "examples/options/main.py",
-            tmp_path,
-            "",
-            {"(seed=None)": "(seed=56789)"},
-        ),
-        extension=".txt",
-    )
-
-
-def test_cache(tmp_path, file_regression):
-    env = {
-        '("mistral")': '("mistral:v0.3").options(seed=12345)',
-        'cache("cache.db")': f'cache("{tmp_path}/cache.db")',
-    }
-    file_regression.check(
-        run_example(
-            "examples/cache/main.py",
-            tmp_path,
-            "",
-            env,
-            args=["2"],
-        ),
-        extension=".2.txt",
-    )
-    file_regression.check(
-        run_example(
-            "examples/cache/main.py",
-            tmp_path,
-            "",
-            env,
-            args=["3"],
-        ),
-        extension=".3.txt",
-    )
-
-
-def test_validate(tmp_path, file_regression):
-    file_regression.check(
-        run_example(
-            "examples/validate/main.py",
-            tmp_path,
-            "",
-            {
-                '("mistral")': '("mistral:v0.3")',
-                'blue?")': 'blue?", middleware=haverscript.options(seed=12345))',
-                'Yoda")': 'Yoda", middleware=haverscript.options(seed=12345))',
-                "retry(stop=stop_after_attempt(10))": "retry(stop=stop_after_attempt(10)) | haverscript.options(seed=12345)",
-                "from haverscript": "import haverscript\nfrom haverscript",
-            },
-        ),
-        extension=".txt",
-    )
+def test_tree_of_calls(tmp_path, file_regression):
+    run_examples(tmp_path, file_regression, "examples/tree_of_calls/main.py")
 
 
 def test_images(tmp_path, file_regression):
-    file_regression.check(
-        run_example(
-            "examples/images/main.py",
-            tmp_path,
-            "",
-            {'("llava")': '("llava:v1.6").options(seed=12345)'},
-        ),
-        extension=".txt",
+    run_examples(tmp_path, file_regression, "examples/images/main.py", together=False)
+
+
+def test_cache(tmp_path, file_regression):
+    run_examples(tmp_path, file_regression, "examples/cache/main.py", arg="2")
+    run_examples(tmp_path, file_regression, "examples/cache/main.py", arg="3")
+
+
+def test_together(tmp_path, file_regression):
+    run_examples(tmp_path, file_regression, "examples/together/main.py", ollama=False)
+
+
+def test_options(tmp_path, file_regression):
+    run_examples(tmp_path, file_regression, "examples/options/main.py")
+
+
+def test_meta_model(tmp_path, file_regression):
+    run_examples(tmp_path, file_regression, "examples/meta_model/main.py")
+
+
+def test_custom_service(tmp_path, file_regression):
+    run_examples(
+        tmp_path,
+        file_regression,
+        "examples/custom_service/main.py",
+        together=False,
+        ollama=False,
+        as_is=True,
     )
 
 
@@ -240,14 +232,6 @@ def test_list():
     assert "mistral:v0.3" in models
     assert "llava:v1.6" in models
 
-
-def test_meta(tmp_path, file_regression):
-    file_regression.check(
-        run_example(
-            "examples/meta_model/main.py",
-            tmp_path,
-            "import haverscript as hs",
-            {'("mistral")': '("mistral:v0.3") | hs.options(seed=12345)'},
-        ),
-        extension=".txt",
-    )
+    models = together.connect().list()
+    assert isinstance(models, list)
+    assert "meta-llama/Meta-Llama-3-8B-Instruct-Lite" in models

@@ -4,60 +4,51 @@ whether it agrees.
 ```python
 from haverscript import connect, stop_after_attempt, echo, validate, retry
 
-model = (
-    connect("mistral")
-    | echo()
-    | validate(  # Ensure the reply is three words or fewer
-        lambda response: len(response.split()) <= 3
-    )
-    | retry(stop=stop_after_attempt(10))
-)
 
-best = model.chat(
-    "Name the best basketball player. Only name one player and do not give commentary."
-)
+def small(reply):
+    # Ensure the reply is three words or fewer
+    return len(reply.split()) <= 3
+
 
 model = connect("mistral") | echo()
 
+best = model.chat(
+    "Name the best basketball player. Only name one player and do not give commentary.",
+    middleware=validate(small) | retry(stop=stop_after_attempt(10)),
+)
 model.chat(
     f"Someone told me that {best} is the best basketball player. Do you agree, and why?"
 )
-
 ```
 
 
-```
+```markdown
 > Name the best basketball player. Only name one player and do not give commentary.
 
-Michael Jordan.
+Michael Jordan
 
-> Someone told me that  Michael Jordan. is the best basketball player. Do you agree, and why?
+> Someone told me that  Michael Jordan is the best basketball player. Do you agree, and why?
 
-Michael Jordan is considered by many to be the greatest basketball player of all time due to
-his exceptional skills, achievements, and impact on the sport. Here are some reasons why:
+While it's subjective and opinions on who is the "best" basketball player can
+vary greatly among basketball fans, Michael Jordan is widely regarded as one
+of the greatest players in the history of the sport. His impact on the game
+both on and off the court is undeniable.
 
-1. Scoring Ability: MJ was an incredibly prolific scorer. He averaged over 30 points per
-game in eight NBA seasons, and his career scoring average was 30.1 points per game. He could
-score in various ways – with his athleticism, mid-range jumpers, and long-range shots.
+Jordan led the Chicago Bulls to six NBA championships and was named the Most
+Valuable Player (MVP) five times during his career. He is also a 14-time NBA
+All-Star, a 10-time scoring champion, a three-time steals leader, and a 3x
+three-point shooting champion.
 
-2. Versatility: MJ was not just a scorer; he was also an excellent defender, rebounder, and
-playmaker. His versatility allowed him to dominate games in multiple areas.
+Jordan's influence extended beyond statistics as well. His competitive spirit,
+passion for the game, and innovative style of play revolutionized basketball
+in ways that continue to be felt today. He elevated the NBA brand globally and
+inspired countless athletes across multiple sports.
 
-3. Competitive Fire: Jordan's competitiveness drove him to push himself and his teammates
-to be better. He wanted to win at all costs and was known for his intense focus and drive during
-games.
-
-4. Leadership: MJ was a leader on the court, inspiring his teammates with his work ethic,
-intensity, and determination. His presence helped elevate his teams to new heights.
-
-5. Titles and Accomplishments: Jordan won six NBA championships with the Chicago Bulls. He
-was named NBA Most Valuable Player (MVP) five times, an All-Star 14 times, and a member of the
-All-NBA First Team 10 times.
-
-6. Legacy: MJ's impact on basketball goes beyond his individual accomplishments. His
-innovative skills, work ethic, and competitive spirit inspired generations of
-basketball players and fans alike. He helped popularize the game globally and left an
-indelible mark on the sport.
+That being said, it's important to recognize that there have been many
+extraordinary players in the history of basketball, and debate over who is the
+"best" will likely never reach a consensus. Other notable contenders for this
+title include LeBron James, Kareem Abdul-Jabbar, Wilt Chamberlain, Magic
+Johnson, and Larry Bird, among others.
 ```
 
 Here is the flow diagram. Note that the final call to `chat` uses both the `model`,
