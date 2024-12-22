@@ -55,7 +55,7 @@ class Ollama(ServiceProvider):
                                 for k in OllamaMetrics.__dataclass_fields__.keys()
                             }
                         )
-                    yield from chunk["message"]["content"]
+                    yield chunk["message"]["content"]
             except Exception as e:
                 raise self._suggestions(e)
         else:

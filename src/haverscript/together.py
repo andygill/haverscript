@@ -53,7 +53,7 @@ class Together(ServiceProvider):
                 for chunk in response:
                     if chunk.choices[0].finish_reason:
                         yield self.metrics(chunk.usage.dict())
-                    yield from chunk.choices[0].delta.content
+                    yield chunk.choices[0].delta.content
             except Exception as e:
                 raise self._suggestions(e)
         else:
