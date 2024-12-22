@@ -12,12 +12,23 @@ def test_docs_first_example():
     )
 
 
-def test_validate_example():
+def test_docs_tree_of_calls():
     assert (
-        Content("examples/validate/main.py")
-        == Content("examples/validate/README.md")[4:25]
+        Content("examples/tree_of_calls/main.py")
+        == Content("examples/tree_of_calls/README.md")[5:14]
     )
     assert (
-        Content("tests/e2e/test_e2e_haverscript/test_validate.txt")[2:]
-        == Content("examples/validate/README.md")[31:52]
+        Content("tests/e2e/test_e2e_haverscript/test_tree_of_calls.txt")[2:]
+        == Content("examples/tree_of_calls/README.md")[19:37]
+    )
+
+
+def test_docs_chaining_answers():
+    assert (
+        Content("examples/chaining_answers/main.py")
+        == Content("examples/chaining_answers/README.md")[5:22]
+    )
+    assert (
+        Content("tests/e2e/test_e2e_haverscript/test_chaining_answers.txt")[2:]
+        == Content("examples/chaining_answers/README.md")[26:52]
     )

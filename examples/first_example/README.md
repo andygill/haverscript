@@ -58,7 +58,7 @@ graph LR
     r2(**session**: Response)
 
     start -- model('…') --> m0
-    m0 -- echo() --> m1
+    m0 --  … | echo() --> m1
     m1 -- chat('…') --> r0
     r0 -- chat('…') --> r1
     r1 -- chat('…') --> r2

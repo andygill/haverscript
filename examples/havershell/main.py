@@ -114,12 +114,16 @@ def main():
 
     while True:
         try:
-            if previous := session.children():
-                history = InMemoryHistory()
-                for prompt in previous.prompt:
-                    history.append_string(prompt)
+            if args.cache:
+                previous = session.children()
+                if previous:
+                    history = InMemoryHistory()
+                    for prompt in previous.prompt:
+                        history.append_string(prompt)
 
-                prompt_session = PromptSession(history=history)
+                    prompt_session = PromptSession(history=history)
+                else:
+                    prompt_session = PromptSession()
             else:
                 prompt_session = PromptSession()
 
