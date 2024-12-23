@@ -56,12 +56,9 @@ def test_first_example_together(tmp_path, file_regression):
             "examples/first_example/main.py",
             tmp_path,
             {
-                "session = connect": """
-import haverscript
-from haverscript.together import Together
-
-session = connect""",
-                '("mistral")': '("meta-llama/Meta-Llama-3-8B-Instruct-Lite", service=Together()) | haverscript.retry(stop=haverscript.stop_after_attempt(5), wait=haverscript.wait_fixed(2))',
+                '("mistral")': '("meta-llama/Meta-Llama-3-8B-Instruct-Lite") | hs.retry(stop=hs.stop_after_attempt(5), wait=hs.wait_fixed(2))',
+                "from haverscript": "import haverscript as hs\nimport haverscript.together as together\nfrom haverscript",
+                "connect(": "together.connect(",
             },
         ).splitlines()
     )

@@ -6,12 +6,8 @@ from typing import AnyStr, Callable, Optional, Self, Tuple, NoReturn, Generator
 
 import ollama
 
-from .languagemodel import (
-    Metrics,
-    ServiceProvider,
-    Reply,
-    Request,
-)
+
+from .haverscript import Model, Service, model, Metrics, ServiceProvider, Reply, Request
 
 
 @dataclass(frozen=True)
@@ -97,3 +93,17 @@ class Ollama(ServiceProvider):
 
         except Exception as e:
             raise self._suggestions(e)
+
+
+def connect(
+    model_name: str | None = None,
+    hostname: str | None = None,
+) -> Model | Service:
+    """return a model or service that uses the given model name."""
+
+    service = Service(Ollama(hostname=hostname))
+
+    if model_name:
+        service = service | model(model_name)
+
+    return service

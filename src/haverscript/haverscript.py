@@ -14,7 +14,6 @@ from frozendict import frozendict
 from .exceptions import *
 from .languagemodel import *
 from .middleware import *
-from .ollama import Ollama
 from .cache import *
 from .render import render_system, render_interaction
 
@@ -377,25 +376,3 @@ class Services:
 
 
 services = Services()
-
-
-def connect(
-    modelname: str | None = None,
-    hostname: str | None = None,
-    service: ServiceProvider | None = None,
-) -> Model | Service:
-    """return a model that uses the given model name."""
-
-    assert (
-        hostname is None or service is None
-    ), "can not use hostname with a provided service provider (pass hostname directly)"
-
-    if service is None:
-        service = Ollama(hostname)
-
-    service = Service(service)
-
-    if modelname is not None:
-        return service | model(modelname)
-
-    return service

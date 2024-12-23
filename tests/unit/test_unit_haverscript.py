@@ -34,7 +34,6 @@ from haverscript import (
     LLMError,
     Service,
     LLMResultError,
-    Ollama,
 )
 from haverscript.cache import Cache, INTERACTION
 from haverscript.middleware import *
@@ -137,7 +136,7 @@ def sample_model():
 @pytest.fixture
 def sample_remote_model():
     inject()
-    return connect(test_model_name, service=Ollama(test_model_host))
+    return connect(test_model_name, test_model_host)
 
 
 def test_model(sample_model):
@@ -206,7 +205,7 @@ class UserService(ServiceProvider):
 @pytest.fixture
 def sample_user_model():
     inject()
-    return connect("some-model", service=UserService())
+    return Service(UserService()) | model("A")
 
 
 def test_user_model(sample_user_model):
