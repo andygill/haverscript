@@ -16,11 +16,9 @@ from .haverscript import (
     ServiceProvider,
     Middleware,
     EchoMiddleware,
-    Ollama,
     Service,
     Reply,
     accept,
-    connect,
     valid_json,
 )
 from .languagemodel import Reply, LanguageModel, ServiceProvider
@@ -36,7 +34,7 @@ from .middleware import (
     options,
     trace,
 )
-from .together import Together
+from .ollama import connect
 
 __all__ = [
     "Middleware",
@@ -47,7 +45,6 @@ __all__ = [
     "connect",
     "valid_json",
     "Service",
-    "Ollama",
     "echo",
     "stats",
     "retry",
@@ -60,7 +57,6 @@ __all__ = [
     "Reply",
     "ServiceProvider",
     "Middleware",
-    "Together",
     "LLMError",
     "LLMConfigurationError",
     "LLMRequestError",
