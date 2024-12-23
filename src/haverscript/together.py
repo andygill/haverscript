@@ -51,9 +51,10 @@ class Together(ServiceProvider):
         if isinstance(response, GeneratorType):
             try:
                 for chunk in response:
-                    if chunk.choices[0].finish_reason:
-                        yield self.metrics(chunk.usage.dict())
-                    yield chunk.choices[0].delta.content
+                    for choice in chunk.choices:
+                        if choice.finish_reason and chunk.usage:
+                            yield self.metrics(chunk.usage.dict())
+                        yield choice.delta.content
             except Exception as e:
                 raise self._suggestions(e)
         else:
@@ -76,14 +77,43 @@ class Together(ServiceProvider):
         assert not request.images, "images not (yet) supported"
         messages.append({"role": "user", "content": request.prompt})
 
+        together_keywords = set(
+            [
+                "max_tokens",
+                "stop",
+                "temperature",
+                "top_p",
+                "top_k",
+                "repetition_penalty",
+                "presence_penalty",
+                "frequency_penalty",
+                "min_p",
+                "logit_bias",
+                "seed",
+                "logprobs",
+            ]
+        )
+
+        kwargs = {
+            key: value
+            for key, value in request.contexture.options
+            if key in together_keywords
+        }
+
+        response_format = None
+        if format == "json":
+            response_format = {"type": "json_object"}
+        elif isinstance(format, dict):
+            response_format = {"type": "json_object", "schema": format}
+
         try:
             assert isinstance(self.client, together.Together)
             response = self.client.chat.completions.create(
                 model=request.contexture.model,
                 stream=request.stream,
                 messages=messages,
-                options=request.contexture.options,
-                format=request.format,
+                response_format=response_format,
+                **kwargs,
             )
 
             return Reply(self.generator(response))
