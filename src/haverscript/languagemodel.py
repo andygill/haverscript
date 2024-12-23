@@ -1,3 +1,4 @@
+from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from concurrent.futures import Future
@@ -16,6 +17,12 @@ class Metrics(ABC):
 
 class Informational(BaseModel):
     message: str
+
+    model_config = ConfigDict(frozen=True)
+
+
+class Value(BaseModel):
+    value: dict | BaseModel
 
     model_config = ConfigDict(frozen=True)
 
@@ -74,7 +81,7 @@ class Request(BaseModel):
 class Reply:
     """A potentially tokenized response to a large language model"""
 
-    def __init__(self, packets: Iterable[str | Metrics | Informational]):
+    def __init__(self, packets: Iterable[str | Metrics | Value | Informational]):
         self._packets = iter(packets)
         # We always have at least one item in our sequence.
         # This typically will cause as small pause before
@@ -141,6 +148,17 @@ class Reply:
                 return t
         return None
 
+    @property
+    def value(self) -> dict | BaseModel | None:
+        """Returns any value build by format middleware.
+
+        value is a property to be consistent with Response.
+        """
+        for t in self:
+            if isinstance(t, Value):
+                return t.value
+        return None
+
     def after(self, completion: Callable[[], None]) -> None:
         with self._lock:
             if not self.closing:
@@ -161,9 +179,6 @@ class Reply:
 
         return Reply(streaming())
 
-    def parse(self, cls: Type[BaseModel]) -> BaseModel:
-        return cls.model_validate_json(str(self))
-
 
 class LanguageModel(ABC):
     """Base class for anything that can asked things, that is takes a configuration/prompt and returns token(s)."""
@@ -171,6 +186,13 @@ class LanguageModel(ABC):
     @abstractmethod
     def ask(self, request: Request) -> Reply:
         """Ask a LLM a specific request."""
+
+    def __or__(self, other) -> LanguageModel:
+        # move both classes into into .types?
+        from .middleware import MiddlewareLanguageModel, Middleware
+
+        assert isinstance(other, Middleware)
+        return MiddlewareLanguageModel(other, self)
 
 
 class ServiceProvider(LanguageModel):

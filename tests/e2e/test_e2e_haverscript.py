@@ -121,7 +121,7 @@ article 2 : {s2}
 """
 
     response = connect("meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo").chat(
-        prompt, format=Similarity.model_json_schema()
+        prompt, middleware=haverscript.format(Similarity)
     )
 
     similarity = Similarity.model_validate(response.value)
@@ -209,6 +209,10 @@ def test_together(tmp_path, file_regression):
 
 def test_options(tmp_path, file_regression):
     run_examples(tmp_path, file_regression, "examples/options/main.py")
+
+
+def test_format(tmp_path, file_regression):
+    run_examples(tmp_path, file_regression, "examples/format/main.py")
 
 
 def test_meta_model(tmp_path, file_regression):
