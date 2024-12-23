@@ -35,6 +35,7 @@ from .middleware import (
     options,
     trace,
     model,
+    format,
 )
 from .ollama import connect
 
@@ -72,4 +73,5 @@ __all__ = [
     "wait_fixed",
     "trace",
     "model",
+    "format",
 ]

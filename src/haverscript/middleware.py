@@ -1,3 +1,4 @@
+from __future__ import annotations
 import re
 import threading
 import queue
@@ -14,7 +15,7 @@ from pydantic import BaseModel
 from dataclasses import dataclass, field
 import queue
 import time
-from typing import AnyStr, Callable, Optional, Self, Tuple, NoReturn
+from typing import AnyStr, Callable, Optional, Self, Tuple, NoReturn, Type
 
 from tenacity import Retrying, RetryError
 from yaspin import yaspin
@@ -24,6 +25,8 @@ from .languagemodel import (
     LanguageModel,
     Reply,
     Request,
+    Reply,
+    Value,
     Informational,
     Exchange,
 )
@@ -51,7 +54,7 @@ class Middleware(ABC):
         """get the first Middleware in the pipeline (from the Prompt's point of view)"""
         return self
 
-    def __or__(self, other: LanguageModel) -> LanguageModel:
+    def __or__(self, other: LanguageModel) -> Middleware:
         return AppendMiddleware(self, other)
 
 
@@ -578,6 +581,41 @@ def options(**kwargs) -> Middleware:
     stop: Sequence[str]
     """
     return OptionsMiddleware(kwargs)
+
+
+@dataclass(frozen=True)
+class FormatMiddleware(Middleware):
+    """Request the reply used as specific format.
+
+    If schema is None, then JSON is returned
+    If schema is Type[BaseModel], then the schema of the BaseModel
+                (or more typically, a subclass) is used.
+    """
+
+    schema: dict | Type[BaseModel] | None
+
+    def invoke(self, request: Request, next: LanguageModel):
+        schema = self.schema
+        if schema is None:
+            format = "json"
+        elif issubclass(schema, BaseModel):
+            format = schema.model_json_schema()
+        else:
+            assert f"unsupported schema: {schema}"
+
+        request = request.model_copy(update=dict(format=format))
+        reply = next.ask(request=request)
+
+        if schema is None:
+            return reply + Reply([Value(value=json.loads(str(reply)))])
+        elif issubclass(schema, BaseModel):
+            return reply + Reply([Value(value=schema.model_validate_json(str(reply)))])
+
+        return reply
+
+
+def format(schema: Type[BaseModel] | None = None):
+    return FormatMiddleware(schema)
 
 
 class MetaModel(BaseModel):
