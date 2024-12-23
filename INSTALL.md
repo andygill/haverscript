@@ -14,7 +14,7 @@ source venv/bin/activate  # On Windows: .\venv\Scripts\activate
 2. Install Haverscript directly from the GitHub repository:
 
 ```bash
-pip install git+https://github.com/andygill/haverscript.git@v0.1.0
+pip install git+https://github.com/andygill/haverscript.git@v0.2.0
 ```
 
 In the future, if there’s enough interest, I plan to push Haverscript to PyPI
@@ -61,7 +61,14 @@ pytest tests/unit # run unit tests
 pytest tests/e2e  # run e2e tests
 ```
 
-The e2e tests uses `pytest-regressions`. The golden output is version controlled. 
+You can run tests in parallel, using the `pytest-xdist` package. However,
+remember ollama will be the bottleneck here.
+
+```
+pytest -n auto
+```
+
+The e2e tests also uses `pytest-regressions`. The golden output is version controlled. 
 
 We use the following models:
 * ollama mistral:v0.3 (f974a74358d6)
