@@ -1,4 +1,3 @@
-import json
 from dataclasses import dataclass, field, replace
 
 from pydantic import BaseModel, Field
@@ -26,6 +25,8 @@ class ExampleMetaModel(MetaModel):
 
             return response
 
+        next = next | format(Translate)
+
         request = Request(
             contexture=Contexture(model="mistral"),
             prompt=f"You are a translator, translating from English to French. "
@@ -33,10 +34,9 @@ class ExampleMetaModel(MetaModel):
             f'The "english" field should contain the original English text, and only the original text.'
             f'The "french" field should contain the translated French text, and only the translated text.'
             f"\n\nEnglish Text: {prompt}",
-            format=Translate.model_json_schema(),
         )
         response = next.ask(request)
-        translated: Translate = response.parse(Translate)
+        translated: Translate = response.value
 
         self.previous.append(translated)
         remaining = 3 - len(self.previous)

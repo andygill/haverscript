@@ -31,6 +31,7 @@ from haverscript import (
     retry,
     validate,
     fresh,
+    format,
     LLMError,
     Service,
     LLMResultError,
@@ -49,6 +50,15 @@ from haverscript.languagemodel import Exchange, Request
 
 test_model_name = "test-model"
 test_model_host = "remote.address"
+
+
+class LLM(BaseModel):
+    host: str | None
+    model: str | None
+    messages: list | None
+    options: dict | None
+    format: str | dict
+    extra: str | None
 
 
 def llm(host, model, messages, options, format, extra=None):
@@ -75,7 +85,7 @@ class _TestClient:
             yield {"message": {"content": token}, "done": False}
 
     def chat(self, model, stream, messages, options, format):
-        assert format == "json" or format == ""
+        assert format == "json" or format == "" or isinstance(format, dict)
         extra = None
 
         assert isinstance(messages, list)
@@ -351,16 +361,31 @@ def test_system(sample_model):
     assert reply.reply == llm(None, test_model_name, context, {}, "")
 
 
-def test_json(sample_model):
-    for ix, kwargs in enumerate([dict(), dict(format="json")]):
-        reply = sample_model.chat("", **kwargs)
-        context = [{"role": "user", "content": ""}]
+def test_json_and_format(sample_model):
+    reply = sample_model.chat("")
+    context = [{"role": "user", "content": ""}]
+    llm_reply = llm(None, test_model_name, context, {}, "")
+    assert reply.reply == llm_reply
+    assert reply.value is None
 
-        llm_reply = llm(None, test_model_name, context, {}, "json" if ix == 1 else "")
-        assert reply.reply == llm_reply
-        if ix == 1:
-            assert reply.value is not None
-            assert reply.value == json.loads(llm_reply)
+    reply = sample_model.chat("", middleware=format())
+    context = [{"role": "user", "content": ""}]
+    llm_reply = llm(None, test_model_name, context, {}, "json")
+    assert reply.reply == llm_reply
+    assert reply.value == json.loads(llm_reply)
+
+    reply = sample_model.chat("", middleware=format(LLM))
+    context = [{"role": "user", "content": ""}]
+    llm_reply = llm(None, test_model_name, context, {}, LLM.model_json_schema())
+    assert reply.reply == llm_reply
+    assert reply.value == LLM(
+        host=None,
+        model=test_model_name,
+        messages=context,
+        options={},
+        format=LLM.model_json_schema(),
+        extra=None,
+    )
 
 
 def test_cache(sample_model, tmp_path):
@@ -542,7 +567,7 @@ def test_retry(sample_model):
     with pytest.raises(LLMError):
         sample_model.chat("FAIL(0)")
 
-    extra = sample_model.chat("###", format="json").value["extra"]
+    extra = sample_model.chat("###", middleware=format()).value["extra"]
     model = sample_model | retry(stop=stop_after_attempt(5))
     model.chat(f"FAIL({extra+4})")
 
@@ -553,7 +578,7 @@ def test_validate(sample_model: Model):
 
     sample_model.middleware(validate(lambda txt: "$$$" in txt)).chat("$$$")
 
-    extra = sample_model.chat("###", format="json").value["extra"]
+    extra = sample_model.chat("###", middleware=format()).value["extra"]
 
     with pytest.raises(LLMError):
         sample_model.middleware(
@@ -561,14 +586,14 @@ def test_validate(sample_model: Model):
             | (retry(stop=stop_after_attempt(5)))
         ).chat("###")
 
-    extra = sample_model.chat("###", format="json").value["extra"]
+    extra = sample_model.chat("###", middleware=format()).value["extra"]
 
     sample_model.middleware(
         validate(lambda txt: f'"extra": {extra + 3}' in txt)
         | (retry(stop=stop_after_attempt(5)))
     ).chat("###")
 
-    extra = sample_model.chat("###", format="json").value["extra"]
+    extra = sample_model.chat("###", middleware=format()).value["extra"]
 
     with pytest.raises(LLMError):
         # wrong order; retry is bellow validate.
@@ -859,17 +884,3 @@ def test_transcript(sample_model: Model, tmp_path: str):
         with open(os.path.join(temp_dir, file), "r", encoding="utf-8") as f:
             content = f.read()
             assert content == transcript_content
-
-
-class ReplyClass(BaseModel):
-    reply: bool
-
-
-def test_parse(sample_model: Model):
-    assert sample_model.response("Hello", '{"reply": true}').parse(
-        ReplyClass
-    ) == ReplyClass(reply=True)
-
-    assert Reply(["{", '"reply":', "false", "}"]).parse(ReplyClass) == ReplyClass(
-        reply=False
-    )

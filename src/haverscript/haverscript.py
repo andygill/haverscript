@@ -5,7 +5,7 @@ import textwrap
 from abc import ABC
 from dataclasses import asdict, dataclass, field, fields
 from itertools import tee
-from typing import AnyStr, Callable, Optional, Self, Tuple, NoReturn
+from typing import AnyStr, Callable, Optional, Self, Tuple, NoReturn, Type
 from pydantic import BaseModel
 
 from yaspin import yaspin
@@ -46,7 +46,7 @@ class Service(ABC):
     def list(self):
         return self.service.list()
 
-    def __or__(self, other: Middleware):
+    def __or__(self, other: Middleware) -> Model:
         assert isinstance(other, Middleware), "Can only pipe with middleware"
         return Model(
             settings=Settings(service=self.service, middleware=other),
@@ -74,7 +74,6 @@ class Model(ABC):
 
         Args:
             prompt (str): the prompt
-            format (str | dict): the requested format of the reply
             images: (list): images to pass to the LLM
             middleware (Middleware): extra middleware specifically for this prompt
             fresh (bool): ignore any previously cached results
@@ -87,14 +86,13 @@ class Model(ABC):
         if not raw:
             prompt = textwrap.dedent(prompt).strip()
 
-        request, response = self.ask(prompt, format, images, middleware)
+        request, response = self.ask(prompt, images, middleware)
 
         return self.process(request, response)
 
     def ask(
         self,
         prompt: str,
-        format: str | dict = "",
         images: list[AnyStr] = [],
         middleware: Middleware | None = None,
     ) -> tuple[Request, Reply]:
@@ -103,7 +101,6 @@ class Model(ABC):
 
         Args:
             prompt (str): the prompt
-            format (str | dict): the requested format of the reply
             images: (list): images to pass to the LLM
             middleware (Middleware): extra middleware specifically for this prompt
 
@@ -112,7 +109,7 @@ class Model(ABC):
         """
         assert prompt is not None, "Can not build a response with no prompt"
 
-        request = self.request(prompt, images=images, format=format)
+        request = self.request(prompt, images=images)
 
         if middleware is not None:
             middleware = self.settings.middleware | middleware
@@ -130,6 +127,7 @@ class Model(ABC):
             str(response),
             images=tuple(request.images),
             metrics=response.metrics(),
+            value=response.value,
         )
 
     def request(
@@ -154,10 +152,12 @@ class Model(ABC):
         reply: str,
         images: list[AnyStr] = [],
         metrics: Metrics | None = None,
+        value: BaseModel | dict | None = None,
     ):
         assert isinstance(prompt, str)
         assert isinstance(reply, str)
         assert isinstance(metrics, (Metrics, type(None)))
+        assert isinstance(value, (BaseModel, dict, type(None)))
         return Response(
             settings=self.settings,
             contexture=self.contexture.append_exchange(
@@ -165,6 +165,7 @@ class Model(ABC):
             ),
             parent=self,
             metrics=metrics,
+            value=value,
         )
 
     def children(self, prompt: str | None = None, images: list[str] | None = []):
@@ -308,6 +309,7 @@ class Response(Model):
 
     parent: Model
     metrics: Metrics | None
+    value: BaseModel | dict | None
 
     @property
     def prompt(self) -> str:
@@ -318,17 +320,6 @@ class Response(Model):
     def reply(self) -> str:
         assert len(self.contexture.context) > 0
         return self.contexture.context[-1].reply
-
-    @property
-    def value(self) -> dict:
-        """return a value of the reply in its requested format"""
-        try:
-            return json.loads(self.reply)
-        except json.JSONDecodeError as e:
-            return None
-
-    def parse(self, cls: Type[BaseModel]) -> BaseModel:
-        return cls.model_validate_json(str(self))
 
     def render(self) -> str:
         """Return a markdown string of the context."""
