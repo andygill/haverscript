@@ -136,7 +136,7 @@ class RetryMiddleware(Middleware):
             raise LLMResultError()
 
 
-def retry(**options) -> Self:
+def retry(**options) -> Middleware:
     """retry uses tenacity to wrap the LLM request-response action in retry options."""
     return RetryMiddleware(options)
 
@@ -155,7 +155,8 @@ class ValidationMiddleware(Middleware):
         return response
 
 
-def validate(predicate: Callable[[str], bool]):
+def validate(predicate: Callable[[str], bool]) -> Middleware:
+    """validate the response as middleware. Can raise as LLMResultError"""
     return ValidationMiddleware(predicate)
 
 
@@ -487,7 +488,7 @@ class TranscriptMiddleware(Middleware):
         return response
 
 
-def transcript(dirname: str):
+def transcript(dirname: str) -> Middleware:
     """write a full transcript of every interaction, in a subdirectory."""
     return TranscriptMiddleware(dirname)
 
@@ -527,7 +528,7 @@ class FreshMiddleware(Middleware):
         return next.ask(request=request)
 
 
-def fresh():
+def fresh() -> Middleware:
     """require any cached reply be ignored, and a fresh reply be generated."""
     return FreshMiddleware()
 
@@ -542,8 +543,8 @@ class ModelMiddleware(Middleware):
         return next.ask(request=request)
 
 
-def model(model: str) -> Middleware:
-    return ModelMiddleware(model)
+def model(model_name: str) -> Middleware:
+    return ModelMiddleware(model_name)
 
 
 @dataclass(frozen=True)
@@ -614,7 +615,7 @@ class FormatMiddleware(Middleware):
         return reply
 
 
-def format(schema: Type[BaseModel] | None = None):
+def format(schema: Type[BaseModel] | None = None) -> Middleware:
     return FormatMiddleware(schema)
 
 
@@ -623,7 +624,7 @@ class MetaModel(BaseModel):
 
     @abstractmethod
     def chat(self, prompt, next: LanguageModel) -> Reply:
-        """Turn a chat-with-prompt into a follow-on call of the next model."""
+        """Promote a chat-with-prompt into a follow-on call of the next model."""
 
 
 @dataclass(frozen=True)
@@ -660,5 +661,6 @@ class MetaMiddleware(Middleware):
         return response
 
 
-def meta(model: MetaModel):
+def meta(model: MetaModel) -> Middleware:
+    """provide a meta model as middleware"""
     return MetaMiddleware(model)
