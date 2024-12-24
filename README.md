@@ -265,18 +265,18 @@ Haverscript provides following middleware:
 
 | Middleware | Purpose | Class |
 |------------|---------|-------|
-| Retry      | retry on failure (using tenacity)           | reliablity |
-| Validation | Fail under given condition                  | reliablity |
-| Cache      | Store and/or query prompt-reply pairs in DB | efficency | 
-| Fresh      | Request a fresh reply (not cached)          | efficency |
-| Echo       | Print prompt and reply                      | observation |
-| Stats      | Print basic stats about LLM                 | observation |
-| Debug      | Log requests and responses                  | observation |
-| Transcript | Store a complete transcript of every call   | observation |
-| Model      | Request a specific model be used            | configuration | 
-| Options    | Set specific LLM options (such as seed)     | configuration |
+| model      | Request a specific model be used            | configuration | 
+| options    | Set specific LLM options (such as seed)     | configuration |
 | format     | Set specific format for output              | configuration |
-| Meta       | Support for generalized prompt and response transformation | generalization |
+| echo       | Print prompt and reply                      | observation |
+| stats      | Print basic stats about LLM                 | observation |
+| trace      | Log requests and responses                  | observation |
+| transcript | Store a complete transcript of every call   | observation |
+| retry      | retry on failure (using tenacity)           | reliablity |
+| validation | Fail under given condition                  | reliablity |
+| cache      | Store and/or query prompt-reply pairs in DB | efficency | 
+| fresh      | Request a fresh reply (not cached)          | efficency |
+| meta       | Support for generalized prompt and response transformation | generalization |
 
 
 
