@@ -33,7 +33,7 @@ git clone git@github.com:andygill/haverscript.git
 cd haverscript
 python3 -m venv venv
 source venv/bin/activate  # On Windows: .\venv\Scripts\activate
-pip install -e .
+pip install -e ".[all]"
 ```
 
 Now any local example can be run directly.

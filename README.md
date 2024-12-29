@@ -1,12 +1,15 @@
 # Haverscript
 
-Haverscript is a lightweight Python library designed to manage LLM interactions.
-Haverscript used [Ollama](https://ollama.com) by default but can use any API
-with a simple adapter. Haverscript streamlines LLM
-interactions by utilizing immutability, taking care of context construction
-automatically, and having a flexible and composable middleware support.
-This reduces the complexity of managing LLM workflows, and allows
-for rapid experimentation of ideas.
+Haverscript is a Python library for interacting with Large Language Models
+(LLMs). Haverscript's concise syntax and powerful middleware allows for rapid
+protyping with new use cases for LLMs, prompt engineering, and experimenting in
+the emering field of LLM powered agents. Haverscript uses
+[Ollama](https://ollama.com) by default but can use any OpenAI-style LLM API
+with a simple adapter.
+
+This is version 0.2 of Haverscript. The big change from 0.1 is the introduction
+of middleware which cleans up various ad-hoc concepts from 0.1, and gives a
+more principled basis for future tooling.
 
 ## First Example
 
@@ -14,34 +17,44 @@ Here’s a basic example demonstrating how to use Haverscript,
 with the [mistral](https://mistral.ai/news/announcing-mistral-7b/) model.
 
 ```python
-from haverscript import connect
+from haverscript import connect, echo
+
+# Create a new session with the 'mistral' model and enable echo middleware
 session = connect("mistral") | echo()
+
 session = session.chat("In one sentence, why is the sky blue?")
-session = session.chat("Rewrite the above sentence in the style of Yoda")
-session = session.chat("How many questions did I ask?")
+session = session.chat("What color is the sky on Mars?")
+session = session.chat("Do any other planets have blue skies?")
 ```
 
-This will give the following output.
+This will generate the following output
 
 ```markdown
 > In one sentence, why is the sky blue?
 
-The sky appears blue due to scattering of shorter wavelengths (blue and violet)
-more than other colors by the atmosphere when sunlight enters it.
+The sky appears blue due to a scattering effect called Rayleigh scattering
+where shorter wavelength light (blue light) is scattered more than other
+colors by the molecules in Earth's atmosphere.
 
-> Rewrite the above sentence in the style of Yoda
+> What color is the sky on Mars?
 
-In the atmosphere, scattering of blue and violet light, more abundant, is.
-This explains why sky looks blue to our eyes.
+The Martian sky appears red or reddish-orange, primarily because of fine dust
+particles in its thin atmosphere that scatter sunlight preferentially in the
+red part of the spectrum, which our eyes perceive as a reddish hue.
 
-> How many questions did I ask?
+> Do any other planets have blue skies?
 
-You asked three questions in total: one about the reason for the blue color of the
-sky, another asking me to rewrite that answer in the style of Yoda, and a third
-confirming how many questions you had asked.
+Unlike Earth, none of the other known terrestrial planets (Venus, Mars,
+Mercury) have a significant enough atmosphere or suitable composition to cause
+Rayleigh scattering, resulting in blue skies like we see on Earth. However,
+some of the gas giant planets such as Uranus and Neptune can appear blueish
+due to their atmospheres composed largely of methane, which absorbs red light
+and scatters blue light.
 ```
 
-The [examples](examples/README.md) directory contains several examples.
+Haverscript used markdown as its output format, allowing for easy rendering of any chat session.
+
+The [examples](examples/README.md) directory contains several examples of Haverscript.
 
 The [DSL Design](docs/DSL_DESIGN.md) page compares Haverscript to other LLM APIs,
 and gives rationale behind the design.
@@ -49,18 +62,16 @@ and gives rationale behind the design.
 ## Installing Haverscript
 
 Haverscript is available on GitHub: <https://github.com/andygill/haverscript>.
-While it is currently in alpha and considered experimental, it is ready to use
+While Haverscript is currently in beta and still being refined, it is ready to use
 out of the box.
 
 ### Prerequisites
 
-You need to have [Ollama](https://ollama.com) already installed, or
-have access to an an Ollama compatible API end-point. 
+You need to have [Ollama](https://ollama.com) already installed.
 
 ### Installation
 
 You can install Haverscript directly from the GitHub repository using `pip`.
-
 
 Here's how to set up Haverscript:
 
@@ -77,20 +88,32 @@ source venv/bin/activate  # On Windows: .\venv\Scripts\activate
 pip install git+https://github.com/andygill/haverscript.git@v0.2.0
 ```
 
+By default, Haverscript comes with Ollama support.
+If you want to also install the `together.ai` API, you need to use
+
+```bash
+pip install "git+https://github.com/andygill/haverscript.git@v0.2.0[together]"
+```
+
 In the future, if there’s enough interest, I plan to push Haverscript to PyPI
 for easier installation.
+
+See [INSTALL.md](INSTALL.md) for additional details about installing, testing and
+extended Haverscript.
 
 ## Documentation
 
 ### The `chat` Method
 
-The `chat` method is the main function available in both the `Model` and
-`Response` classes (with `Response` inheriting it from `Model`):
+The `chat` method invokes the LLM, and is the principal method in HaveScript.
+Everything else in Haverscripe is about setting up for `chat`, or using the output from `chat`.
+The `chat` method is available in both the `Model` and its sub-class
+`Response`:
 
 ```python
 class Model:
     ...
-    def chat(self, prompt: str) -> Response:
+    def chat(self, prompt: str, ...) -> Response:
 
 class Response(Model):
     ...
@@ -142,16 +165,11 @@ Key Points:
   so whenever a `Response` object is used inside an f-string, it automatically
   resolves to the text of the reply. (This is standard Python behavior.)
 
-  For and example, see [Chaining answers together](examples/chaining_answers/README.md)
+  For an example, see [Chaining answers together](examples/chaining_answers/README.md)
 
-- **`str` and `repr`**: The design of the `str` method in Haverscript's
-  `Response` is intentional. It allows you to seamlessly include responses
-  directly in f-strings. If you need to inspect more detailed information or
-  structure, you can use `repr`.
-
-How do we modify `Model` if everything is immutable? Instead of modifying them
+How do we modify a `Model` if everything is immutable? Instead of modifying them
 directly, we create a new copy with every call to `.chat`, following the
-principles of functional programming. 
+principles of functional programming, and using the builder design pattern.
 
 ### The `Model` Class
 
@@ -205,8 +223,8 @@ graph LR
 ```  
 
 This follows the typical behavior of a chat session: using the output of one
-`chat` call as the input for the next. For more details, refer to the [first
-example](examples/first_example/README.md).
+`chat` call as the input for the next. For more details, refer to the 
+[first example](examples/first_example/README.md).
 
 #### Multiple independent calls
 
@@ -239,15 +257,15 @@ for an example.
 
 ### Middleware
 
-Middleware is a mechansim to have fine control over everything between
-calling `.chat` and Haverscript calling the LLM.
-As a example, consider the creation of a session.
+Middleware is a mechanism to have fine control over everything between calling
+`.chat` and Haverscript calling the LLM. As a example, consider the creation of
+a session.
 
 ```python
 session = connect("mistral") | echo()
 ```
 
-You can combine multiple middlewares, as deep as needed.
+You can chain multiple middlewares together to achieve composite behaviors.
 
 ```python
 session = connect("mistral") | echo() | options(seed=12345)
@@ -276,13 +294,11 @@ Haverscript provides following middleware:
 | validation | Fail under given condition                  | reliablity |
 | cache      | Store and/or query prompt-reply pairs in DB | efficency | 
 | fresh      | Request a fresh reply (not cached)          | efficency |
-| meta       | Support for generalized prompt and response transformation | generalization |
+| meta       | Support for generalized prompt and response transformations | generalization |
 
-
-
-
-For more details, see [Middleware Docs](docs/MIDDLEWARE.md), and 
-for examples, see
+For a comprehensive overview of middleware,
+please refer to the [Middleware Docs](docs/MIDDLEWARE.md) documentation.
+For examples of middleware in used, see
 
 * [System prompt](examples/tree_of_calls/README.md) in tree of calls,
 * [enabling the cache](examples/cache/README.md), 
@@ -298,12 +314,13 @@ to the chat call.
     def chat(
         self,
         prompt: str,
-        format: str | dict = "", # middleware
-        images: list[AnyStr] = [], # not middleware (part of context)
+        images: list = [],
         middleware: Middleware | None = None,
-        raw: bool = False, # remove?
     ) -> Response:
 ```
+
+Specifically, `chat` takes things that are added to any context (prompt and
+images), and additionally, any extra middleware.
 
 ### Other APIs
 
@@ -311,11 +328,14 @@ We support [together.ai](https://www.together.ai/). You need to provide your
 own API KEY. Import `together` (which is a module), and use its `connect`.
 
 ```python
-from haverscript import echo, together
-session = together.connect("mistral") | echo()
-session = session.chat("In one sentence, why is the sky blue?")
-session = session.chat("Rewrite the above sentence in the style of Yoda")
-session = session.chat("How many questions did I ask?")
+from haverscript import echo
+from haverscript.together import connect
+
+session = connect("meta-llama/Meta-Llama-3-8B-Instruct-Lite") | echo()
+
+session = session.chat("Write a short sentence on the history of Scotland.")
+session = session.chat("Write 500 words on the history of Scotland.")
+session = session.chat("Who was the most significant individual in Scottish history?")
 ```
 
 You need to set the TOGETHER_API_KEY environmental variable.
@@ -325,8 +345,15 @@ export TOGETHER_API_KEY=...
 python example.py
 ```
 
+You also need to include together when installing.
+
+```
+pip install "git+https://github.com/andygill/haverscript.git@v0.2.0[together]"
+```
+
 PRs supporting other API are welcome! There are two examples in the source,
-so it should be straightforward to add more.
+the together API is in [together.py](src/haverscript/together.py),
+and it should be straightforward to add more.
 
 ## FAQ
 
@@ -337,10 +364,19 @@ A: set the `num_ctx` option using middleware.
 model = model | options(num_ctx=16 * 1024)
 ```
 
+Q: How do get JSON output?
+
+A: set the `format` middleware, typically given as an argument to `chat`,
+because it is specific to this call.
+```python
+... = model.chat("...", middleware=format())
+```
+
 Q: What is "haver"?
 
 A: It's a Scottish term that means to talk aimlessly or without necessarily
 making sense.
+
 
 ## Generative AI Usage
 
