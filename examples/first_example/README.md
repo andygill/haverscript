@@ -3,11 +3,12 @@ This example asks three questions in a chat session to the [mistral model](https
 ```python
 from haverscript import connect, echo
 
+# Create a new session with the 'mistral' model and enable echo middleware
 session = connect("mistral") | echo()
 
 session = session.chat("In one sentence, why is the sky blue?")
-session = session.chat("Rewrite the above sentence in the style of Yoda")
-session = session.chat("How many questions did I ask?")
+session = session.chat("What color is the sky on Mars?")
+session = session.chat("Do any other planets have blue skies?")
 ```
 
 Here is the output from running this example.
@@ -19,24 +20,21 @@ The sky appears blue due to a scattering effect called Rayleigh scattering
 where shorter wavelength light (blue light) is scattered more than other
 colors by the molecules in Earth's atmosphere.
 
-> Rewrite the above sentence in the style of Yoda
+> What color is the sky on Mars?
 
-Blue, the sky seems due to scatter, it does. Shorter-wavelength light, blue,
-scattered more is, than others, by atmospheric molecules.
+The Martian sky appears red or reddish-orange, primarily because of fine dust
+particles in its thin atmosphere that scatter sunlight preferentially in the
+red part of the spectrum, which our eyes perceive as a reddish hue.
 
-In another sentence:
+> Do any other planets have blue skies?
 
-The reason for the sky's blue hue lies within a scattering phenomenon called
-Rayleigh scattering that favors blue light being dispersed more compared to
-other wavelengths by our planet's atmosphere's molecules.
+Unlike Earth, none of the other known terrestrial planets (Venus, Mars,
+Mercury) have a significant enough atmosphere or suitable composition to cause
+Rayleigh scattering, resulting in blue skies like we see on Earth. However,
+some of the gas giant planets such as Uranus and Neptune can appear blueish
+due to their atmospheres composed largely of methane, which absorbs red light
+and scatters blue light.
 
-> How many questions did I ask?
-
-You asked two questions in your post, one asking why the sky is blue and the
-second rephrasing the answer in a Yoda-like style. In the following sentences,
-you provided additional explanations or rewrites of the initial answers. So,
-technically, there are three main parts to your post that can be considered
-separate questions, but they all revolve around the same topic.
 ```
 
 In `echo` mode, both the prompt and the reply are displayed to stdout when the

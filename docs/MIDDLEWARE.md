@@ -60,7 +60,7 @@ Haverscript provides following middleware
 | validation | Fail under given condition                  | reliablity |
 | cache      | Store and/or query prompt-reply pairs in DB | efficency | 
 | fresh      | Request a fresh reply (not cached)          | efficency |
-| meta       | Support for generalized prompt and response transformation | generalization |
+| meta       | Support for generalized prompt and response transformations | generalization |
 
 ## Configuration Middleware
 
