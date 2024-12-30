@@ -17,7 +17,7 @@ from .haverscript import (
     Middleware,
     Service,
 )
-from .languagemodel import Reply, Request, LanguageModel, ServiceProvider
+from .types import Reply, Request, LanguageModel, ServiceProvider
 from .middleware import (
     Middleware,
     echo,

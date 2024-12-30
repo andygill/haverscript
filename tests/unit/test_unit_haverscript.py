@@ -26,7 +26,7 @@ from haverscript import (
     connect,
 )
 from haverscript.cache import INTERACTION, Cache
-from haverscript.languagemodel import Exchange, Request
+from haverscript.types import Exchange, Request
 from haverscript.middleware import *
 from tests.test_utils import remove_spinner
 

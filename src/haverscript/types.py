@@ -4,7 +4,7 @@ import threading
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Callable
+from typing import Callable, Self
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -200,3 +200,61 @@ class ServiceProvider(LanguageModel):
     @abstractmethod
     def list(self) -> list[str]:
         """Return the list of valid models for this provider."""
+
+
+@dataclass(frozen=True)
+class Middleware(ABC):
+    """Middleware is a bidirectional Prompt and Reply processor.
+
+    Middleware is something you use on a LanguageModel,
+    and a LanguageModel is something you *call*.
+    """
+
+    @abstractmethod
+    def invoke(self, request: Request, next: LanguageModel) -> Reply:
+        return next.ask(request=request)
+
+    def first(self) -> Self | None:
+        """get the first Middleware in the pipeline (from the Prompt's point of view)"""
+        return self
+
+    def __or__(self, other: LanguageModel) -> Middleware:
+        return AppendMiddleware(self, other)
+
+
+@dataclass(frozen=True)
+class MiddlewareLanguageModel(LanguageModel):
+    """MiddlewareLanguageModel is Middleware with a specific target LanguageModel.
+
+    This combination of Middleware and LanguageModel is itself a LanguageModel.
+    """
+
+    middleware: Middleware
+    next: LanguageModel
+
+    def ask(self, request: Request) -> Reply:
+        return self.middleware.invoke(request=request, next=self.next)
+
+
+@dataclass(frozen=True)
+class AppendMiddleware(Middleware):
+    after: Middleware
+    before: Middleware  # we evaluate from right to left in invoke
+
+    def invoke(self, request: Request, next: LanguageModel) -> Reply:
+        # The ice is thin here but it holds.
+        return self.before.invoke(
+            request=request, next=MiddlewareLanguageModel(self.after, next)
+        )
+
+    def first(self) -> Self:
+        if first := self.before.first():
+            return first
+        return self.after.first()
+
+
+@dataclass(frozen=True)
+class EmptyMiddleware(Middleware):
+
+    def invoke(self, request: Request, next: LanguageModel) -> Reply:
+        return next.ask(request=request)
