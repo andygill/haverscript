@@ -22,7 +22,6 @@ class Commands:
         print("/bye")
         print("/context")
         print("/undo")
-        print("/redo")
         return session
 
     def bye(self, _):
@@ -36,14 +35,6 @@ class Commands:
         if isinstance(session, Response):
             print("Undoing...")
             return session.parent
-        bell()
-        return session
-
-    def redo(self, session):
-        if isinstance(session, Response):
-            print("Redoing...")
-            # print prompt again?
-            return session.redo()
         bell()
         return session
 

@@ -2,8 +2,8 @@
 
 Haverscript is a Python library for interacting with Large Language Models
 (LLMs). Haverscript's concise syntax and powerful middleware allows for rapid
-protyping with new use cases for LLMs, prompt engineering, and experimenting in
-the emering field of LLM powered agents. Haverscript uses
+prototyping with new use cases for LLMs, prompt engineering, and experimenting in
+the emerging field of LLM-powered agents. Haverscript uses
 [Ollama](https://ollama.com) by default but can use any OpenAI-style LLM API
 with a simple adapter.
 
@@ -106,9 +106,9 @@ extended Haverscript.
 ### The `chat` Method
 
 The `chat` method invokes the LLM, and is the principal method in HaveScript.
-Everything else in Haverscripe is about setting up for `chat`, or using the output from `chat`.
-The `chat` method is available in both the `Model` and its sub-class
-`Response`:
+Everything else in Haverscripe is about setting up for `chat`, or using the
+output from `chat`. The `chat` method is available in both the `Model` class and
+its subclass `Response`:
 
 ```python
 class Model:
@@ -175,7 +175,7 @@ principles of functional programming, and using the builder design pattern.
 
 The `connect(...)` function is the main entry point of the library, allowing you
 to create and access an initial model. This function takes a model
-name and returns a `Model` that will connect to Ollama and this model.
+name and returns a `Model` that will connect to Ollama with this model.
 
 ```python
 def connect(modelname: str | None = None):
@@ -309,7 +309,7 @@ For examples of middleware in used, see
 ### Chat Options
 
 The `.chat()` method has additional parameters that are specific
-to the chat call.
+to each chat call.
 
 ```python
     def chat(
@@ -326,7 +326,7 @@ images), and additionally, any extra middleware.
 ### Other APIs
 
 We support [together.ai](https://www.together.ai/). You need to provide your
-own API KEY. Import `together` (which is a module), and use its `connect`.
+own API KEY.  Import the `together` module and use its `connect` function.
 
 ```python
 from haverscript import echo
@@ -358,20 +358,53 @@ and it should be straightforward to add more.
 
 ## FAQ
 
-Q: How do I make the context window larger to (say) 16K?
+Q: How do I increase the context window size to (for example) 16K?"
 
 A: set the `num_ctx` option using middleware.
 ```python
 model = model | options(num_ctx=16 * 1024)
 ```
 
-Q: How do get JSON output?
+Q: How do I get JSON output?
 
 A: set the `format` middleware, typically given as an argument to `chat`,
 because it is specific to this call.
 ```python
-... = model.chat("...", middleware=format())
+response_value : dict = model.chat("...", middleware=format()).value
 ```
+
+Remember to request JSON in the prompt as well.
+
+Q: How do I get pydantic class as a reply?
+
+A: set the `format` middleware, using the name of the class.
+```python
+class Foo(BaseModel):
+    ...
+
+foo : Foo = model.chat("...", middleware=format(Foo)).value
+```
+
+Again, remember to request JSON in the prompt. Furthermore, it might
+be useful to ask the LLM to use the schema explictly:
+
+```python
+prompt = f"""
+...
+
+Reply using JSON, and conform to the following JSON schema:
+---
+{schema.model_json_schema()}
+"""
+```
+
+A: Can I write my own middleware?
+
+A: Yes! There are many examples in the sourcecode. Middleware operate
+at one level down from prompts and chat, and instead operate with `Request`
+and `Reply`. The design pattern is (1) modify the `Request`, if needed,
+(2) call the rest of the middleware, and (3) process the `Reply`.
+
 
 Q: What is "haver"?
 

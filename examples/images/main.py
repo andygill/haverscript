@@ -1,5 +1,3 @@
-from pathlib import Path
-
 from haverscript import connect, echo
 
 image_src = f"examples/images/edinburgh.png"

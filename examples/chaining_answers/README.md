@@ -62,17 +62,15 @@ graph LR
     start((hs))
     m0(Model)
     r0(Response)
-    r1(**best**: Response)
     chat("model.chat('…{best}…')")
     m1(**model**: Model)
     r2(Response)
 
 
-    start -- model('…') --> m0
+    start -- connect('…') --> m0
     m0 -- echo() --> m1
     m1 -- chat('…') --> r0
-    r0 -- check(…) --> r1
-    r1 --> chat
+    r0 --> chat
     m1 --> chat
     chat --> r2
 

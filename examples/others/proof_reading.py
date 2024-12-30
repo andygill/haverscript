@@ -1,4 +1,4 @@
-from haverscript import echo, options
+from haverscript import echo, options, dedent
 from haverscript.together import connect
 
 
@@ -15,14 +15,10 @@ The code and README.md goes out today.
 {open(file).read()}
 """
 
-prompt = """
-Make this sentence shorter and crisper.
----
-Haverscript is a lightweight Python library designed to manage Large Language Model (LLM) interactions.""".strip()
-
 session = (
     connect("meta-llama/Llama-3.3-70B-Instruct-Turbo")
     | echo(prompt=False, spinner=False)
     | options(temperature=0.6)
+    | dedent()
 )
 session.chat(prompt)
