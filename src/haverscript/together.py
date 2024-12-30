@@ -5,7 +5,7 @@ from types import GeneratorType
 import together
 
 from .haverscript import Metrics, Model, Service
-from .languagemodel import Reply, Request, ServiceProvider
+from .types import Reply, Request, ServiceProvider
 from .middleware import model
 
 

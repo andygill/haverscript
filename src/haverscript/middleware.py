@@ -21,68 +21,18 @@ from yaspin import yaspin
 
 from .cache import Cache
 from .exceptions import LLMError, LLMResultError
-from .languagemodel import Exchange, Informational, LanguageModel, Reply, Request, Value
+from .types import (
+    Exchange,
+    Informational,
+    LanguageModel,
+    Reply,
+    Request,
+    Value,
+    Middleware,
+)
 from .render import *
 
 logger = log.getLogger("haverscript")
-
-
-@dataclass(frozen=True)
-class Middleware(ABC):
-    """Middleware is a bidirectional Prompt and Reply processor.
-
-    Middleware is something you use on a LanguageModel,
-    and a LanguageModel is something you *call*.
-    """
-
-    @abstractmethod
-    def invoke(self, request: Request, next: LanguageModel) -> Reply:
-        return next.ask(request=request)
-
-    def first(self) -> Self | None:
-        """get the first Middleware in the pipeline (from the Prompt's point of view)"""
-        return self
-
-    def __or__(self, other: LanguageModel) -> Middleware:
-        return AppendMiddleware(self, other)
-
-
-@dataclass(frozen=True)
-class MiddlewareLanguageModel(LanguageModel):
-    """MiddlewareLanguageModel is Middleware with a specific target LanguageModel.
-
-    This combination of is itself a LanguageModel.
-    """
-
-    middleware: Middleware
-    next: LanguageModel
-
-    def ask(self, request: Request) -> Reply:
-        return self.middleware.invoke(request=request, next=self.next)
-
-
-@dataclass(frozen=True)
-class AppendMiddleware(Middleware):
-    after: Middleware
-    before: Middleware  # we evaluate from right to left in invoke
-
-    def invoke(self, request: Request, next: LanguageModel) -> Reply:
-        # The ice is thin here but it holds.
-        return self.before.invoke(
-            request=request, next=MiddlewareLanguageModel(self.after, next)
-        )
-
-    def first(self) -> Self:
-        if first := self.before.first():
-            return first
-        return self.after.first()
-
-
-@dataclass(frozen=True)
-class EmptyMiddleware(Middleware):
-
-    def invoke(self, request: Request, next: LanguageModel) -> Reply:
-        return next.ask(request=request)
 
 
 @dataclass(frozen=True)
