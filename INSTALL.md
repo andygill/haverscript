@@ -24,9 +24,8 @@ for easier installation.
 
 If you are a HaverScript user, then the commands above should work for you. 
 
-However,
-if you want to make changes to HaverScript, you will need to download the
-repo, and build by hand. I use the following.
+However, if you want to make changes to HaverScript, you will need to download
+the repo, and build by hand. I use the following.
 
 ```bash
 git clone git@github.com:andygill/haverscript.git
@@ -52,8 +51,9 @@ The sky appears blue due to scattering of sunlight by molecules and particles in
 
 # Testing
 
-The unit tests are code fragments to test specific features
-The e2e tests execute a sub-process, testing the examples.
+The unit tests are code fragments to test specific features The e2e tests
+execute a sub-process, testing the examples. The docs test check the docs
+are consistent with the given examples.
 
 ```
 pytest tests      # run all tests
@@ -75,7 +75,7 @@ We use the following models:
 * together.ai meta-llama/Meta-Llama-3-8B-Instruct-Lite
 * ollama llava:v1.6 (8dd30f6b0cb1)
 
-The tests need a valid TOGETHER_API_KEY in the environment when run.
+The tests for together need a valid TOGETHER_API_KEY in the environment when run.
 
 If you need to regenerate test output, use 
 

@@ -1,45 +1,34 @@
-from pathlib import Path
-import pytest
-import sys
 import json
-import time
-import re
-import sys
 import os
-from collections.abc import Iterator
-import time
-import threading
+import re
 import subprocess
-from pydantic import BaseModel
+import sys
+import threading
+import time
+from collections.abc import Iterator
+from dataclasses import asdict, dataclass, field, fields, replace
+from pathlib import Path
 
 import pytest
+from pydantic import BaseModel
 from tenacity import stop_after_attempt
 
-from tests.test_utils import remove_spinner
-
 from haverscript import (
-    ServiceProvider,
+    LanguageModel,
+    LLMError,
+    LLMResultError,
     Middleware,
     Model,
-    Response,
     Reply,
-    LanguageModel,
-    connect,
-    valid_json,
-    transcript,
-    stats,
-    retry,
-    validate,
-    fresh,
-    format,
-    LLMError,
+    Response,
     Service,
-    LLMResultError,
+    ServiceProvider,
+    connect,
 )
-from haverscript.cache import Cache, INTERACTION
-from haverscript.middleware import *
+from haverscript.cache import INTERACTION, Cache
 from haverscript.languagemodel import Exchange, Request
-
+from haverscript.middleware import *
+from tests.test_utils import remove_spinner
 
 # Note that these tests break the haverscript API at points specifically
 # for testing purposes.
@@ -337,11 +326,11 @@ def test_outdent(sample_model):
     """,
     ]
     model = sample_model
-    for ix, ksargs in enumerate([dict(), dict(raw=False), dict(raw=True)]):
+    for ix, middle in enumerate([None, dedent()]):
         for message in messages:
-            reply = model.chat(message, **ksargs)
+            reply = model.chat(message, middleware=middle)
             actual_message = message
-            if ix != 2:
+            if ix == 1:
                 actual_message = "\n".join(
                     [line.lstrip() for line in actual_message.splitlines()]
                 ).strip()
@@ -350,7 +339,7 @@ def test_outdent(sample_model):
 
 
 def test_options(sample_model):
-    reply = sample_model.options(seed=12345).chat("")
+    reply = (sample_model | options(seed=12345)).chat("")
     context = [{"role": "user", "content": ""}]
     assert reply.reply == llm(None, test_model_name, context, {"seed": 12345}, "")
 
@@ -400,18 +389,18 @@ def test_cache(sample_model, tmp_path):
     reply1 = model.chat(hello)
     assert len(model.children(hello)) == 1
     assert len(model.children()) == 1
-    assert model.children(hello)[0] == reply1.copy(fresh=False, metrics=None)
+    assert model.children(hello)[0] == replace(reply1, metrics=None)
 
     reply2 = model.chat(hello)
     assert len(model.children(hello)) == 2
     assert len(model.children()) == 2
-    assert model.children(hello)[1] == reply2.copy(fresh=False, metrics=None)
+    assert model.children(hello)[1] == replace(reply2, metrics=None)
 
     world = "### World"
     reply3 = reply2.chat(world)
     assert len(reply2.children()) == 1
     assert len(reply2.children(world)) == 1
-    assert reply2.children(world)[0] == reply3.copy(fresh=False, metrics=None)
+    assert reply2.children(world)[0] == replace(reply3, metrics=None)
 
     # reset the cursor, to simulate a new execute
     sys.modules["haverscript.cache"].Cache.connections = {}
@@ -419,18 +408,18 @@ def test_cache(sample_model, tmp_path):
 
     assert len(model.children()) == 2
     reply1b = model.chat(hello)
-    assert reply1.copy(metrics=None) == reply1b.copy(metrics=None)
+    assert replace(reply1, metrics=None) == replace(reply1b, metrics=None)
 
     reply2b = model.chat(hello)
 
-    assert reply2.copy(metrics=None) == reply2b.copy(metrics=None)
+    assert replace(reply2, metrics=None) == replace(reply2b, metrics=None)
     # Check there was a difference to observe
-    assert reply1b.copy(metrics=None) != reply2b.copy(metrics=None)
+    assert replace(reply1b, metrics=None) != replace(reply2b, metrics=None)
 
     # check the fresh flag gives a new value
     assert len(model.children()) == 2
     reply2c = model.chat(hello, middleware=fresh())
-    assert reply2.copy(metrics=None) != reply2c.copy(metrics=None)
+    assert replace(reply2, metrics=None) != replace(reply2c, metrics=None)
     assert len(model.children()) == 3
 
     # now test the read mode
@@ -441,16 +430,20 @@ def test_cache(sample_model, tmp_path):
     assert len(model.children()) == 3
     reply1b = model.chat(hello)
 
-    scrub = dict(configuration=None, settings=None, parent=None, contexture=None)
+    scrub = dict(settings=None, parent=None, contexture=None)
 
-    assert reply1.copy(metrics=None, **scrub) == reply1b.copy(metrics=None, **scrub)
+    assert replace(reply1, metrics=None, **scrub) == replace(
+        reply1b, metrics=None, **scrub
+    )
 
     reply2b = model.chat(hello)
 
-    assert reply2.copy(metrics=None, **scrub) == reply2b.copy(metrics=None, **scrub)
+    assert replace(reply2, metrics=None, **scrub) == replace(
+        reply2b, metrics=None, **scrub
+    )
 
     # Check they are the same in read mode
-    assert reply1b.copy(metrics=None) == reply2b.copy(metrics=None)
+    assert replace(reply1b, metrics=None) == replace(reply2b, metrics=None)
 
     sys.modules["haverscript.cache"].Cache.connections = {}
     mode = "a"
@@ -469,21 +462,21 @@ def test_cache(sample_model, tmp_path):
 def test_check(sample_model):
     # simple check
     assert repr(
-        sample_model.middleware(validate(lambda reply: "Squirrel" in reply)).chat(
-            "Squirrel"
-        )
+        (sample_model | validate(lambda reply: "Squirrel" in reply)).chat("Squirrel")
     ).startswith("Response")
 
     # failing check
     with pytest.raises(LLMResultError):
-        sample_model.middleware(
-            validate(lambda reply: "Squirrel" not in reply)
+        (
+            sample_model
+            | validate(lambda reply: "Squirrel" not in reply)
             | retry(stop=stop_after_attempt(5))
         ).chat("Squirrel")
 
     # chaining checks
-    sample_model.middleware(
-        validate(lambda reply: "Squirrel" in reply)
+    (
+        sample_model
+        | validate(lambda reply: "Squirrel" in reply)
         | validate(lambda reply: "Haggis" in reply)  # add on check for Haggis
         | validate(valid_json)
     ).chat(  # check output is valid JSON (the test stub used JSON for output)
@@ -497,12 +490,12 @@ def test_chat_middleware(sample_model: Model, capfd):
             "Haggis", middleware=validate(lambda reply: "Squirrel" in reply)
         )
 
-    result = sample_model.options(fst="Hello").chat(
+    result = (sample_model | options(fst="Hello")).chat(
         "Hello", middleware=options(foo="json")
     )
     assert '"options": {"foo": "json", "fst": "Hello"}' in repr(result)
 
-    result = sample_model.options(fst="Hello").chat(
+    result = (sample_model | options(fst="Hello")).chat(
         "Hello", middleware=options(fst="World")
     )
     assert '"options": {"fst": "Hello"}' in repr(result)
@@ -558,11 +551,6 @@ def test_image(sample_model):
     assert resp.reply == llm(None, test_model_name, context, {}, "")
 
 
-def test_reject(sample_model):
-    with pytest.raises(LLMResultError):
-        sample_model.chat("Hello").reject()
-
-
 def test_retry(sample_model):
     with pytest.raises(LLMError):
         sample_model.chat("FAIL(0)")
@@ -574,22 +562,24 @@ def test_retry(sample_model):
 
 def test_validate(sample_model: Model):
     with pytest.raises(LLMError):
-        sample_model.middleware(validate(lambda txt: "$$$" in txt)).chat("...")
+        (sample_model | validate(lambda txt: "$$$" in txt)).chat("...")
 
-    sample_model.middleware(validate(lambda txt: "$$$" in txt)).chat("$$$")
+    (sample_model | validate(lambda txt: "$$$" in txt)).chat("$$$")
 
     extra = sample_model.chat("###", middleware=format()).value["extra"]
 
     with pytest.raises(LLMError):
-        sample_model.middleware(
-            validate(lambda txt: f'"extra": {extra + 10}' in txt)
+        (
+            sample_model
+            | validate(lambda txt: f'"extra": {extra + 10}' in txt)
             | (retry(stop=stop_after_attempt(5)))
         ).chat("###")
 
     extra = sample_model.chat("###", middleware=format()).value["extra"]
 
-    sample_model.middleware(
-        validate(lambda txt: f'"extra": {extra + 3}' in txt)
+    (
+        sample_model
+        | validate(lambda txt: f'"extra": {extra + 3}' in txt)
         | (retry(stop=stop_after_attempt(5)))
     ).chat("###")
 
@@ -597,8 +587,9 @@ def test_validate(sample_model: Model):
 
     with pytest.raises(LLMError):
         # wrong order; retry is bellow validate.
-        sample_model.middleware(
-            retry(stop=stop_after_attempt(5))
+        (
+            sample_model
+            | retry(stop=stop_after_attempt(5))
             | validate(lambda txt: f'"extra": {extra + 3}' in txt)
         ).chat("###")
 
@@ -666,9 +657,9 @@ class UpperCase(Middleware):
 def test_middleware(sample_model: Model):
     reply0 = sample_model.chat("Hello" + " World")
 
-    session = sample_model.middleware(UpperCase())
+    session = sample_model | UpperCase()
     reply1 = session.chat("Hello")
-    reply2 = session.middleware(retry(stop=stop_after_attempt(5))).chat("Hello")
+    reply2 = (session | retry(stop=stop_after_attempt(5))).chat("Hello")
 
     assert reply0.reply.upper() == reply1.reply
     assert reply0.reply.upper() == reply2.reply
@@ -861,7 +852,7 @@ def test_transcript(sample_model: Model, tmp_path: str):
 
     transcripts = []
 
-    model = sample_model.middleware(transcript(temp_dir))
+    model = sample_model | (transcript(temp_dir))
     session = model.chat("Hello")
     transcripts.append(session.render())
     session = session.chat("World")
