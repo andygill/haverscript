@@ -1,17 +1,12 @@
-import json
-import logging
 import os
+from dataclasses import dataclass
 from types import GeneratorType
 
-from dataclasses import dataclass
-
 import together
-import requests
 
-
-from .haverscript import Metrics, Model, Service, model
-from .languagemodel import ServiceProvider, Reply, Request
-from .exceptions import LLMRateLimitError
+from .haverscript import Metrics, Model, Service
+from .languagemodel import Reply, Request, ServiceProvider
+from .middleware import model
 
 
 @dataclass(frozen=True)

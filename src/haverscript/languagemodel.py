@@ -1,13 +1,12 @@
 from __future__ import annotations
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from concurrent.futures import Future
+
 import threading
+from abc import ABC, abstractmethod
 from collections.abc import Iterable
-from typing import Iterator, Type
+from dataclasses import dataclass
 from typing import Callable
+
 from pydantic import BaseModel, ConfigDict, Field
-from frozendict import frozendict
 
 
 @dataclass(frozen=True)
@@ -189,7 +188,7 @@ class LanguageModel(ABC):
 
     def __or__(self, other) -> LanguageModel:
         # move both classes into into .types?
-        from .middleware import MiddlewareLanguageModel, Middleware
+        from .middleware import Middleware, MiddlewareLanguageModel
 
         assert isinstance(other, Middleware)
         return MiddlewareLanguageModel(other, self)

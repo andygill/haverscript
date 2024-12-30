@@ -1,13 +1,16 @@
-import copy
-from dataclasses import asdict, dataclass, field, fields
+from dataclasses import dataclass
 from types import GeneratorType
-from frozendict import frozendict
-from typing import AnyStr, Callable, Optional, Self, Tuple, NoReturn, Generator
 
 import ollama
 
-
-from .haverscript import Model, Service, model, Metrics, ServiceProvider, Reply, Request
+from .haverscript import Model, Service
+from .languagemodel import (
+    Metrics,
+    ServiceProvider,
+    Reply,
+    Request,
+)
+from .middleware import model
 
 
 @dataclass(frozen=True)

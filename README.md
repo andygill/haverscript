@@ -286,6 +286,7 @@ Haverscript provides following middleware:
 | model      | Request a specific model be used            | configuration | 
 | options    | Set specific LLM options (such as seed)     | configuration |
 | format     | Set specific format for output              | configuration |
+| dedent     | Remove spaces from prompt                   | configuration |
 | echo       | Print prompt and reply                      | observation |
 | stats      | Print basic stats about LLM                 | observation |
 | trace      | Log requests and responses                  | observation |
