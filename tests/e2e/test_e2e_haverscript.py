@@ -1,4 +1,4 @@
-# End to end tests for HaverScript.
+# End to end tests for Haverscript.
 
 import os
 import subprocess
