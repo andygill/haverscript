@@ -1,0 +1,45 @@
+
+Vision models, such as [llava](https://llava-vl.github.io/), can take images
+as context for prompts. Here is an example, with a (small) image of the Edinburgh skyline.
+
+<img src="edinburgh.png">
+
+```python
+from haverscript import connect, echo
+
+image_src = f"examples/images/edinburgh.png"
+
+model = connect("llava") | echo()
+
+model.chat("Describe this image, and speculate where it was taken.", images=[image_src])
+```
+
+
+```markdown
+> Describe this image, and speculate where it was taken.
+
+This is a panoramic photograph depicting a cityscape with notable landmarks.
+In the foreground, there's a wide street lined with buildings and shops. On
+either side of the street, you can see various architectural styles suggesting
+a mix of historical and modern construction.
+
+In the middle ground, there's an open space that leads to a significant
+building in the distance, which appears to be a castle due to its fortified
+walls and design elements typical of medieval architecture. The castle is
+likely an important landmark within the city.
+
+Further back, beyond the castle, you can see more of the city, with trees and
+other buildings indicating a densely populated area. There's also a notable
+feature in the background that looks like a bridge or an overpass, spanning
+across a body of water which could be a river or a loch.
+
+The sky is partly cloudy, suggesting that the weather might be changing or
+it's just a typical day with some clouds. The vegetation appears lush and
+well-maintained, indicating that this city values its green spaces.
+
+Based on these observations, it seems likely that this image was taken in
+Edinburgh, Scotland. The castle in the distance is unmistakably Edinburgh
+Castle, one of the most iconic landmarks in Edinburgh. The architecture, the
+layout of the streets, and the presence of the castle are all indicative of
+the city's rich history and its blend of historical and modern elements.
+```

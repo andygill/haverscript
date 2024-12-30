@@ -120,6 +120,7 @@ class Model(ABC):
         images: list[str] = [],
         format: str | dict = "",
         fresh: bool = False,
+        stream: bool = False,
     ) -> Request:
         return Request(
             contexture=self.contexture,
@@ -127,7 +128,7 @@ class Model(ABC):
             images=tuple(images),
             format=format,
             fresh=fresh,
-            stream=False,
+            stream=stream,
         )
 
     def response(

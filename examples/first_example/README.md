@@ -55,7 +55,7 @@ graph LR
     r1(**session**: Response)
     r2(**session**: Response)
 
-    start -- model('…') --> m0
+    start -- connect('…') --> m0
     m0 --  … | echo() --> m1
     m1 -- chat('…') --> r0
     r0 -- chat('…') --> r1
