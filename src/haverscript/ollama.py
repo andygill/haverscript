@@ -4,7 +4,7 @@ from types import GeneratorType
 import ollama
 
 from .haverscript import Model, Service
-from .languagemodel import (
+from .types import (
     Metrics,
     ServiceProvider,
     Reply,

@@ -2,7 +2,7 @@ import sqlite3
 import json
 from dataclasses import asdict, dataclass, field, fields
 from abc import abstractmethod
-from .languagemodel import Exchange
+from .types import Exchange
 
 SQL_VERSION = 2
 

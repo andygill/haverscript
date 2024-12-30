@@ -6,15 +6,16 @@ from typing import Self
 
 from pydantic import BaseModel
 
-from .languagemodel import (
+from .types import (
     ServiceProvider,
     Metrics,
     Contexture,
     Request,
     Reply,
     Exchange,
+    EmptyMiddleware,
 )
-from .middleware import EmptyMiddleware, Middleware, CacheMiddleware
+from .middleware import Middleware, CacheMiddleware
 from .render import render_interaction, render_system
 
 

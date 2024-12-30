@@ -3,7 +3,7 @@ from dataclasses import dataclass, field, replace
 from pydantic import BaseModel, Field
 
 from haverscript import *
-from haverscript.languagemodel import *
+from haverscript.types import *
 from haverscript.middleware import *
 
 
