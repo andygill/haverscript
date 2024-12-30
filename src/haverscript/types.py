@@ -180,16 +180,13 @@ class Reply:
 
 
 class LanguageModel(ABC):
-    """Base class for anything that can asked things, that is takes a configuration/prompt and returns token(s)."""
+    """Base class for anything that can by asked things, that is takes a configuration/prompt and returns token(s)."""
 
     @abstractmethod
     def ask(self, request: Request) -> Reply:
         """Ask a LLM a specific request."""
 
     def __or__(self, other) -> LanguageModel:
-        # move both classes into into .types?
-        from .middleware import Middleware, MiddlewareLanguageModel
-
         assert isinstance(other, Middleware)
         return MiddlewareLanguageModel(other, self)
 

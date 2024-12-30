@@ -15,6 +15,7 @@ from .types import (
     Exchange,
     EmptyMiddleware,
 )
+from .exceptions import LLMInternalError
 from .middleware import Middleware, CacheMiddleware
 from .render import render_interaction, render_system
 
