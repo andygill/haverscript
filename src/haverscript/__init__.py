@@ -31,6 +31,7 @@ from .middleware import (
     trace,
     model,
     format,
+    dedent,
 )
 from .ollama import connect
 
@@ -66,4 +67,5 @@ __all__ = [
     "trace",
     "model",
     "format",
+    "dedent",
 ]

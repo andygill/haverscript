@@ -2,16 +2,20 @@
 
 This directory contains various examples of using Haverscript.
 
+Examples with README files.
+
 * [First example and chat session](first_example/README.md) 
 * [Chaining answers together](chaining_answers/README.md)
 * [Tree of calls and use of system](tree_of_calls/README.md)
 * [Vision Models](images/README.md)
 * [Enabling the cache](cache/README.md)
-* [Using together.ai](together/README.md)
 * [LLM options and middleware](options/README.md)
-* [Meta Model](meta_model/README.md)
-* [An example command line shell using haverscript](havershell/README.md)
-* [Custom Service Provider](custom_service/README.md)
 
-TODO:
-* JSON example
+Other examples:
+
+* [Using together.ai](together/main.py)
+* [Custom Service Provider](custom_service/main.py)
+* [Meta Model](meta_model/main.py)
+* [An example command line shell using haverscript](havershell/main.py)
+* [Proof readings the README](others/proof_reading.py)
+* [Reworking a sentence](others/sentence_iterations.py)

@@ -53,7 +53,7 @@ graph LR
     r2(Response)
     r3(Response)
 
-    start -- model('…') --> m0
+    start -- connect('…') --> m0
     m0 -- … | echo() --> m1
     m1 -- system('…') --> m2
     m1 -- chat('…') --> r0
