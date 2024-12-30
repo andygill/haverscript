@@ -85,14 +85,14 @@ source venv/bin/activate  # On Windows: .\venv\Scripts\activate
 2. Install Haverscript directly from the GitHub repository:
 
 ```bash
-pip install git+https://github.com/andygill/haverscript.git@v0.2.0
+pip install "haverscript @ git+https://github.com/andygill/haverscript.git@v0.2.0"
 ```
 
-By default, Haverscript comes with Ollama support.
-If you want to also install the `together.ai` API, you need to use
+By default, Haverscript comes with only Ollama support.
+If you want to also install the `together.ai` API support, you need to use
 
 ```bash
-pip install "git+https://github.com/andygill/haverscript.git@v0.2.0[together]"
+pip install "haverscript[together] @ git+https://github.com/andygill/haverscript.git@v0.2.0"
 ```
 
 In the future, if there’s enough interest, I plan to push Haverscript to PyPI
@@ -346,10 +346,10 @@ export TOGETHER_API_KEY=...
 python example.py
 ```
 
-You also need to include together when installing.
+You also need to include the together option when installing.
 
-```
-pip install "git+https://github.com/andygill/haverscript.git@v0.2.0[together]"
+```shell
+pip install "haverscript[together] @ git+https://github.com/andygill/haverscript.git@v0.2.0"
 ```
 
 PRs supporting other API are welcome! There are two examples in the source,
