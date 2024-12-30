@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.2.0] - 2024-XX-YY
+## [0.2.0] - 2024-12-30
 ### Added
 - Adding `Middleware` type for composable prompt and response handlers.
 - `Middleware` can be added using `|`, giving a small pipe-based representation of flow.
@@ -17,26 +17,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `stats()` adds a dynamic single line summary of each LLM call.
   - `cache()` add a caching component.
   - `transcript()` adds a transcript component (transcripts the session to a file).
+  - `trace()` logs the calls through the middleware in both directions.
+  - `fresh()` requests a fresh call to the LLM.
   - `options()` sets specific options.
   - `model()` set the model being used.
-  
+  - `format()` requires the output in JSON, with an optional pydantic class schema.
+  - `meta()` is a hook to allow middleware to act like a test-time LLM.
+
 - Adding prompt specific flags to `Model.chat`.
-  - `format: str | dict` is a request for a specially formated output.
   - `images : list[str]` are images to be passed to the model.
-  - `fresh: bool` is a request to generate a new response.
   - `middleware: Middleware` appends a chat-specific middleware to the call.
-  - `raw: bool` turns off prompt indentation cleanup (rarely needed)
 - Added `Service` class, that can be asked about models, and can generate `Model`s.
-- Added `response.value`, which return the JSON `dict` of the reply (or `None`).
-- Added new `host` argument to `connect`, which allows for user "virtual" models.
+- Added `response.value`, which return the JSON `dict` of the reply, the pydantic class, or `None`.
 - Added spinner when waiting for the first token from LLM when using `echo`.
 - Added `metrics` to `Response`, which contains basic metrics about the LLM call.
 - Added `render()` method to `Model`, for outputing markdown-style session viewing.
 - Added `load()` method to `Model`, for parsing markdown-style sessions.
 - Added `LLMError`, and subclasses. 
-- Added `reject()` to `Response`, which raises a `LLMResultError` exception.
 - Added support for together.ai's API as a first-class alternative to ollama.
 - Added many more examples.
+- Added many more tests.
 ### Fixed
 ### Changed
 - Updated `children` method to return all children when no prompt is supplied.
@@ -53,8 +53,7 @@ The concepts that caused changes are
   functions can be used to filter out responses as needed.
 - The is not longer the concept of a `Response` being "fresh". Instead, the
   cache uses a cursor when reading cached responses, and it is possible to ask 
-  that a specific interaction bypasses the cache.
-- Formated output is a property of the specific call to chat, not the session.
+  that a specific interaction bypasses the cache (using the `fresh()` middleware).
 - Most helper methods (`echo()`, `cache()`, etc) are now Middleware, and thus
   more flexable.
 
@@ -63,15 +62,15 @@ Specifically, here are the changes:
   Replace it with `validate()` and `retry()` *before* the call to chat,
   or as chat-specific middleware.
 - Removed `fresh` from `Response`. The concept of fresh responses has been replaced
-  with a more robust caching middleware. There is now `fresh : bool = ...`
-  argument to `Model.chat`, if a fresh output is needed.
+  with a more robust caching middleware. There is now `fresh()` middleware.
 - Removed `json()` from `Model`. It is replaced with the more general
-  `format = "json"` as an argument to `Model.chat`.
+  `format()` middleware.
 - `echo()` and `cache()` are no longer `Model` methods, and now `Middleware` instances.
+- The utility functions `accept` and `valid_json` are removed.  They added no value,
+  given the removal of `redo`.
 
 So, previously we would have `sesssion = connect("modelname").echo()`, and we now have
 `sesssion = connect("modelname") | echo()`.
-
 
 
 ## [0.1.0] - 2024-09-23

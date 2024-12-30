@@ -1,39 +1,28 @@
 from __future__ import annotations
-import re
-import threading
-import queue
-import time
+
+import builtins
 import json
 import logging as log
 import os
-from datetime import datetime
-from abc import abstractmethod
-import builtins
-from copy import deepcopy
-from pydantic import BaseModel
-
-from dataclasses import dataclass, field
 import queue
+import re
+import textwrap
+import threading
 import time
-from typing import AnyStr, Callable, Optional, Self, Tuple, NoReturn, Type
+from abc import ABC, abstractmethod
+from copy import deepcopy
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Callable, Self, Type
 
-from tenacity import Retrying, RetryError
+from pydantic import BaseModel
+from tenacity import RetryError, Retrying
 from yaspin import yaspin
 
-from .exceptions import LLMResultError, LLMError
-from .languagemodel import (
-    LanguageModel,
-    Reply,
-    Request,
-    Reply,
-    Value,
-    Informational,
-    Exchange,
-)
 from .cache import Cache
+from .exceptions import LLMError, LLMResultError
+from .languagemodel import Exchange, Informational, LanguageModel, Reply, Request, Value
 from .render import *
-from functools import partial
-from abc import ABC
 
 logger = log.getLogger("haverscript")
 
@@ -297,7 +286,11 @@ class EchoMiddleware(Middleware):
 
 
 def echo(width: int = 78, prompt: bool = True, spinner: bool = True) -> Middleware:
-    """echo prompts and responses to stdout."""
+    """echo prompts and responses to stdout.
+
+    if prompt=False, do not echo the prompt
+    if spinner=False, do not use a spinner. (For example, when redirecting to a file)
+    """
     assert isinstance(width, int) and not isinstance(width, bool)
     assert isinstance(prompt, bool)
     assert isinstance(spinner, bool)
@@ -376,6 +369,7 @@ class StatsMiddleware(Middleware):
 
 
 def stats() -> Middleware:
+    """print stats to stdout."""
     return StatsMiddleware()
 
 
@@ -516,7 +510,7 @@ class TraceMiddleware(Middleware):
 
 
 def trace(level: int = log.DEBUG) -> Middleware:
-    """Log all requests and responses"""
+    """Log all requests and responses."""
     return TraceMiddleware(level)
 
 
@@ -544,6 +538,7 @@ class ModelMiddleware(Middleware):
 
 
 def model(model_name: str) -> Middleware:
+    """Set the name of the model to use. Typically this is automatically set inside connect."""
     return ModelMiddleware(model_name)
 
 
@@ -553,7 +548,7 @@ class OptionsMiddleware(Middleware):
 
     def invoke(self, request: Request, next: LanguageModel) -> Reply:
         contexture = request.contexture.model_copy(
-            update=dict(options=self.options | request.contexture.options)
+            update=dict(options=request.contexture.options | self.options)
         )
         request = request.model_copy(update=dict(contexture=contexture))
         return next.ask(request=request)
@@ -616,7 +611,31 @@ class FormatMiddleware(Middleware):
 
 
 def format(schema: Type[BaseModel] | None = None) -> Middleware:
+    """Request the output in JSON, or parsed JSON.
+
+    If a BaseModel type is provided, the JSON is parsed and validated against the schema.
+
+    Response.value is set to the JSON, or if BaseModel is provided, the parsed JSON.
+    """
     return FormatMiddleware(schema)
+
+
+@dataclass(frozen=True)
+class DedentMiddleware(Middleware):
+    """Remove unnecessary spaces from the prompt
+
+    This uses textwrap.dedent
+    """
+
+    def invoke(self, request: Request, next: LanguageModel):
+        prompt = request.prompt
+        prompt = textwrap.dedent(prompt).strip()
+        request = request.model_copy(update=dict(prompt=prompt))
+        return next.ask(request=request)
+
+
+def dedent() -> Middleware:
+    return DedentMiddleware()
 
 
 class MetaModel(BaseModel):

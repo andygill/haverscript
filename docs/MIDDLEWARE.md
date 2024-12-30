@@ -52,6 +52,7 @@ Haverscript provides following middleware
 | model      | Request a specific model be used            | configuration | 
 | options    | Set specific LLM options (such as seed)     | configuration |
 | format     | Set specific format for output              | configuration |
+| dedent     | Remove spaces from prompt                   | configuration |
 | echo       | Print prompt and reply                      | observation |
 | stats      | Print basic stats about LLM                 | observation |
 | trace      | Log requests and responses                  | observation |
@@ -66,8 +67,13 @@ Haverscript provides following middleware
 
 ```python
 def model(model_name: str) -> Middleware: 
+    """Set the name of the model to use. Typically this is automatically set inside connect."""
 def options(**kwargs) -> Middleware:
+    """Options to pass to the model, such as temperature and seed."""
 def format(schema: Type[BaseModel] | None = None) -> Middleware:
+    """Request the output in JSON, or parsed JSON."""
+def dedent() -> Middleware:
+    """Remove unnecessary spaces from the prompt
 ```
     
 * `model` is automatically appended to the start of the middleware by the call to
@@ -79,8 +85,9 @@ automatically parse the output. If no type is provided, then the result is a
 JSON `dict`.  If a BaseModel (from pydantic) type is provided then the schema
 of this specific BaseModel class is used, and the class is parsed. In either
 case, `Response.value` is used to access the parsed result.
+* `detent` removes excess spaces from the prompt.
 
-See [options](examples/options/README.md) for an example of using `format`.
+See [options](examples/options/README.md) for an example of using `options`.
 See [formatting](examples/format/README.md) for an example of using `format`.
 
 ## Observation Middleware
@@ -89,9 +96,13 @@ There are four middleware adapters for observation.
 
 ```python
 def echo(width: int = 78, prompt: bool = True, spinner: bool = True) -> Middleware:
+    """echo prompts and responses to stdout."""
 def stats() -> Middleware:
+    """print stats to stdout."""
 def trace(level: int = log.DEBUG) -> Middleware:
+    """Log all requests and responses."""
 def transcript(dirname: str) -> Middleware:
+    """write a full transcript of every interaction, in a subdirectory."""
 ```
 
 * `echo` turns of echo of prompt and reply. There is a spinner (⠧) which is
