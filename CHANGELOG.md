@@ -1,10 +1,11 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+Haverscript is a language for building LLM-based agents, providing a flexible
+and composable way to interact with large language models. This CHANGELOG
+documents notable changes to the Haverscript project.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
 
 ## [0.2.1] - 2024-12-30
 ### Added
@@ -14,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Adding `Middleware` type for composable prompt and response handlers.
 - `Middleware` can be added using `|`, giving a small pipe-based representation of flow.
-  We have the following middleware components:
+  The following middleware components are available:
 
   - `echo()` adds eching of prompts and replies.
   - `retry()` which uses the tenacity package to provide a generic retry.
@@ -49,8 +50,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   string pool.
 - Using the cache now uses LLM results in order, until exhausted, then calls the LLM.
 ### Removed
-There are some breaking API changes. In all cases, the functionality has been
-replaced with something more general and principled.
+This release includes breaking API changes, which are outlined below. In all
+cases, the functionality has been replaced with something more general and
+principled.
 
 The concepts that caused changes are
 - One you have a `Response`, that interaction with the LLM is considered done.
@@ -60,7 +62,7 @@ The concepts that caused changes are
   cache uses a cursor when reading cached responses, and it is possible to ask 
   that a specific interaction bypasses the cache (using the `fresh()` middleware).
 - Most helper methods (`echo()`, `cache()`, etc) are now Middleware, and thus
-  more flexable.
+  more flexible.
 
 Specifically, here are the changes:
 - Removed `check()` and `redo()` from `Response`.
@@ -74,8 +76,8 @@ Specifically, here are the changes:
 - The utility functions `accept` and `valid_json` are removed.  They added no value,
   given the removal of `redo`.
 
-So, previously we would have `sesssion = connect("modelname").echo()`, and we now have
-`sesssion = connect("modelname") | echo()`.
+So, previously we would have `session = connect("modelname").echo()`, and we now have
+`session = connect("modelname") | echo()`.
 
 
 ## [0.1.0] - 2024-09-23
