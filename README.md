@@ -86,7 +86,7 @@ source venv/bin/activate  # On Windows: .\venv\Scripts\activate
 2. Install Haverscript directly from the GitHub repository:
 
 ```bash
-pip install "haverscript @ git+https://github.com/andygill/haverscript.git@v0.2.0"
+pip install "haverscript @ git+https://github.com/andygill/haverscript.git@v0.2.1"
 ```
 
 By default, Haverscript comes with only Ollama support.
