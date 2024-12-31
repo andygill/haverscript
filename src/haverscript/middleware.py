@@ -13,7 +13,7 @@ from abc import ABC, abstractmethod
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Callable, Self, Type
+from typing import Callable, Type
 
 from pydantic import BaseModel
 from tenacity import RetryError, Retrying

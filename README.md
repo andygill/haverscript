@@ -72,6 +72,7 @@ You need to have [Ollama](https://ollama.com) already installed.
 ### Installation
 
 You can install Haverscript directly from the GitHub repository using `pip`.
+**Haverscript needs Python 3.10 or later.**
 
 Here's how to set up Haverscript:
 
@@ -92,7 +93,7 @@ By default, Haverscript comes with only Ollama support.
 If you want to also install the `together.ai` API support, you need to use
 
 ```bash
-pip install "haverscript[together] @ git+https://github.com/andygill/haverscript.git@v0.2.0"
+pip install "haverscript[together] @ git+https://github.com/andygill/haverscript.git@v0.2.1"
 ```
 
 In the future, if there’s enough interest, I plan to push Haverscript to PyPI
@@ -349,7 +350,7 @@ python example.py
 You also need to include the together option when installing.
 
 ```shell
-pip install "haverscript[together] @ git+https://github.com/andygill/haverscript.git@v0.2.0"
+pip install "haverscript[together] @ git+https://github.com/andygill/haverscript.git@v0.2.1"
 ```
 
 PRs supporting other API are welcome! There are two examples in the source,
