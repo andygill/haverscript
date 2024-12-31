@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Middleware` can be added using `|`, giving a small pipe-based representation of flow.
   The following middleware components are available:
 
-  - `echo()` adds eching of prompts and replies.
+  - `echo()` adds echoing of prompts and replies.
   - `retry()` which uses the tenacity package to provide a generic retry.
   - `validate()` which checks the response for a predicate.
   - `stats()` adds a dynamic single line summary of each LLM call.
