@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from abc import ABC
 from dataclasses import dataclass, field, replace
-from typing import Self
 
 from pydantic import BaseModel
 
@@ -179,13 +178,13 @@ class Model(ABC):
 
     # Content methods
 
-    def system(self, prompt: str) -> Self:
+    def system(self, prompt: str) -> Model:
         """provide a system prompt."""
         return replace(
             self, contexture=self.contexture.model_copy(update=dict(system=prompt))
         )
 
-    def load(self, markdown: str, complete: bool = False) -> Self:
+    def load(self, markdown: str, complete: bool = False) -> Model:
         """Read markdown as system + prompt-reply pairs."""
 
         lines = markdown.split("\n")
@@ -236,7 +235,7 @@ class Model(ABC):
 
         return model
 
-    def __or__(self, other: Middleware) -> Self:
+    def __or__(self, other: Middleware) -> Model:
         """pipe to append middleware to a model"""
         assert isinstance(other, Middleware), "Can only pipe with middleware"
         return replace(

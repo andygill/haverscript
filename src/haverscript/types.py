@@ -4,7 +4,7 @@ import threading
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Callable, Self
+from typing import Callable
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -103,7 +103,8 @@ class Reply:
         return "".join(self.tokens())
 
     def __repr__(self):
-        return f"Reply([{", ".join([repr(t) for t in self._cache])}{"]" if self.closing else ", ..."})"
+
+        return f"Reply([{', '.join([repr(t) for t in self._cache])}{']' if self.closing else ', ...'})"
 
     def __iter__(self):
         ix = 0
@@ -211,7 +212,7 @@ class Middleware(ABC):
     def invoke(self, request: Request, next: LanguageModel) -> Reply:
         return next.ask(request=request)
 
-    def first(self) -> Self | None:
+    def first(self):
         """get the first Middleware in the pipeline (from the Prompt's point of view)"""
         return self
 
@@ -244,7 +245,7 @@ class AppendMiddleware(Middleware):
             request=request, next=MiddlewareLanguageModel(self.after, next)
         )
 
-    def first(self) -> Self:
+    def first(self):
         if first := self.before.first():
             return first
         return self.after.first()

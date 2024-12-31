@@ -14,14 +14,14 @@ source venv/bin/activate  # On Windows: .\venv\Scripts\activate
 2. Install Haverscript directly from the GitHub repository:
 
 ```bash
-pip install "haverscript @ git+https://github.com/andygill/haverscript.git@v0.2.0"
+pip install "haverscript @ git+https://github.com/andygill/haverscript.git@v0.2.1"
 ```
 
 By default, Haverscript comes with only Ollama support.
 If you want to also install the `together.ai` API support, you need to use
 
 ```bash
-pip install "haverscript[together] @ git+https://github.com/andygill/haverscript.git@v0.2.0"
+pip install "haverscript[together] @ git+https://github.com/andygill/haverscript.git@v0.2.1"
 ```
 
 In the future, if there’s enough interest, I plan to push Haverscript to PyPI
@@ -88,4 +88,26 @@ If you need to regenerate test output, use
 
 ```
 pytest tests/e2e --force-regen
+```
+
+# Python versions
+
+We support Python 3.10 to 3.13. We test using the following commands.
+
+```
+rm -Rf venv ; python3.13 -m venv venv
+. ./venv/bin/activate
+pip install -e ".[all]"
+pytest -n auto -v
+python --version
+```
+
+and
+
+```
+rm -Rf venv ; python3.13 -m venv venv
+. ./venv/bin/activate
+pip install -e "."
+python examples/first_example/main.py
+python --version
 ```
