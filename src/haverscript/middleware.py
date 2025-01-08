@@ -13,9 +13,11 @@ from abc import ABC, abstractmethod
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Callable, Type
+from typing import Callable, Type, get_origin, get_args, Union
+import types
 
-from pydantic import BaseModel
+
+from pydantic import BaseModel, TypeAdapter
 from tenacity import RetryError, Retrying
 from yaspin import yaspin
 
@@ -533,39 +535,53 @@ def options(**kwargs) -> Middleware:
 class FormatMiddleware(Middleware):
     """Request the reply used as specific format.
 
-    If schema is None, then JSON is returned
-    If schema is Type[BaseModel], then the schema of the BaseModel
-                (or more typically, a subclass) is used.
+    If schema is None, then(unrestricted) JSON is returned
+    If schema is (an instance of) a dict, then this is the schema, and JSON is returned
+    If schema is a type, then we generate a schema for this type, and JSON is returned
+
+    Extensions:
+      - We support list[<type>], because list[str] is quite useful.
+      - We support <type> | None as an optional type
+
+
     """
 
-    schema: dict | Type[BaseModel] | None
+    schema: None | dict | Type
 
     def invoke(self, request: Request, next: LanguageModel):
         schema = self.schema
         if schema is None:
             format = "json"
-        elif issubclass(schema, BaseModel):
-            format = schema.model_json_schema()
+        elif isinstance(schema, dict):
+            format = schema
+        elif isinstance(schema, type) or get_origin(schema) in {
+            types.UnionType,
+            Union,
+        }:
+            format = TypeAdapter(schema).json_schema()
         else:
-            assert f"unsupported schema: {schema}"
+            assert False, f"unsupported schema: {schema}"
 
         request = request.model_copy(update=dict(format=format))
         reply = next.ask(request=request)
 
-        if schema is None:
-            return reply + Reply([Value(value=json.loads(str(reply)))])
-        elif issubclass(schema, BaseModel):
-            return reply + Reply([Value(value=schema.model_validate_json(str(reply)))])
+        if isinstance(schema, type):
+            if get_origin(schema) not in {list, tuple} and issubclass(
+                schema, BaseModel
+            ):
+                return reply + Reply(
+                    [Value(value=schema.model_validate_json(str(reply)))]
+                )
 
-        return reply
+        return reply + Reply([Value(value=json.loads(str(reply)))])
 
 
-def format(schema: Type[BaseModel] | None = None) -> Middleware:
+def format(schema: None | dict | Type = None) -> Middleware:
     """Request the output in JSON, or parsed JSON.
 
-    If a BaseModel type is provided, the JSON is parsed and validated against the schema.
-
-    Response.value is set to the JSON, or if BaseModel is provided, the parsed JSON.
+    If schema is None, then (unrestricted) JSON is returned
+    If schema is (an instance of) a dict, then this is the schema, and JSON is returned
+    If schema is a type, then we generate a schema for this type, and JSON is returned
     """
     return FormatMiddleware(schema)
 

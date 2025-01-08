@@ -96,7 +96,38 @@ class _TestClient:
             if n != self._count:
                 raise LLMError()
 
-        reply = llm(self._host, model, messages, options, format, extra)
+        reply = None
+
+        if isinstance(format, dict):
+            if format == {"type": "boolean"}:
+                reply = json.dumps(True)
+            elif format == {"type": "integer"}:
+                reply = json.dumps(42)
+            elif format == {"type": "number"}:
+                reply = json.dumps(3.14)
+            elif format == {"type": "string"}:
+                reply = json.dumps("Hello")
+            elif format == {
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [{"type": "integer"}, {"type": "boolean"}],
+                "type": "array",
+            }:
+                reply = json.dumps([99, False])
+            elif format == {"items": {"type": "integer"}, "type": "array"}:
+                reply = json.dumps([1, 2, 3])
+            elif format == {"items": {}, "type": "array"}:
+                reply = json.dumps(["A", "B", "C"])
+            elif format == {"anyOf": [{"type": "integer"}, {"type": "null"}]}:
+                reply = json.dumps(101)
+            elif format == {"type": "object"}:
+                reply = json.dumps({"x:": "Hello"})
+            elif format.get("title") != "LLM":
+                assert False, f"unknown format: {repr(format)}"
+
+        if reply is None:
+            reply = llm(self._host, model, messages, options, format, extra)
+
         if stream:
             return self._streaming(reply)
         else:
@@ -375,6 +406,22 @@ def test_json_and_format(sample_model):
         format=LLM.model_json_schema(),
         extra=None,
     )
+
+    reply = sample_model.chat("", middleware=format({"type": "boolean"}))
+    assert isinstance(reply.value, bool), f"expected bool, found {type(reply.value)}"
+
+    for ty in [bool, int, float, str, list, dict]:
+        reply = sample_model.chat("", middleware=format(ty))
+        assert isinstance(reply.value, ty), f"expected {ty}, found {type(reply.value)}"
+
+    reply = sample_model.chat("", middleware=format(tuple[int, bool]))
+    assert reply.value == [99, False]
+
+    reply = sample_model.chat("", middleware=format(list[int]))
+    assert reply.value == [1, 2, 3]
+
+    reply = sample_model.chat("", middleware=format(int | None))
+    assert reply.value == 101
 
 
 def test_cache(sample_model, tmp_path):
