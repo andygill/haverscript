@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from abc import ABC
 from dataclasses import dataclass, field, replace
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -137,12 +138,11 @@ class Model(ABC):
         reply: str,
         images: list[str] = [],
         metrics: Metrics | None = None,
-        value: BaseModel | dict | None = None,
+        value: Any | None = None,
     ):
         assert isinstance(prompt, str)
         assert isinstance(reply, str)
         assert isinstance(metrics, (Metrics, type(None)))
-        assert isinstance(value, (BaseModel, dict, type(None)))
         return Response(
             settings=self.settings,
             contexture=self.contexture.append_exchange(
@@ -251,7 +251,7 @@ class Response(Model):
 
     parent: Model
     metrics: Metrics | None
-    value: BaseModel | dict | None
+    value: Any | None
 
     @property
     def prompt(self) -> str:

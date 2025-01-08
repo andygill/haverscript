@@ -4,7 +4,7 @@ import threading
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Callable
+from typing import Callable, Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -21,7 +21,7 @@ class Informational(BaseModel):
 
 
 class Value(BaseModel):
-    value: dict | BaseModel
+    value: Any
 
     model_config = ConfigDict(frozen=True)
 
