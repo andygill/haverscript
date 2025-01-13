@@ -72,15 +72,21 @@ class Ollama(ServiceProvider):
             messages.append({"role": "system", "content": request.contexture.system})
 
         for exchange in request.contexture.context:
+            role = "tool" if exchange.prompt.tool else "user"
             messages.append(
-                {"role": "user", "content": exchange.prompt}
-                | ({"images": list(exchange.images)} if exchange.images else {})
+                {"role": role, "content": exchange.prompt.content}
+                | (
+                    {"images": list(exchange.prompt.images)}
+                    if exchange.prompt.images
+                    else {}
+                )
             )
             messages.append({"role": "assistant", "content": exchange.reply})
 
+        role = "tool" if request.prompt.tool else "user"
         messages.append(
-            {"role": "user", "content": request.prompt}
-            | ({"images": list(request.images)} if request.images else {})
+            {"role": role, "content": request.prompt.content}
+            | ({"images": list(request.prompt.images)} if request.prompt.images else {})
         )
 
         try:

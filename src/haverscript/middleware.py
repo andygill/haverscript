@@ -31,6 +31,8 @@ from .types import (
     Request,
     Value,
     Middleware,
+    Exchange,
+    Prompt,
 )
 from .render import *
 
@@ -116,7 +118,7 @@ class EchoMiddleware(Middleware):
 
         if self.prompt and prompt:
             print()
-            print("\n".join([f"> {line}" for line in prompt.splitlines()]))
+            print("\n".join([f"> {line}" for line in prompt.content.splitlines()]))
             print()
 
         # We turn on streaming to make the echo responsive
@@ -264,14 +266,14 @@ class StatsMiddleware(Middleware):
 
         def message(prompt, tokens, time_to_first_token, tokens_per_second):
             return (
-                f"prompt : {len(prompt):,}b, "
+                f"prompt : {len(prompt.content):,}b, "
                 f"reply : {tokens:,}t, "
                 f"first token : {time_to_first_token:.2f}s, "
                 f"tokens/s : {tokens_per_second:.0f}"
             )
 
         def wait_for_event():
-            with yaspin(text=f"prompt : {len(prompt):,}b") as spinner:
+            with yaspin(text=f"prompt : {len(prompt.content):,}b") as spinner:
                 first_token_time = None
                 tokens = 0
                 while True:
@@ -343,8 +345,8 @@ class CacheMiddleware(Middleware):
             cached = cache.lookup_interactions(
                 request.contexture.system,
                 request.contexture.context,
-                request.prompt,
-                request.images,
+                request.prompt.content,
+                request.prompt.images,
                 parameters,
                 limit=1,
                 blacklist=True,
@@ -365,8 +367,8 @@ class CacheMiddleware(Middleware):
             cache.insert_interaction(
                 request.contexture.system,
                 request.contexture.context,
-                request.prompt,
-                request.images,
+                request.prompt.content,
+                request.prompt.images,
                 str(response),
                 parameters,
             )
@@ -379,10 +381,12 @@ class CacheMiddleware(Middleware):
         if self.mode == "a":
             return []
 
-        prompt = request.prompt
+        if request.prompt is not None:
+            prompt = request.prompt.content
+        else:
+            prompt = None
         system = request.contexture.system
         context = request.contexture.context
-        images = request.images
         options = request.contexture.options
 
         cache = Cache(self.filename, self.mode)
@@ -419,7 +423,11 @@ class TranscriptMiddleware(Middleware):
 
         def write_transcript():
             transcript_file = datetime.now().strftime("%Y%m%d_%H:%M:%S.%f.md")
-            transcript_ = render_interaction(transcript, request.prompt, str(response))
+            transcript_ = render_interaction(
+                transcript,
+                request.prompt,
+                str(response),
+            )
             with open(os.path.join(dirname, transcript_file), "w") as file:
                 file.write(transcript_)
 
@@ -595,7 +603,9 @@ class DedentMiddleware(Middleware):
 
     def invoke(self, request: Request, next: LanguageModel):
         prompt = request.prompt
-        prompt = textwrap.dedent(prompt).strip()
+        prompt = prompt.model_copy(
+            update=dict(content=textwrap.dedent(prompt.content).strip())
+        )
         request = request.model_copy(update=dict(prompt=prompt))
         return next.ask(request=request)
 
@@ -636,10 +646,10 @@ class MetaMiddleware(Middleware):
 
         model: MetaModel = deepcopy(model)
 
-        response: Reply = model.chat(request.prompt, next)
+        response: Reply = model.chat(request.prompt.content, next)
 
         def after():
-            exchange = Exchange(prompt=request.prompt, images=(), reply=str(response))
+            exchange = Exchange(prompt=request.prompt, reply=str(response))
             self._model_cache[system, context + (exchange,)] = model
 
         response.after(after)

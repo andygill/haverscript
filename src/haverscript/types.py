@@ -26,9 +26,16 @@ class Value(BaseModel):
     model_config = ConfigDict(frozen=True)
 
 
+class Prompt(BaseModel):
+    content: str
+    tool: bool = False  # is this a tool call answer prompt
+    images: tuple[str, ...] | None = ()
+
+    model_config = ConfigDict(frozen=True)
+
+
 class Exchange(BaseModel):
-    prompt: str
-    images: tuple[str, ...] | None
+    prompt: Prompt
     reply: str
 
     model_config = ConfigDict(frozen=True)
@@ -66,13 +73,14 @@ class Request(BaseModel):
     """Foreground parts of a request"""
 
     contexture: Contexture
-    prompt: str | None
+    prompt: Prompt | None
 
     stream: bool = False
     fresh: bool = False
 
-    images: tuple[str, ...] = ()
+    # images: tuple[str, ...] = ()
     format: str | dict = ""  # str is "json" or "", dict is a JSON schema
+    tools: tuple[dict] = ()
 
     model_config = ConfigDict(frozen=True)
 

@@ -2,7 +2,7 @@ import sqlite3
 import json
 from dataclasses import asdict, dataclass, field, fields
 from abc import abstractmethod
-from .types import Exchange
+from .types import Exchange, Prompt
 
 SQL_VERSION = 2
 
@@ -328,7 +328,7 @@ class Cache:
 
         top: Exchange = context[-1]
 
-        prompt, images, reply = top.prompt, top.images, top.reply
+        prompt, images, reply = top.prompt.content, top.prompt.images, top.reply
         context = self.context(context[:-1])
         prompt = self.db.text(prompt)
         images = self.db.text(json.dumps(images))
@@ -341,7 +341,11 @@ class Cache:
         assert (
             prompt is not None
         ), f"should not be saving empty prompt, reply = {repr(reply)}"
-        context = context + (Exchange(prompt=prompt, images=images, reply=reply),)
+        context = context + (
+            Exchange(
+                prompt=Prompt(content=prompt, tool=False, images=images), reply=reply
+            ),
+        )
         context = self.context(context)
         system = self.db.text(system)
         parameters = self.db.text(json.dumps(parameters))
