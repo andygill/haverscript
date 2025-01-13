@@ -224,7 +224,7 @@ class UserService(ServiceProvider):
     def ask(self, request: Request):
         return Reply(
             [
-                f"I reject your {len(request.prompt.split())} word prompt, and replace it with my own."
+                f"I reject your {len(request.prompt.content.split())} word prompt, and replace it with my own."
             ]
         )
 
@@ -696,7 +696,10 @@ class UpperCase(Middleware):
                 yield token.upper()
 
     def invoke(self, request: Request, next: LanguageModel):
-        request = request.model_copy(update=dict(prompt=request.prompt + " World"))
+        prompt = request.prompt.model_copy(
+            update=dict(content=request.prompt.content + " World")
+        )
+        request = request.model_copy(update=dict(prompt=prompt))
         responses = next.ask(request=request)
         return Reply(str(responses).upper())
 
@@ -777,8 +780,10 @@ def test_cache_class(tmp_path):
     cache = Cache(temp_file, "a+")
     system = "..."
     context = (
-        Exchange(prompt="Hello", images=[], reply="World"),
-        Exchange(prompt="Hello2", images=[], reply="World2"),
+        Exchange(prompt=Prompt(content="Hello", tool=False, images=()), reply="World"),
+        Exchange(
+            prompt=Prompt(content="Hello2", tool=False, images=()), reply="World2"
+        ),
     )
     prompt = "Hello!"
     images = ["foo.png"]

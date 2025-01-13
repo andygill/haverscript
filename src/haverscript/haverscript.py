@@ -13,6 +13,7 @@ from .types import (
     Request,
     Reply,
     Exchange,
+    Prompt,
     EmptyMiddleware,
 )
 from .exceptions import LLMInternalError
@@ -108,9 +109,9 @@ class Model(ABC):
     def process(self, request: Request, response: Reply) -> "Response":
 
         return self.response(
-            request.prompt,
+            request.prompt.content,
             str(response),
-            images=tuple(request.images),
+            images=tuple(request.prompt.images),
             metrics=response.metrics(),
             value=response.value,
         )
@@ -123,10 +124,12 @@ class Model(ABC):
         fresh: bool = False,
         stream: bool = False,
     ) -> Request:
+
+        if prompt is not None:
+            prompt = Prompt(content=prompt, images=tuple(images), tool=False)
         return Request(
             contexture=self.contexture,
             prompt=prompt,
-            images=tuple(images),
             format=format,
             fresh=fresh,
             stream=stream,
@@ -146,7 +149,10 @@ class Model(ABC):
         return Response(
             settings=self.settings,
             contexture=self.contexture.append_exchange(
-                Exchange(prompt=prompt, images=tuple(images), reply=reply)
+                Exchange(
+                    prompt=Prompt(content=prompt, tool=False, images=tuple(images)),
+                    reply=reply,
+                )
             ),
             parent=self,
             metrics=metrics,
@@ -256,7 +262,7 @@ class Response(Model):
     @property
     def prompt(self) -> str:
         assert len(self.contexture.context) > 0
-        return self.contexture.context[-1].prompt
+        return self.contexture.context[-1].prompt.content
 
     @property
     def reply(self) -> str:
@@ -265,7 +271,9 @@ class Response(Model):
 
     def render(self) -> str:
         """Return a markdown string of the context."""
-        return render_interaction(self.parent.render(), self.prompt, self.reply)
+        return render_interaction(
+            self.parent.render(), self.contexture.context[-1].prompt, self.reply
+        )
 
     def __str__(self):
         return self.reply

@@ -6,7 +6,7 @@ class MyProvider(ServiceProvider):
         assert request.contexture.model == "A"
         return Reply(
             [
-                f"I reject your {len(request.prompt.split())} word prompt, and replace it with my own."
+                f"I reject your {len(request.prompt.content.split())} word prompt, and replace it with my own."
             ]
         )
 
