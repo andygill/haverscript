@@ -66,12 +66,12 @@ class Together(ServiceProvider):
             messages.append({"role": "system", "content": request.contexture.system})
 
         for exchange in request.contexture.context:
-            assert not exchange.images, "images not (yet) supported"
-            messages.append({"role": "user", "content": exchange.prompt})
+            assert not exchange.prompt.images, "images not (yet) supported"
+            messages.append({"role": "user", "content": exchange.prompt.content})
             messages.append({"role": "assistant", "content": exchange.reply})
 
-        assert not request.images, "images not (yet) supported"
-        messages.append({"role": "user", "content": request.prompt})
+        assert not request.prompt.images, "images not (yet) supported"
+        messages.append({"role": "user", "content": request.prompt.content})
 
         together_keywords = set(
             [

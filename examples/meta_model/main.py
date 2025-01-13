@@ -27,11 +27,13 @@ class ExampleMetaModel(MetaModel):
 
         request = Request(
             contexture=Contexture(model="mistral"),
-            prompt=f"You are a translator, translating from English to French. "
-            f'Give your answer as a JSON record with two fields, "english", and "french". '
-            f'The "english" field should contain the original English text, and only the original text.'
-            f'The "french" field should contain the translated French text, and only the translated text.'
-            f"\n\nEnglish Text: {prompt}",
+            prompt=Prompt(
+                content=f"You are a translator, translating from English to French. "
+                f'Give your answer as a JSON record with two fields, "english", and "french". '
+                f'The "english" field should contain the original English text, and only the original text.'
+                f'The "french" field should contain the translated French text, and only the translated text.'
+                f"\n\nEnglish Text: {prompt}"
+            ),
         )
         response = next.ask(request)
         translated: Translate = response.value
