@@ -75,6 +75,8 @@ class _TestClient:
 
     def chat(self, model, stream, messages, options, format):
         assert format == "json" or format == "" or isinstance(format, dict)
+        if isinstance(format, dict):
+            assert "$ref" not in json.dumps(format)
         extra = None
 
         assert isinstance(messages, list)
@@ -122,6 +124,32 @@ class _TestClient:
                 reply = json.dumps(101)
             elif format == {"type": "object"}:
                 reply = json.dumps({"x:": "Hello"})
+            elif format == {
+                "$defs": {
+                    "B": {
+                        "properties": {
+                            "payload": {"title": "Payload", "type": "integer"}
+                        },
+                        "required": ["payload"],
+                        "title": "B",
+                        "type": "object",
+                    }
+                },
+                "properties": {
+                    "payload": {
+                        "properties": {
+                            "payload": {"title": "Payload", "type": "integer"}
+                        },
+                        "required": ["payload"],
+                        "title": "B",
+                        "type": "object",
+                    }
+                },
+                "required": ["payload"],
+                "title": "A",
+                "type": "object",
+            }:
+                reply = json.dumps({"payload": {"payload": 101}})
             elif format.get("title") != "LLM":
                 assert False, f"unknown format: {repr(format)}"
 
@@ -381,6 +409,14 @@ def test_system(sample_model):
     assert reply.reply == llm(None, test_model_name, context, {}, "")
 
 
+class B(BaseModel):
+    payload: int
+
+
+class A(BaseModel):
+    payload: B
+
+
 def test_json_and_format(sample_model):
     reply = sample_model.chat("")
     context = [{"role": "user", "content": ""}]
@@ -422,6 +458,9 @@ def test_json_and_format(sample_model):
 
     reply = sample_model.chat("", middleware=format(int | None))
     assert reply.value == 101
+
+    reply = sample_model.chat("", middleware=format(A))
+    assert reply.value == A(payload=B(payload=101))
 
 
 def test_cache(sample_model, tmp_path):

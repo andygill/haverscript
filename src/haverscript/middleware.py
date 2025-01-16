@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Callable, Type, get_origin, get_args, Union
 import types
-
+import jsonref
 
 from pydantic import BaseModel, TypeAdapter
 from tenacity import RetryError, Retrying
@@ -566,7 +566,9 @@ class FormatMiddleware(Middleware):
             types.UnionType,
             Union,
         }:
-            format = TypeAdapter(schema).json_schema()
+            format = jsonref.replace_refs(
+                TypeAdapter(schema).json_schema(), proxies=False
+            )
         else:
             assert False, f"unsupported schema: {schema}"
 
