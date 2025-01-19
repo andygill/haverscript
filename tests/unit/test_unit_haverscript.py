@@ -393,6 +393,8 @@ def test_outdent(sample_model):
                 actual_message = "\n".join(
                     [line.lstrip() for line in actual_message.splitlines()]
                 ).strip()
+                if "\n" in actual_message:
+                    actual_message += "\n"
             context = [{"role": "user", "content": actual_message}]
             assert reply.reply == llm(None, test_model_name, context, {}, "")
 
