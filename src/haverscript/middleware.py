@@ -598,15 +598,60 @@ def format(schema: None | dict | Type = None) -> Middleware:
 
 @dataclass(frozen=True)
 class DedentMiddleware(Middleware):
-    """Remove unnecessary spaces from the prompt
+    """Remove unnecessary spaces from the prompt.
 
-    This uses textwrap.dedent
+    The happens if a prompt is generated using a triple-quote inside a function,
+    and becomes as indented as the parent function.
     """
+
+    @staticmethod
+    def _leading_spaces(line):
+        match = re.match(r"^( *)", line)
+        if match:
+            return len(match.group(1))
+        return 0
+
+    @staticmethod
+    def _dedent(multiline_string):
+        """
+        Ensures all lines of a multi-line string have the same number of leading spaces
+        as the first line after the initial newline.
+
+        Args:
+            multiline_string (str): A multi-line string starting with a newline.
+
+        Returns:
+            str: The adjusted multi-line string with consistent leading spaces.
+
+        Raises:
+            ValueError: If the input string does not start with a newline.
+        """
+        lines = multiline_string.splitlines()
+
+        if len(lines) < 2:
+            return multiline_string  # No lines to adjust
+
+        if not multiline_string.startswith("\n"):
+            raise ValueError("The input string must start with a newline.")
+
+        first_line_spaces = DedentMiddleware._leading_spaces(lines[1])
+
+        adjusted_lines = []
+        for line in lines[1:]:
+            spaces = DedentMiddleware._leading_spaces(line)
+            if line.strip() == "":
+                adjusted_lines.append("")
+            elif spaces >= first_line_spaces:
+                adjusted_lines.append(line[first_line_spaces:])
+            else:
+                adjusted_lines.append(line.lstrip())
+
+        return "\n".join(adjusted_lines)
 
     def invoke(self, request: Request, next: LanguageModel):
         prompt = request.prompt
         prompt = prompt.model_copy(
-            update=dict(content=textwrap.dedent(prompt.content).strip())
+            update=dict(content=DedentMiddleware._dedent(prompt.content))
         )
         request = request.model_copy(update=dict(prompt=prompt))
         return next.ask(request=request)
