@@ -7,6 +7,14 @@ documents notable changes to the Haverscript project.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] - 2025-??-??
+### Added
+- Support for Python 3.10 and 3.11. Python 3.9 and earlier is not supported.
+- `format` now supports standard types such as `list[int]` and `bool` for stuctured output.
+- `dedent` has been reworked to improve removing spaces in prompt.
+### Changed
+- Internally, resolve refs from JSON schemas in format (this works around an ollama bug)
+
 ## [0.2.1] - 2024-12-30
 ### Added
 - Support for Python 3.10 and 3.11. Python 3.9 and earlier is not supported.
