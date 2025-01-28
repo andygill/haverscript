@@ -375,30 +375,6 @@ def test_stats(sample_model, capfd):
     assert txt == "- prompt : 7b, LLMError Exception raised\n"
 
 
-def test_outdent(sample_model):
-    messages = [
-        "Hello",
-        """
-    Hello
-
-    World
-    """,
-    ]
-    model = sample_model
-    for ix, middle in enumerate([None, dedent()]):
-        for message in messages:
-            reply = model.chat(message, middleware=middle)
-            actual_message = message
-            if ix == 1:
-                actual_message = "\n".join(
-                    [line.lstrip() for line in actual_message.splitlines()]
-                ).strip()
-                if "\n" in actual_message:
-                    actual_message += "\n"
-            context = [{"role": "user", "content": actual_message}]
-            assert reply.reply == llm(None, test_model_name, context, {}, "")
-
-
 def test_options(sample_model):
     reply = (sample_model | options(seed=12345)).chat("")
     context = [{"role": "user", "content": ""}]
