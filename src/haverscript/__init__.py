@@ -11,6 +11,17 @@ from .exceptions import (
     LLMResultError,
 )
 from .haverscript import Middleware, Model, Response, Service
+from .markdown import (
+    Markdown,
+    header,
+    text,
+    bullets,
+    rule,
+    table,
+    code,
+    quoted,
+    reply_in_json,
+)
 from .middleware import (
     cache,
     dedent,
@@ -54,6 +65,15 @@ __all__ = [
     "validate",
     "connect",
     "LanguageModel",
+    "Markdown",
+    "header",
+    "text",
+    "bullets",
+    "rule",
+    "table",
+    "code",
+    "quoted",
+    "reply_in_json",
     "Reply",
     "Request",
     "ServiceProvider",

@@ -19,6 +19,7 @@ from .types import (
 from .exceptions import LLMInternalError
 from .middleware import Middleware, CacheMiddleware
 from .render import render_interaction, render_system
+from .markdown import Markdown
 
 
 @dataclass(frozen=True)
@@ -53,7 +54,7 @@ class Model(ABC):
 
     def chat(
         self,
-        prompt: str,
+        prompt: str | Markdown,
         images: list[str] = [],
         middleware: Middleware | None = None,
     ) -> Response:
@@ -69,8 +70,8 @@ class Model(ABC):
             A Response that contains the reply, and context for any future
             calls to chat.
         """
-        # if not raw:
-        #     prompt = textwrap.dedent(prompt).strip()
+        if isinstance(prompt, Markdown):
+            prompt = str(prompt)
 
         request, response = self.ask(prompt, images, middleware)
 
@@ -184,8 +185,11 @@ class Model(ABC):
 
     # Content methods
 
-    def system(self, prompt: str) -> Model:
+    def system(self, prompt: str | Markdown) -> Model:
         """provide a system prompt."""
+        if isinstance(prompt, Markdown):
+            prompt = str(prompt)
+
         return replace(
             self, contexture=self.contexture.model_copy(update=dict(system=prompt))
         )

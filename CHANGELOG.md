@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.2.2] - 2025-??-??
 ### Added
+- `Markdown`, a simple DSL for building markdown-style prompts.
 - `format` now supports standard types such as `list[int]` and `bool` for stuctured output.
 ### Deprecated
 - `dedent` has stubed out (has no effect). This has been replaced by Markdown support.
