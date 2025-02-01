@@ -10,7 +10,7 @@ from dataclasses import asdict, dataclass, field, fields, replace
 from pathlib import Path
 
 import pytest
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from tenacity import stop_after_attempt
 
 from haverscript import (
@@ -24,6 +24,15 @@ from haverscript import (
     Service,
     ServiceProvider,
     connect,
+    Markdown,
+    bullets,
+    header,
+    text,
+    quoted,
+    rule,
+    table,
+    code,
+    reply_in_json,
 )
 from haverscript.cache import INTERACTION, Cache
 from haverscript.types import Exchange, Request
@@ -42,12 +51,12 @@ test_model_host = "remote.address"
 
 
 class LLM(BaseModel):
-    host: str | None
-    model: str | None
-    messages: list | None
-    options: dict | None
-    format: str | dict
-    extra: str | None
+    host: str | None = Field(..., description="The host of the LLM")
+    model: str | None = Field(..., description="The model name")
+    messages: list | None = Field(..., description="The conversation")
+    options: dict | None = Field(..., description="The options")
+    format: str | dict = Field(..., description="The format")
+    extra: str | None = Field(..., description="Extra information")
 
 
 def llm(host, model, messages, options, format, extra=None):
@@ -944,3 +953,90 @@ def test_transcript(sample_model: Model, tmp_path: str):
         with open(os.path.join(temp_dir, file), "r", encoding="utf-8") as f:
             content = f.read()
             assert content == transcript_content
+
+
+def test_markdown():
+    prompt = Markdown()
+
+    prompt += bullets(["Hello"])
+    prompt += "Hello World"
+
+    prompt += header("Feedback from Reader")
+
+    prompt += text("Hello World")
+
+    prompt += header("Feedback from Editor")
+    prompt += bullets(["This is a test", "This is another test"])
+
+    prompt += "Hello World"
+    prompt += rule()
+    prompt += "Hello World"
+    prompt += bullets(["World 1", "World 2"], ordered=True)
+    prompt += table(
+        {"name": "Name", "age": "Age"},
+        [
+            {"name": "John", "age": 20},
+            {"name": "Paul", "age": 22},
+            {"name": "George", "age": 23},
+            {"name": "Ringo", "age": 24},
+        ],
+    )
+
+    prompt += code("print('Hello World')", language="python")
+
+    prompt += quoted("Hello World with more text.\nanother line of text.")
+
+    prompt += reply_in_json(LLM)
+
+    assert (
+        str(prompt)
+        == """
+- Hello
+
+Hello World
+
+# Feedback from Reader
+
+Hello World
+
+# Feedback from Editor
+
+- This is a test
+- This is another test
+
+Hello World
+
+---
+
+Hello World
+
+1. World 1
+2. World 2
+
+| Name   | Age |
+|--------|-----|
+| John   |  20 |
+| Paul   |  22 |
+| George |  23 |
+| Ringo  |  24 |
+
+```python
+print('Hello World')
+```
+
+\"\"\"
+Hello World with more text.
+another line of text.
+\"\"\"
+
+Reply in JSON, using the following keys:
+
+- "host" (str | None): The host of the LLM
+- "model" (str | None): The model name
+- "messages" (list | None): The conversation
+- "options" (dict | None): The options
+- "format" (str | dict): The format
+- "extra" (str | None): Extra information
+
+""".strip()
+    )
