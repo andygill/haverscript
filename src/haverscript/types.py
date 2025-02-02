@@ -9,23 +9,31 @@ from typing import Callable, Any
 from pydantic import BaseModel, ConfigDict, Field
 
 
-@dataclass(frozen=True)
-class Metrics(ABC):
+class Extras(BaseModel):
+    """Extras is a place to put extra information in a LLM response."""
+
+    model_config = ConfigDict(frozen=True)
+
+
+class Metrics(Extras):
     pass
 
 
-class Informational(BaseModel):
+class Informational(Extras):
     """Background information, typically from a middleware component."""
 
     message: str
 
-    model_config = ConfigDict(frozen=True)
 
-
-class Value(BaseModel):
+class Value(Extras):
     value: Any
 
-    model_config = ConfigDict(frozen=True)
+
+class ToolCall(Extras):
+    """A tool call is a response from an LLM that requestsd calling a named tool."""
+
+    name: str
+    arguments: dict
 
 
 class Message(BaseModel):
@@ -123,7 +131,7 @@ class Request(BaseModel):
 class Reply:
     """A potentially tokenized response to a large language model"""
 
-    def __init__(self, packets: Iterable[str | Metrics | Value | Informational]):
+    def __init__(self, packets: Iterable[str | Extras]):
         self._packets = iter(packets)
         # We always have at least one item in our sequence.
         # This typically will cause as small pause before
