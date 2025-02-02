@@ -39,7 +39,7 @@ class Together(ServiceProvider):
 
     def metrics(self, chunk: dict) -> Metrics:
         return TogetherMetrics(
-            **{k: chunk[k] for k in TogetherMetrics.__dataclass_fields__.keys()}
+            **{k: chunk[k] for k in TogetherMetrics.model_fields.keys()}
         )
 
     def generator(self, response):
