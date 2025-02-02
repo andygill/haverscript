@@ -14,7 +14,6 @@ from .types import (
 from .middleware import model
 
 
-@dataclass(frozen=True)
 class OllamaMetrics(Metrics):
     total_duration: int  # time spent generating the response
     load_duration: int  # time spent in nanoseconds loading the model
@@ -62,7 +61,7 @@ class Ollama(ServiceProvider):
             assert isinstance(response["message"]["content"], str)
             yield response["message"]["content"]
             yield OllamaMetrics(
-                **{k: response[k] for k in OllamaMetrics.__dataclass_fields__.keys()}
+                **{k: response[k] for k in OllamaMetrics.model_fields.keys()}
             )
 
     def ask(self, request: Request):
