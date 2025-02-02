@@ -15,6 +15,7 @@ from .types import (
     Exchange,
     Prompt,
     EmptyMiddleware,
+    AssistantMessage,
 )
 from .exceptions import LLMInternalError
 from .middleware import Middleware, CacheMiddleware
@@ -96,7 +97,7 @@ class Model(ABC):
         """
         assert prompt is not None, "Can not build a response with no prompt"
 
-        request = self.request(prompt, images=images)
+        request = self.request(prompt, images=tuple(images))
 
         if middleware is not None:
             middleware = self.settings.middleware | middleware
@@ -112,7 +113,7 @@ class Model(ABC):
         return self.response(
             request.prompt.content,
             str(response),
-            images=tuple(request.prompt.images),
+            images=request.prompt.images,
             metrics=response.metrics(),
             value=response.value,
         )
@@ -127,7 +128,7 @@ class Model(ABC):
     ) -> Request:
 
         if prompt is not None:
-            prompt = Prompt(content=prompt, images=tuple(images), tool=False)
+            prompt = Prompt(content=prompt, images=images)
         return Request(
             contexture=self.contexture,
             prompt=prompt,
@@ -151,8 +152,8 @@ class Model(ABC):
             settings=self.settings,
             contexture=self.contexture.append_exchange(
                 Exchange(
-                    prompt=Prompt(content=prompt, tool=False, images=tuple(images)),
-                    reply=reply,
+                    prompt=Prompt(content=prompt, images=images),
+                    reply=AssistantMessage(content=reply),
                 )
             ),
             parent=self,
@@ -271,13 +272,11 @@ class Response(Model):
     @property
     def reply(self) -> str:
         assert len(self.contexture.context) > 0
-        return self.contexture.context[-1].reply
+        return self.contexture.context[-1].reply.content
 
     def render(self) -> str:
         """Return a markdown string of the context."""
-        return render_interaction(
-            self.parent.render(), self.contexture.context[-1].prompt, self.reply
-        )
+        return render_interaction(self.parent.render(), self.contexture.context[-1])
 
     def __str__(self):
         return self.reply

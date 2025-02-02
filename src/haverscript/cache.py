@@ -2,7 +2,7 @@ import sqlite3
 import json
 from dataclasses import asdict, dataclass, field, fields
 from abc import abstractmethod
-from .types import Exchange, Prompt
+from .types import Exchange, Prompt, AssistantMessage
 
 SQL_VERSION = 2
 
@@ -162,9 +162,9 @@ class DB:
         ).fetchall()
 
         def decode_images(txt):
+            # TODO: decode images
             if txt == '["foo.png"]':
                 return ["foo.png"]
-            assert txt == "[]"
             return []
 
         return {
@@ -328,7 +328,7 @@ class Cache:
 
         top: Exchange = context[-1]
 
-        prompt, images, reply = top.prompt.content, top.prompt.images, top.reply
+        prompt, images, reply = top.prompt.content, top.prompt.images, top.reply.content
         context = self.context(context[:-1])
         prompt = self.db.text(prompt)
         images = self.db.text(json.dumps(images))
@@ -343,7 +343,8 @@ class Cache:
         ), f"should not be saving empty prompt, reply = {repr(reply)}"
         context = context + (
             Exchange(
-                prompt=Prompt(content=prompt, tool=False, images=images), reply=reply
+                prompt=Prompt(content=prompt, images=images),
+                reply=AssistantMessage(content=reply),
             ),
         )
         context = self.context(context)

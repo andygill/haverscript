@@ -15,6 +15,8 @@ class Metrics(ABC):
 
 
 class Informational(BaseModel):
+    """Background information, typically from a middleware component."""
+
     message: str
 
     model_config = ConfigDict(frozen=True)
@@ -26,17 +28,50 @@ class Value(BaseModel):
     model_config = ConfigDict(frozen=True)
 
 
-class Prompt(BaseModel):
+class Message(BaseModel):
+    """A message is content with a role (assistant, user, system, tool)."""
+
     content: str
-    tool: bool = False  # is this a tool call answer prompt
-    images: tuple[str, ...] | None = ()
 
     model_config = ConfigDict(frozen=True)
 
+    def role_content_json(self):
+        result = {}
+        result["role"] = self.role
+        result["content"] = self.content
+        if hasattr(self, "images") and self.images:
+            result["images"] = self.images
+        return result
+
+
+class SystemMessage(Message):
+    role: str = "system"
+
+
+class RequestMessage(Message):
+    pass
+
+
+class Prompt(RequestMessage):
+    role: str = "user"
+    images: tuple[str, ...] = ()
+
+
+class ToolResult(RequestMessage):
+    role: str = "tool"
+
+
+class ResponseMessage(Message):
+    pass
+
+
+class AssistantMessage(ResponseMessage):
+    role: str = "assistant"
+
 
 class Exchange(BaseModel):
-    prompt: Prompt
-    reply: str
+    prompt: RequestMessage
+    reply: ResponseMessage
 
     model_config = ConfigDict(frozen=True)
 
