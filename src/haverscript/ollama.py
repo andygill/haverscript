@@ -9,6 +9,7 @@ from .types import (
     ServiceProvider,
     Reply,
     Request,
+    SystemMessage,
 )
 from .middleware import model
 
@@ -69,31 +70,19 @@ class Ollama(ServiceProvider):
         messages = []
 
         if request.contexture.system:
-            messages.append({"role": "system", "content": request.contexture.system})
+            messages.append(SystemMessage(content=request.contexture.system))
 
         for exchange in request.contexture.context:
-            role = "tool" if exchange.prompt.tool else "user"
-            messages.append(
-                {"role": role, "content": exchange.prompt.content}
-                | (
-                    {"images": list(exchange.prompt.images)}
-                    if exchange.prompt.images
-                    else {}
-                )
-            )
-            messages.append({"role": "assistant", "content": exchange.reply})
+            messages.append(exchange.prompt)
+            messages.append(exchange.reply)
 
-        role = "tool" if request.prompt.tool else "user"
-        messages.append(
-            {"role": role, "content": request.prompt.content}
-            | ({"images": list(request.prompt.images)} if request.prompt.images else {})
-        )
+        messages.append(request.prompt)
 
         try:
             response = self.client[self.hostname].chat(
                 model=request.contexture.model,
                 stream=request.stream,
-                messages=messages,
+                messages=[message.role_content_json() for message in messages],
                 options=request.contexture.options,
                 format=request.format,
             )

@@ -1,4 +1,4 @@
-from .types import Prompt
+from .types import Prompt, Exchange
 
 
 def _canonical_string(string, postfix="\n"):
@@ -17,16 +17,13 @@ def render_system(system) -> str:
     return _canonical_string(system or "")
 
 
-def render_interaction(context: str, prompt: Prompt, reply: str) -> str:
+def render_interaction(context: str, exchange: Exchange) -> str:
     assert isinstance(context, str)
-    assert isinstance(
-        prompt, Prompt
-    ), f"expecting prompt:Prompt, found {type(prompt)}, {prompt}"
-    assert isinstance(reply, str)
+    assert isinstance(exchange, Exchange)
+    prompt = exchange.prompt.content
+    reply = exchange.reply.content
 
     context = _canonical_string(context, postfix="\n\n")
-
-    prompt = prompt.content
 
     if prompt:
         prompt = "".join([f"> {line}\n" for line in prompt.splitlines()]) + "\n"

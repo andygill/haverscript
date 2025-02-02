@@ -35,7 +35,7 @@ from haverscript import (
     reply_in_json,
 )
 from haverscript.cache import INTERACTION, Cache
-from haverscript.types import Exchange, Request
+from haverscript.types import Exchange, Request, ResponseMessage
 from haverscript.middleware import *
 from tests.test_utils import remove_spinner
 
@@ -78,6 +78,7 @@ class _TestClient:
         self._count = 1
 
     def _streaming(self, reply):
+        assert isinstance(reply, str)
         for token in re.findall(r"\S+|\s+", reply):
             time.sleep(0.01)
             yield {"message": {"content": token}, "done": False}
@@ -165,6 +166,8 @@ class _TestClient:
         if reply is None:
             reply = llm(self._host, model, messages, options, format, extra)
 
+        assert isinstance(reply, str)
+
         if stream:
             return self._streaming(reply)
         else:
@@ -249,6 +252,8 @@ def check_model(model, host, system):
         assert session.metrics.prompt_eval_duration == 103
         assert session.metrics.eval_count == 104
         assert session.metrics.eval_duration == 105
+
+        assert isinstance(session.reply, str)
 
         context.append({"role": "assistant", "content": session.reply})
         render += session.reply
@@ -806,9 +811,13 @@ def test_cache_class(tmp_path):
     cache = Cache(temp_file, "a+")
     system = "..."
     context = (
-        Exchange(prompt=Prompt(content="Hello", tool=False, images=()), reply="World"),
         Exchange(
-            prompt=Prompt(content="Hello2", tool=False, images=()), reply="World2"
+            prompt=Prompt(content="Hello"),
+            reply=AssistantMessage(content="World"),
+        ),
+        Exchange(
+            prompt=Prompt(content="Hello2"),
+            reply=AssistantMessage(content="World2"),
         ),
     )
     prompt = "Hello!"

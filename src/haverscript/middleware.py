@@ -33,6 +33,8 @@ from .types import (
     Middleware,
     EmptyMiddleware,
     Exchange,
+    AssistantMessage,
+    Prompt,
 )
 from .render import *
 
@@ -419,14 +421,16 @@ class TranscriptMiddleware(Middleware):
         transcript = render_system(request.contexture.system)
 
         for exchange in request.contexture.context:
-            transcript = render_interaction(transcript, exchange.prompt, exchange.reply)
+            transcript = render_interaction(transcript, exchange)
 
         def write_transcript():
             transcript_file = datetime.now().strftime("%Y%m%d_%H:%M:%S.%f.md")
             transcript_ = render_interaction(
                 transcript,
-                request.prompt,
-                str(response),
+                Exchange(
+                    prompt=request.prompt,
+                    reply=AssistantMessage(content=str(response)),
+                ),
             )
             with open(os.path.join(dirname, transcript_file), "w") as file:
                 file.write(transcript_)
@@ -635,7 +639,9 @@ class MetaMiddleware(Middleware):
         response: Reply = model.chat(request.prompt.content, next)
 
         def after():
-            exchange = Exchange(prompt=request.prompt, reply=str(response))
+            exchange = Exchange(
+                prompt=request.prompt, reply=AssistantMessage(content=str(response))
+            )
             self._model_cache[system, context + (exchange,)] = model
 
         response.after(after)
