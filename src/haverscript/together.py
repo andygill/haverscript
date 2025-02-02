@@ -5,7 +5,7 @@ from types import GeneratorType
 import together
 
 from .haverscript import Metrics, Model, Service
-from .types import Reply, Request, ServiceProvider
+from .types import Reply, Request, ServiceProvider, SystemMessage
 from .middleware import model
 
 
@@ -63,15 +63,15 @@ class Together(ServiceProvider):
         messages = []
 
         if request.contexture.system:
-            messages.append({"role": "system", "content": request.contexture.system})
+            messages.append(SystemMessage(content=request.contexture.system))
 
         for exchange in request.contexture.context:
             assert not exchange.prompt.images, "images not (yet) supported"
-            messages.append({"role": "user", "content": exchange.prompt.content})
-            messages.append({"role": "assistant", "content": exchange.reply})
+            messages.append(exchange.prompt)
+            messages.append(exchange.reply)
 
         assert not request.prompt.images, "images not (yet) supported"
-        messages.append({"role": "user", "content": request.prompt.content})
+        messages.append(request.prompt)
 
         together_keywords = set(
             [
@@ -106,7 +106,7 @@ class Together(ServiceProvider):
             response = self.client.chat.completions.create(
                 model=request.contexture.model,
                 stream=request.stream,
-                messages=messages,
+                messages=[message.role_content_json() for message in messages],
                 response_format=response_format,
                 **kwargs,
             )
