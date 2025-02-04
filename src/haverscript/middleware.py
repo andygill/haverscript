@@ -110,6 +110,7 @@ class EchoMiddleware(Middleware):
     width: int = 78
     prompt: bool = True
     spinner: bool = True
+    stream: bool = True
 
     def invoke(self, request: Request, next: LanguageModel):
 
@@ -118,13 +119,13 @@ class EchoMiddleware(Middleware):
         if prompt is None:
             return next.ask(request=request)
 
-        if self.prompt and prompt:
+        if self.prompt and prompt and isinstance(prompt, Prompt):
             print()
             print("\n".join([f"> {line}" for line in prompt.content.splitlines()]))
             print()
 
         # We turn on streaming to make the echo responsive
-        request = request.model_copy(update=dict(stream=True))
+        request = request.model_copy(update=dict(stream=self.stream))
 
         channel = queue.Queue()
         back_channel = queue.Queue()
@@ -241,17 +242,20 @@ class EchoMiddleware(Middleware):
         return []
 
 
-def echo(width: int = 78, prompt: bool = True, spinner: bool = True) -> Middleware:
+def echo(
+    width: int = 78, prompt: bool = True, spinner: bool = True, stream: bool = True
+) -> Middleware:
     """echo prompts and responses to stdout.
 
     if prompt=False, do not echo the prompt
     if spinner=False, do not use a spinner. (For example, when redirecting to a file)
+    if stream=False, do not use streaming.
     """
     assert isinstance(width, int) and not isinstance(width, bool)
     assert isinstance(prompt, bool)
     assert isinstance(spinner, bool)
 
-    return EchoMiddleware(width, prompt, spinner)
+    return EchoMiddleware(width, prompt, spinner, stream)
 
 
 @dataclass(frozen=True)
