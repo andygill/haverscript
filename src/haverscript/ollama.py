@@ -4,13 +4,7 @@ from types import GeneratorType
 import ollama
 
 from .haverscript import Model, Service
-from .types import (
-    Metrics,
-    ServiceProvider,
-    Reply,
-    Request,
-    SystemMessage,
-)
+from .types import Metrics, ServiceProvider, Reply, Request, SystemMessage, ToolCall
 from .middleware import model
 
 
@@ -42,48 +36,68 @@ class Ollama(ServiceProvider):
             print("Connection error (Check if ollama is running)")
         return e
 
+    def tokenize(self, chunk: dict):
+        if chunk["done"]:
+            yield OllamaMetrics(
+                **{k: chunk[k] for k in OllamaMetrics.model_fields.keys()}
+            )
+        message = chunk["message"]
+        if "tool_calls" in message:
+            for tool in message["tool_calls"]:
+                yield ToolCall(
+                    name=tool.function.name,
+                    arguments=tool.function.arguments,
+                )
+        assert isinstance(message["content"], str)
+        yield message["content"]
+
     def generator(self, response):
 
         if isinstance(response, GeneratorType):
             try:
                 for chunk in response:
-                    if chunk["done"]:
-                        yield OllamaMetrics(
-                            **{
-                                k: chunk[k]
-                                for k in OllamaMetrics.__dataclass_fields__.keys()
-                            }
-                        )
-                    yield chunk["message"]["content"]
+                    yield from self.tokenize(chunk)
+
             except Exception as e:
                 raise self._suggestions(e)
+
         else:
-            assert isinstance(response["message"]["content"], str)
-            yield response["message"]["content"]
-            yield OllamaMetrics(
-                **{k: response[k] for k in OllamaMetrics.model_fields.keys()}
-            )
+            yield from self.tokenize(response)
 
     def ask(self, request: Request):
 
         messages = []
 
         if request.contexture.system:
-            messages.append(SystemMessage(content=request.contexture.system))
+            SystemMessage(content=request.contexture.system).append_to(messages)
 
         for exchange in request.contexture.context:
-            messages.append(exchange.prompt)
-            messages.append(exchange.reply)
+            exchange.append_to(messages)
 
-        messages.append(request.prompt)
+        request.prompt.append_to(messages)
+
+        tools = None
+        if request.tools:
+            tools = list(request.tools)
+
+        # normalize the messages for ollama
+        messages = [
+            {
+                key: value
+                for key, value in original_dict.items()
+                if key in {"role", "content", "images"}
+            }
+            for original_dict in messages
+        ]
 
         try:
             response = self.client[self.hostname].chat(
                 model=request.contexture.model,
                 stream=request.stream,
-                messages=[message.role_content_json() for message in messages],
+                messages=messages,
                 options=request.contexture.options,
                 format=request.format,
+                tools=tools,
             )
 
             return Reply(self.generator(response))

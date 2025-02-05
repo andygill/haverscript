@@ -1,11 +1,12 @@
 import os
 from dataclasses import dataclass
 from types import GeneratorType
+import json
 
 import together
 
 from .haverscript import Metrics, Model, Service
-from .types import Reply, Request, ServiceProvider, SystemMessage
+from .types import Reply, Request, ServiceProvider, SystemMessage, ToolCall
 from .middleware import model
 
 
@@ -42,6 +43,15 @@ class Together(ServiceProvider):
             **{k: chunk[k] for k in TogetherMetrics.model_fields.keys()}
         )
 
+    def tool_calls(self, message):
+        if hasattr(message, "tool_calls") and message.tool_calls is not None:
+            for tool in message.tool_calls:
+                yield ToolCall(
+                    name=tool.function.name,
+                    arguments=json.loads(tool.function.arguments),
+                    id=tool.id,
+                )
+
     def generator(self, response):
 
         if isinstance(response, GeneratorType):
@@ -54,24 +64,43 @@ class Together(ServiceProvider):
             except Exception as e:
                 raise self._suggestions(e)
         else:
-            assert isinstance(response.choices[0].message.content, str)
-            yield response.choices[0].message.content
-            yield self.metrics(response.usage.model_dump())
+            for chunk in response.choices:
+                if isinstance(chunk.message.content, str):
+                    yield chunk.message.content
+                yield from self.tool_calls(response.choices[0].message)
+                yield self.metrics(response.usage.model_dump())
 
     def ask(self, request: Request):
 
         messages = []
 
         if request.contexture.system:
-            messages.append(SystemMessage(content=request.contexture.system))
+            SystemMessage(content=request.contexture.system).append_to(messages)
 
         for exchange in request.contexture.context:
-            assert not exchange.prompt.images, "images not (yet) supported"
-            messages.append(exchange.prompt)
-            messages.append(exchange.reply)
+            exchange.append_to(messages)
 
-        assert not request.prompt.images, "images not (yet) supported"
-        messages.append(request.prompt)
+        request.prompt.append_to(messages)
+
+        # normalize the messages for together
+        key_map = {
+            "role": "role",
+            "content": "content",
+            "id": "tool_call_id",
+            "name": "name",
+        }
+        messages = [
+            {
+                key_map[key]: value
+                for key, value in original_dict.items()
+                if key in key_map
+            }
+            for original_dict in messages
+        ]
+        # remove all messages that have content == ""
+        messages = [message for message in messages if message["content"] != ""]
+        # if there are any role == "tool" messages, then set this to true
+        tool_reply = messages[-1]["role"] == "tool"
 
         together_keywords = set(
             [
@@ -101,12 +130,20 @@ class Together(ServiceProvider):
         elif isinstance(format, dict):
             response_format = {"type": "json_object", "schema": format}
 
+        # In together.ai, we can not use tools when re-running with a tool call response.
+        if request.tools and not tool_reply:
+            assert (
+                request.stream is False
+            ), "Can not use together function calling tools with streaming"
+            kwargs["tools"] = list(request.tools)
+            kwargs["tool_choice"] = "auto"
+
         try:
             assert isinstance(self.client, together.Together)
             response = self.client.chat.completions.create(
                 model=request.contexture.model,
                 stream=request.stream,
-                messages=[message.role_content_json() for message in messages],
+                messages=messages,
                 response_format=response_format,
                 **kwargs,
             )
