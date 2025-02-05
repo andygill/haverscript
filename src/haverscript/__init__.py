@@ -38,6 +38,7 @@ from .middleware import (
     validate,
 )
 from .ollama import connect
+from .tools import Tools, tool
 from .types import LanguageModel, Reply, Request, ServiceProvider, Middleware
 
 __all__ = [
@@ -80,4 +81,6 @@ __all__ = [
     "ServiceProvider",
     "Middleware",
     "Agent",
+    "Tools",
+    "tool",
 ]

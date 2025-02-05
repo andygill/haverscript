@@ -8,6 +8,7 @@ import time
 from collections.abc import Iterator
 from dataclasses import asdict, dataclass, field, fields, replace
 from pathlib import Path
+from collections import namedtuple
 
 import pytest
 from pydantic import BaseModel, Field
@@ -33,10 +34,12 @@ from haverscript import (
     table,
     code,
     reply_in_json,
+    tool,
 )
 from haverscript.cache import INTERACTION, Cache
-from haverscript.types import Exchange, Request, ResponseMessage
+from haverscript.types import Exchange, Request, ResponseMessage, ToolResult, ToolReply
 from haverscript.middleware import *
+from haverscript.utils import tool_schema
 from tests.test_utils import remove_spinner
 
 # Note that these tests break the haverscript API at points specifically
@@ -83,7 +86,7 @@ class _TestClient:
             time.sleep(0.01)
             yield {"message": {"content": token}, "done": False}
 
-    def chat(self, model, stream, messages, options, format):
+    def chat(self, model, stream, messages, options, format, tools):
         assert format == "json" or format == "" or isinstance(format, dict)
         if isinstance(format, dict):
             assert "$ref" not in json.dumps(format)
@@ -163,6 +166,32 @@ class _TestClient:
             elif format.get("title") != "LLM":
                 assert False, f"unknown format: {repr(format)}"
 
+        if tools and messages[-1]["content"] == "ask tool":
+            return {
+                "message": {
+                    "content": "...",
+                    "tool_calls": [
+                        namedtuple("Tool", ["function"])(
+                            namedtuple("Function", ["name", "arguments"])(
+                                "foo", {"i": 99, "s": "Hello"}
+                            )
+                        )
+                    ],
+                },
+                "total_duration": 100,
+                "load_duration": 101,
+                "prompt_eval_count": 102,
+                "prompt_eval_duration": 103,
+                "eval_count": 104,
+                "eval_duration": 105,
+                "done": True,
+            }
+
+            return {
+                "message": {"content": "call tool", "tool_calls": 999},
+                "done": True,
+            }
+
         if reply is None:
             reply = llm(self._host, model, messages, options, format, extra)
 
@@ -179,6 +208,7 @@ class _TestClient:
                 "prompt_eval_duration": 103,
                 "eval_count": 104,
                 "eval_duration": 105,
+                "done": True,
             }
 
     def list(self):
@@ -1048,4 +1078,63 @@ Reply in JSON, using the following keys:
 - "extra" (str | None): Extra information
 
 """.strip()
+    )
+
+
+def foo(i: int, s: str) -> bool:
+    """foo returns True if i is less than or equal to 0
+
+    args:
+        i (int): The number to check
+        s (str): A string to check
+
+    returns:
+        bool: True if x is less than or equal to 0
+    """
+    if i > 0:
+        return False
+    return True
+
+
+def test_tool_schema():
+    assert tool_schema(foo) == {
+        "function": {
+            "description": "foo returns True if i is less than or equal to 0",
+            "name": "foo",
+            "parameters": {
+                "properties": {
+                    "i": {
+                        "type": "integer",
+                    },
+                    "s": {
+                        "type": "string",
+                    },
+                },
+                "required": [
+                    "i",
+                    "s",
+                ],
+                "type": "object",
+            },
+        },
+        "type": "function",
+    }
+
+
+def test_toolcall(sample_model):
+    response = sample_model.chat("ask tool", tools=tool(foo))
+    assert response.contexture.context == (
+        Exchange(
+            prompt=Prompt(role="user", content="ask tool", images=()),
+            reply=AssistantMessage(role="assistant", content="..."),
+        ),
+        Exchange(
+            prompt=ToolResult(
+                role="tool", results=(ToolReply(id="", name="foo", content="False"),)
+            ),
+            reply=AssistantMessage(
+                role="assistant",
+                content='{"host": null, "model": "test-model", "messages": [{"role": "user", "content": "ask tool"}, {"role": "assistant", "content": "..."}, {"role": "tool", "content": "False"}], "options": {}, "format": "", "extra": null}',
+            ),
+        ),
     )

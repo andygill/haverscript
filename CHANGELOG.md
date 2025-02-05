@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Initial agentic support. An `Agent` is a python class that has access to an LLM.
 - `Markdown`, a simple DSL for building markdown-style prompts.
+- `tools` argument for `Model.chat`, that supplies function-calling callbacks.
 - `format` now supports standard types such as `list[int]` and `bool` for stuctured output.
 - `echo` middleware now takes an optional `stream` parameter, defaulting to `True`.
 ### Deprecated
