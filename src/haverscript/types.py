@@ -34,12 +34,11 @@ class ToolCall(Extras):
 
     name: str
     arguments: dict
+    id: str = ""
 
 
 class Message(BaseModel):
     """A message is content with a role (assistant, user, system, tool)."""
-
-    content: str
 
     model_config = ConfigDict(frozen=True)
 
@@ -51,9 +50,13 @@ class Message(BaseModel):
             result["images"] = self.images
         return result
 
+    def append_to(self, context: list):
+        context.append(self.role_content_json())
+
 
 class SystemMessage(Message):
     role: str = "system"
+    content: str
 
 
 class RequestMessage(Message):
@@ -62,11 +65,35 @@ class RequestMessage(Message):
 
 class Prompt(RequestMessage):
     role: str = "user"
+    content: str
     images: tuple[str, ...] = ()
 
 
+class ToolReply(BaseModel):
+    """A ToolReply is from one function call to a tool."""
+
+    id: str
+    name: str
+    content: str
+
+
 class ToolResult(RequestMessage):
+    """A ToolResult can contain several results from several tool calls."""
+
     role: str = "tool"
+
+    results: tuple[ToolReply, ...]
+
+    def append_to(self, context: list):
+        for reply in self.results:
+            context.append(
+                {
+                    "role": self.role,
+                    "content": reply.content,
+                    "id": reply.id,
+                    "name": reply.name,
+                }
+            )
 
 
 class ResponseMessage(Message):
@@ -75,6 +102,7 @@ class ResponseMessage(Message):
 
 class AssistantMessage(ResponseMessage):
     role: str = "assistant"
+    content: str
 
 
 class Exchange(BaseModel):
@@ -82,6 +110,10 @@ class Exchange(BaseModel):
     reply: ResponseMessage
 
     model_config = ConfigDict(frozen=True)
+
+    def append_to(self, context: list):
+        self.prompt.append_to(context)
+        self.reply.append_to(context)
 
 
 class Contexture(BaseModel):
@@ -116,14 +148,14 @@ class Request(BaseModel):
     """Foreground parts of a request"""
 
     contexture: Contexture
-    prompt: Prompt | None
+    prompt: RequestMessage | None
 
     stream: bool = False
     fresh: bool = False
 
     # images: tuple[str, ...] = ()
     format: str | dict = ""  # str is "json" or "", dict is a JSON schema
-    tools: tuple[dict] = ()
+    tools: tuple[dict, ...] = ()
 
     model_config = ConfigDict(frozen=True)
 
@@ -198,6 +230,10 @@ class Reply:
             if isinstance(t, Metrics):
                 return t
         return None
+
+    def tool_calls(self) -> list[ToolCall]:
+        """Returns all ToolCalls."""
+        return [t for t in self if isinstance(t, ToolCall)]
 
     @property
     def value(self) -> dict | BaseModel | None:

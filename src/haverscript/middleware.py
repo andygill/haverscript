@@ -35,6 +35,7 @@ from .types import (
     Exchange,
     AssistantMessage,
     Prompt,
+    ToolCall,
 )
 from .render import *
 
@@ -162,16 +163,26 @@ class EchoMiddleware(Middleware):
 
             newline = True
             for token in self._wrap(response):
-                if isinstance(token, str):
+                if isinstance(token, (str, ToolCall)):
                     if newline and self.spinner:
                         channel.put("stop")
                         back_channel.get()
-                    print(token, end="", flush=True)
-                    newline = token.endswith("\n")
+                    if isinstance(token, ToolCall):
+                        formatted_args = ", ".join(
+                            f"{key} = {repr(value)}"
+                            for key, value in token.arguments.items()
+                        )
+                        print(f"Calling {token.name}({formatted_args})")
+                        newline = True
+                    else:
+                        print(token, end="", flush=True)
+                        newline = token.endswith("\n")
                     if newline and self.spinner:
                         channel.put("start")
                 if isinstance(token, Informational):
                     channel.put(token.message)
+                if isinstance(token, ToolCall):
+                    channel.put(str(token))
         finally:
             if self.spinner:
                 channel.put("done")

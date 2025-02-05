@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import ABC
 from dataclasses import dataclass, field, replace
 from typing import Any
-
+import json
 from pydantic import BaseModel
 
 from .types import (
@@ -14,13 +14,17 @@ from .types import (
     Reply,
     Exchange,
     Prompt,
+    RequestMessage,
     EmptyMiddleware,
     AssistantMessage,
+    ToolResult,
+    ToolReply,
 )
 from .exceptions import LLMInternalError
 from .middleware import Middleware, CacheMiddleware
 from .render import render_interaction, render_system
 from .markdown import Markdown
+from .tools import Tools
 
 
 @dataclass(frozen=True)
@@ -58,6 +62,7 @@ class Model(ABC):
         prompt: str | Markdown,
         images: list[str] = [],
         middleware: Middleware | None = None,
+        tools: Tools | None = None,
     ) -> Response:
         """
         Take a prompt and call the LLM in a previously provided context.
@@ -74,21 +79,41 @@ class Model(ABC):
         if isinstance(prompt, Markdown):
             prompt = str(prompt)
 
-        request, response = self.ask(prompt, images, middleware)
+        request, reply = self.ask(
+            Prompt(content=prompt, images=images), middleware, tools
+        )
 
-        return self.process(request, response)
+        response = self.process(request, reply)
+
+        while response.tool_calls:
+            assert (
+                tools is not None
+            ), "internal error: tools should be provided to handle tool calls"
+            results = []
+            for tool in response.tool_calls:
+                output = tools(tool.name, tool.arguments)
+                results.append(
+                    ToolReply(id=tool.id, name=tool.name, content=str(output))
+                )
+
+            request, reply = response.ask(
+                ToolResult(results=results), middleware, tools
+            )
+            response = response.process(request, reply)
+
+        return response
 
     def ask(
         self,
-        prompt: str,
-        images: list[str] = [],
+        prompt: RequestMessage,
         middleware: Middleware | None = None,
+        tools: Tools | None = None,
     ) -> tuple[Request, Reply]:
         """
         Take a prompt and call the LLM in a previously provided context.
 
         Args:
-            prompt (str): the prompt
+            prompt (RequestMessage): the prompt in message format
             images: (list): images to pass to the LLM
             middleware (Middleware): extra middleware specifically for this prompt
 
@@ -97,7 +122,7 @@ class Model(ABC):
         """
         assert prompt is not None, "Can not build a response with no prompt"
 
-        request = self.request(prompt, images=tuple(images))
+        request = self.request(prompt, tools=tools)
 
         if middleware is not None:
             middleware = self.settings.middleware | middleware
@@ -108,57 +133,58 @@ class Model(ABC):
 
         return (request, response)
 
-    def process(self, request: Request, response: Reply) -> "Response":
+    def process(self, request: Request, response: Reply) -> Response:
 
         return self.response(
-            request.prompt.content,
+            request.prompt,
             str(response),
-            images=request.prompt.images,
             metrics=response.metrics(),
             value=response.value,
+            tool_calls=tuple(response.tool_calls()),
         )
 
     def request(
         self,
-        prompt: str | None,
-        images: list[str] = [],
+        prompt: RequestMessage | None,
         format: str | dict = "",
         fresh: bool = False,
         stream: bool = False,
+        tools: Tools | None = None,
     ) -> Request:
 
-        if prompt is not None:
-            prompt = Prompt(content=prompt, images=images)
+        tool_schemas = tools.tool_schemas() if tools else ()
+
         return Request(
             contexture=self.contexture,
             prompt=prompt,
             format=format,
             fresh=fresh,
             stream=stream,
+            tools=tool_schemas,
         )
 
     def response(
         self,
-        prompt: str,
+        prompt: RequestMessage,
         reply: str,
-        images: list[str] = [],
         metrics: Metrics | None = None,
         value: Any | None = None,
+        tool_calls: tuple[dict, ...] = (),
     ):
-        assert isinstance(prompt, str)
-        assert isinstance(reply, str)
+        assert isinstance(prompt, RequestMessage)
         assert isinstance(metrics, (Metrics, type(None)))
         return Response(
             settings=self.settings,
             contexture=self.contexture.append_exchange(
                 Exchange(
-                    prompt=Prompt(content=prompt, images=images),
+                    prompt=prompt,
                     reply=AssistantMessage(content=reply),
                 )
             ),
             parent=self,
             metrics=metrics,
             value=value,
+            tool_calls=tool_calls,
         )
 
     def children(self, prompt: str | None = None, images: list[str] | None = []):
@@ -173,10 +199,13 @@ class Model(ABC):
                 ".children(...) method needs cache to be final middleware"
             )
 
-        replies = first.children(self.request(prompt, images=images))
+        if prompt is not None:
+            prompt = Prompt(content=prompt, images=tuple(images))
+
+        replies = first.children(self.request(prompt))
 
         return [
-            self.response(prompt_, prose, images=list(images))
+            self.response(Prompt(content=prompt_, images=tuple(images)), prose)
             for prompt_, images, prose in replies
         ]
 
@@ -240,7 +269,7 @@ class Model(ABC):
             if complete and reply in ("", "..."):
                 model = model.chat(prompt)
             else:
-                model = model.response(prompt, reply)
+                model = model.response(Prompt(content=prompt), reply)
 
             result = result[2:]
 
@@ -263,6 +292,7 @@ class Response(Model):
     parent: Model
     metrics: Metrics | None
     value: Any | None
+    tool_calls: tuple[dict, ...]
 
     @property
     def prompt(self) -> str:
