@@ -30,7 +30,7 @@ class Value(Extras):
 
 
 class ToolCall(Extras):
-    """A tool call is a response from an LLM that requestsd calling a named tool."""
+    """A tool call is a response from an LLM that requested calling a named tool."""
 
     name: str
     arguments: dict
