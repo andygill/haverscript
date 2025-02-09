@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `dedent` has stubed out (has no effect). This has been replaced by Markdown support.
 ### Changed
 - Internally, resolve refs from JSON schemas in format (this works around an ollama bug)
+- `Model` and `Response` are now pydantic classes.
 
 ## [0.2.1] - 2024-12-30
 ### Added

@@ -4,7 +4,7 @@ from abc import ABC
 from dataclasses import dataclass, field, replace
 from typing import Any
 import json
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from .types import (
     ServiceProvider,
@@ -19,6 +19,7 @@ from .types import (
     AssistantMessage,
     ToolResult,
     ToolReply,
+    ToolCall,
 )
 from .exceptions import LLMInternalError
 from .middleware import Middleware, CacheMiddleware
@@ -51,11 +52,12 @@ class Service(ABC):
         )
 
 
-@dataclass(frozen=True)
-class Model(ABC):
+class Model(BaseModel):
 
     settings: Settings
     contexture: Contexture
+
+    model_config = ConfigDict(frozen=True)
 
     def chat(
         self,
@@ -169,10 +171,13 @@ class Model(ABC):
         reply: str,
         metrics: Metrics | None = None,
         value: Any | None = None,
-        tool_calls: tuple[dict, ...] = (),
+        tool_calls: tuple[ToolCall, ...] = (),
     ):
         assert isinstance(prompt, RequestMessage)
         assert isinstance(metrics, (Metrics, type(None)))
+        assert isinstance(tool_calls, tuple) and all(
+            isinstance(tc, ToolCall) for tc in tool_calls
+        )
         return Response(
             settings=self.settings,
             contexture=self.contexture.append_exchange(
@@ -220,8 +225,10 @@ class Model(ABC):
         if isinstance(prompt, Markdown):
             prompt = str(prompt)
 
-        return replace(
-            self, contexture=self.contexture.model_copy(update=dict(system=prompt))
+        return self.model_copy(
+            update=dict(
+                contexture=self.contexture.model_copy(update=dict(system=prompt))
+            )
         )
 
     def load(self, markdown: str, complete: bool = False) -> Model:
@@ -278,21 +285,21 @@ class Model(ABC):
     def __or__(self, other: Middleware) -> Model:
         """pipe to append middleware to a model"""
         assert isinstance(other, Middleware), "Can only pipe with middleware"
-        return replace(
-            self,
-            settings=replace(
-                self.settings, middleware=self.settings.middleware | other
-            ),
+        return self.model_copy(
+            update=dict(
+                settings=replace(
+                    self.settings, middleware=self.settings.middleware | other
+                )
+            )
         )
 
 
-@dataclass(frozen=True)
 class Response(Model):
 
     parent: Model
     metrics: Metrics | None
     value: Any | None
-    tool_calls: tuple[dict, ...]
+    tool_calls: tuple[ToolCall, ...]
 
     @property
     def prompt(self) -> str:

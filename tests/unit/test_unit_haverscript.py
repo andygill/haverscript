@@ -490,6 +490,10 @@ def test_cache(sample_model, tmp_path):
     mode = "a+"
     model = sample_model | cache(temp_file, mode)
 
+    def replace(object, **kwargs):
+        """compatible way to replace fields in a pydantic object"""
+        return object.model_copy(update=kwargs)
+
     hello = "### Hello"
     assert len(model.children(hello)) == 0
     assert len(model.children()) == 0
