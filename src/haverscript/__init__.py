@@ -22,6 +22,7 @@ from .markdown import (
     code,
     quoted,
     reply_in_json,
+    template,
 )
 from .middleware import (
     cache,
@@ -83,4 +84,5 @@ __all__ = [
     "Agent",
     "Tools",
     "tool",
+    "template",
 ]

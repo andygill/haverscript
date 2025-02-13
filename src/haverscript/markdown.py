@@ -1,33 +1,60 @@
-from typing import Type
-
+import string
+import re
 from pydantic import BaseModel
 
 
 class Markdown:
-    def __init__(self, content: str | list[str] | None = None):
+    def __init__(
+        self, content: list[str] | None = None, args: list[set[str]] | None = None
+    ):
         if content is None:
             self.blocks = []
-        elif isinstance(content, str):
-            self.blocks = [content]
         else:
             self.blocks = content
 
+        if args is None:
+            self.args = [set() for _ in self.blocks]
+        else:
+            self.args = args
+
+        assert len(self.blocks) == len(self.args), "internal inconsistency in Markdown"
+
     def __str__(self):
         # all blocks are separated by a blank line
+        # this does not do any formatting of {variables}.
         return "\n\n".join(self.blocks)
+
+    def format(self, **kwargs: dict):
+        return "\n\n".join(
+            [
+                (
+                    block.format(
+                        **{key: kwargs[key] for key in spec_keys if key in kwargs},
+                    )
+                    if spec_keys
+                    else block
+                )
+                for block, spec_keys in zip(self.blocks, self.args)
+            ]
+        )
 
     def __add__(self, other):
         if isinstance(other, Markdown):
-            return Markdown(self.blocks + other.blocks)
+            return Markdown(self.blocks + other.blocks, self.args + other.args)
         txt = str(other)
-        txt = txt.strip()  # remove blank lines before and after
-        txt = "\n".join([line.strip() for line in txt.splitlines()])
-        return Markdown(self.blocks + [txt])
+        txt = strip_text(txt)
+        return Markdown(self.blocks + [txt], self.args + [set()])
+
+
+def strip_text(txt: str) -> str:
+    txt = txt.strip()  # remove blank lines before and after
+    txt = "\n".join([line.strip() for line in txt.splitlines()])
+    return txt
 
 
 def header(txt, level: int = 1) -> Markdown:
     """Return a markdown header."""
-    return Markdown(f"{'#' * level} {txt}")
+    return Markdown([f"{'#' * level} {txt}"])
 
 
 def bullets(items, ordered: bool = False) -> Markdown:
@@ -36,12 +63,12 @@ def bullets(items, ordered: bool = False) -> Markdown:
         markdown_items = [f"{i+1}. {item}" for i, item in enumerate(items)]
     else:
         markdown_items = [f"- {item}" for item in items]
-    return Markdown("\n".join(markdown_items))
+    return Markdown(["\n".join(markdown_items)])
 
 
 def code(code: str, language: str = "") -> Markdown:
     """Return a markdown code block."""
-    return Markdown(f"```{language}\n{code}\n```")
+    return Markdown([f"```{language}\n{code}\n```"])
 
 
 def text(txt: str) -> Markdown:
@@ -54,12 +81,12 @@ def text(txt: str) -> Markdown:
 
 def quoted(txt) -> Markdown:
     """Return a quotes text block inside triple quotes."""
-    return Markdown(f'"""\n{txt}\n"""')
+    return Markdown([f'"""\n{txt}\n"""'])
 
 
 def rule(count: int = 3) -> Markdown:
     """Return a markdown horizontal rule."""
-    return Markdown("-" * count)
+    return Markdown(["-" * count])
 
 
 def table(headers: dict, rows: list[dict]) -> Markdown:
@@ -108,3 +135,23 @@ def reply_in_json(
         ]
     )
     return prompt
+
+
+def template(fstring: str) -> Markdown:
+    """Delay interpretation of a f-string until later.
+
+    variables are allowed inside {braces}, and will be filled in
+    by calls to the format method.
+    """
+    formatter = string.Formatter()
+    variables = set()
+    fstring = strip_text(fstring)
+
+    for _, field_name, _, _ in formatter.parse(fstring):
+        if field_name:
+            variables.add(field_name)
+            assert bool(
+                re.fullmatch(r"[a-zA-Z_][a-zA-Z0-9_]*", field_name)
+            ), f"invalid variable expression {field_name}, should be a variable name."
+
+    return Markdown([fstring], [variables])

@@ -35,6 +35,7 @@ from haverscript import (
     code,
     reply_in_json,
     tool,
+    template,
 )
 from haverscript.cache import INTERACTION, Cache
 from haverscript.types import Exchange, Request, ResponseMessage, ToolResult, ToolReply
@@ -1083,6 +1084,21 @@ Reply in JSON, using the following keys:
 
 """.strip()
     )
+
+    markdown = Markdown()
+
+    markdown += template("Hello {World}")
+
+    assert str(markdown) == "Hello {World}"
+
+    assert markdown.format(World="World!") == "Hello World!"
+
+    # check that text does not get formatted
+    markdown += text("Hello {World}")
+
+    assert str(markdown) == "Hello {World}\n\nHello {World}"
+
+    assert markdown.format(World="World!") == "Hello World!\n\nHello {World}"
 
 
 def foo(i: int, s: str) -> bool:
