@@ -1,3 +1,4 @@
+from typing import Type, Callable, Any, get_type_hints, get_args, get_origin
 import string
 import re
 from pydantic import BaseModel
@@ -128,12 +129,20 @@ def reply_in_json(
     """Instructions to reply in JSON using a list of bullets schema."""
     prompt = Markdown()
     prompt += text(prefix)
-    prompt += bullets(
-        [
-            f'"{str(key)}" ({value.annotation}): {value.description}'
-            for key, value in model.model_fields.items()
-        ]
-    )
+    items = []
+    type_hints = get_type_hints(model)
+    for key, value in model.model_fields.items():
+        annotation = type_hints.get(key, value.annotation)
+        if annotation is None:
+            type_name = ""
+        elif get_origin(annotation) is list and get_args(annotation):
+            type_name = f" (list of {get_args(annotation)[0].__name__})"
+        elif isinstance(annotation, type):
+            type_name = f" ({annotation.__name__})"
+        else:
+            type_name = f" ({repr(annotation).replace('typing.', '')})"
+        items.append(f'"{str(key)}"{type_name}: {value.description}')
+    prompt += bullets(items)
     return prompt
 
 
