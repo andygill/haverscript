@@ -38,7 +38,7 @@ class Agent(BaseModel):
         """
         pass
 
-    def ask(
+    def ask_llm(
         self,
         prompt: str | Markdown,
         format: Type | None = None,

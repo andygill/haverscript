@@ -56,7 +56,7 @@ class Author(Agent):
 
         prompt += header("Instructions") + instructions
 
-        return self.ask(prompt)
+        return self.ask_llm(prompt)
 
 
 class Editor(Agent):
@@ -93,7 +93,7 @@ class Editor(Agent):
 
         prompt += reply_in_json(EditorFeedback)
 
-        return self.ask(prompt, format=EditorFeedback)
+        return self.ask_llm(prompt, format=EditorFeedback)
 
 
 class Supervision(BaseModel):
