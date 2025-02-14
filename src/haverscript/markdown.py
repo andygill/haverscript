@@ -47,6 +47,15 @@ class Markdown:
         return Markdown(self.blocks + [txt], self.args + [set()])
 
 
+def markdown(content: str | Markdown | None = None) -> Markdown:
+    """Convert a string or markdown block into markdown block."""
+    if content is None:
+        return Markdown()
+    if isinstance(content, str):
+        return text(content)
+    return content
+
+
 def strip_text(txt: str) -> str:
     txt = txt.strip()  # remove blank lines before and after
     txt = "\n".join([line.strip() for line in txt.splitlines()])
