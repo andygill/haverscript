@@ -1,17 +1,42 @@
+from __future__ import annotations
 from typing import Type
 import copy
+from pydantic import BaseModel
+
 from haverscript.haverscript import Model
 from haverscript.markdown import Markdown
 from haverscript.middleware import EmptyMiddleware, format as format_middleware
 from haverscript.types import Middleware, EmptyMiddleware
+from haverscript.markdown import markdown
 
 
-class Agent:
-    """An Agent is a python class that has access to an LLM."""
+class Agent(BaseModel):
+    """An Agent is a python class that has access to an LLM.
 
-    def __init__(self, model: Model, persistence: bool = True):
-        self.model = model
-        self.persistence = persistence
+    The subclass must provide a system prompt, called system,
+    that describes the agent's role.
+
+    The subclass may provide a prepare method that sets up
+    the agent's state and other considerations.
+
+    The model itself is immutable, so can be copied and used
+    without side effects to the original.
+    """
+
+    model: Model
+    persistence: bool = True
+
+    def model_post_init(self, __context: dict | None = None) -> None:
+        if self.system:
+            self.model = self.model.system(markdown(self.system))
+        self.prepare()
+
+    def prepare(self):
+        """Prepare the agent for a new conversation.
+
+        This method is called before the agent is asked to chat.
+        """
+        pass
 
     def ask(
         self,
@@ -34,9 +59,12 @@ class Agent:
             return response.value
         return response.reply
 
-    def clone(self):
+    def clone(self, kwargs: dict = {}) -> Agent:
         """clone the agent.
 
         The result should have its own identity and not be affected by the original agent.
+
+        If the agent has additional state, it should have its own clone method,
+        that calls this method with the additional state.
         """
-        return copy.deepcopy(self)
+        return type(self)(model=self.model, persistence=self.persistence, **kwargs)
