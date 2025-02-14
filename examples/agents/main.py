@@ -1,25 +1,23 @@
 from haverscript import (
     connect,
-    echo,
     options,
     Agent,
     Markdown,
     bullets,
-    text,
     header,
-    text,
     quoted,
     reply_in_json,
+    template,
+    stats,
 )
 
-from typing import Any, Iterable
+from typing import Any, Iterable, Iterator, List
 from pydantic import BaseModel, Field
-from typing import Callable
 
 
 model_name = "mistral-nemo:latest"
 
-model = connect(model_name) | options(num_ctx=16 * 1024)
+model = connect(model_name) | options(num_ctx=16 * 1024, temperature=0.3) | stats()
 
 
 class EditorFeedback(BaseModel):
@@ -27,15 +25,17 @@ class EditorFeedback(BaseModel):
         default_factory=list,
         description="Specific concrete recommendation of improvement",
     )
+    score: int = Field(..., description="Quality score from 1 to 10")
 
     def __str__(self) -> str:
         response = Markdown()
         response += bullets(self.comments)
+        response += f"Quality score out of 10: {self.score}"
         return str(response)
 
 
 class Author(Agent):
-    system = """
+    system: str = """
     You are a world-class author who is writing a travel book.
 
     You are part of a team.
@@ -45,11 +45,9 @@ class Author(Agent):
     Commentary, feedback or requests from others are given with the heading "# Feedback from ..."
     """
 
-    def __init__(self):
-        # We use markdown's text to clean up the system prompt, and turn on echo
-        super().__init__(model.system(text(self.system)) | echo())
-
-    def __call__(self, instructions: str, feedback: EditorFeedback | None = None):
+    def write(
+        self, instructions: str | Markdown, feedback: EditorFeedback | None = None
+    ):
         prompt = Markdown()
 
         if feedback is not None:
@@ -57,31 +55,30 @@ class Author(Agent):
             prompt += bullets(feedback.comments)
 
         prompt += header("Instructions") + instructions
-        return self.ask(str(prompt))
+
+        return self.ask(prompt)
 
 
 class Editor(Agent):
-    system = """
-    You are a editor for a company that writes travel books. Make factual and actionable
-    suggestions for improvement.
+    system: str = """
+    You are a editor for a company that writes travel books.
+    Make factual and actionable suggestions for improvement.
     """
 
-    def __init__(self):
-        super().__init__(model.system(text(self.system)) | echo(), persistence=False)
-
-    def __call__(self, instructions: str, article: str) -> EditorFeedback:
+    def proof(self, instructions: str, article: str) -> EditorFeedback:
         prompt = Markdown()
         prompt += header("Previous Text")
-        prompt += "Instructions for Author:"
+        prompt += "Original instructions given to Author:"
         prompt += quoted(instructions)
-        prompt += "Text from Author: "
+        prompt += "Text from Author following original instructions: "
         prompt += quoted(article)
 
-        prompt += header("Validation")
+        prompt += header("Instructions")
 
         prompt += f"""
         Read the above Text, and consider the following criteria:
 
+            - Does the text follow the original instructions?
             - Is the text engaging and informative?
             - Does the text have a clear structure?
             - Are the sentences well-constructed?
@@ -90,52 +87,63 @@ class Editor(Agent):
             - Are there any areas that could be improved?
 
         Given these criteria, and the original instructions,
-        assess the text and provide specific feedback on how it could be improved."""
+        assess the text and provide specific feedback on how it could be improved.
+        Also give a numerical score from 1 to 10, where 1 is the worst and 10 is the best,
+        regarding quality and suitability for a travel book."""
 
         prompt += reply_in_json(EditorFeedback)
 
-        return self.ask(str(prompt), format=EditorFeedback)
+        return self.ask(prompt, format=EditorFeedback)
 
 
-author = Author()
-editor = Editor()
-
-
-class Supervision:
+class Supervision(BaseModel):
+    author: Author
+    editor: Editor
     """Generic class with author and editor interacting."""
 
-    def __init__(self, author, editor):
-        self.author = author
-        self.editor = editor
-
-    def __call__(
+    def improve(
         self,
-        instructions: str | Markdown | Callable[[Any], str | Markdown],
-        rounds: Iterable[int],
-    ):
+        topic: str | Markdown,
+        instructions: str | Markdown,
+        bindings: Iterable[dict[str, str]],
+    ) -> Iterator[str]:
         feedback = None
         first_round = True
-        editor = self.editor()
-        author = self.author()
-        for round in rounds:
-            if first_round:
+        editor = self.editor.clone()
+        author = self.author.clone()
+        formated_instructions = None
+        for binding in bindings:
+            prompt = Markdown()
+
+            if formated_instructions:
+                feedback = editor.proof(formated_instructions, article)
+                prompt += f"Consider the feedback from the Editor, and your previous attempt to write about {topic}."
+            else:
                 feedback = None
-            else:
-                feedback = editor(prompt, article)
 
-            if callable(instructions):
-                prompt = instructions(round)
-            else:
-                prompt = instructions
+            formated_instructions = instructions.format(**binding)
+            prompt += formated_instructions
 
-            article = author(prompt, feedback)
+            article = author.write(prompt, feedback)
             first_round = False
 
+        return article
 
-supervision = Supervision(Author, Editor)
 
-supervision(
-    lambda words: f"Consider the feedback above, previous attempts to write about Scotland (if any). "
-    f"Now write {words} words about traveling to Scotland. Only write prose. No titles or lists.",
-    [200, 300, 400, 500],
+supervised = Supervision(author=Author(model=model), editor=Editor(model=model))
+
+prompt = template(
+    """Write {words} words about traveling to Scotland. Only write prose. No titles or lists."""
 )
+
+article = Author(model=model).write(prompt.format(words=400))
+print("Zero-shot Article:")
+print(article)
+
+article = supervised.improve(
+    "Scotland.",
+    prompt,
+    ({"words": words} for words in [200, 300, 400]),
+)
+print("Article using supervision:")
+print(article)
