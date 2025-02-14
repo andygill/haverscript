@@ -1166,3 +1166,40 @@ def test_toolcall(sample_model):
             ),
         ),
     )
+
+
+def test_compress(sample_model: Model):
+    session = sample_model
+    for i in range(2):
+        session = session.chat(f"Hello {i}")
+    assert (
+        session.render()
+        == """> Hello 0
+
+{"host": null, "model": "test-model", "messages": [{"role": "user", "content": "Hello 0"}], "options": {}, "format": "", "extra": null}
+
+> Hello 1
+
+{"host": null, "model": "test-model", "messages": [{"role": "user", "content": "Hello 0"}, {"role": "assistant", "content": "{\\"host\\": null, \\"model\\": \\"test-model\\", \\"messages\\": [{\\"role\\": \\"user\\", \\"content\\": \\"Hello 0\\"}], \\"options\\": {}, \\"format\\": \\"\\", \\"extra\\": null}"}, {"role": "user", "content": "Hello 1"}], "options": {}, "format": "", "extra": null}
+"""
+    )
+
+    assert (session.compress(0).render()) == ""
+    assert (
+        (session.compress(1).render())
+        == """> Hello 1
+
+{"host": null, "model": "test-model", "messages": [{"role": "user", "content": "Hello 0"}, {"role": "assistant", "content": "{\\"host\\": null, \\"model\\": \\"test-model\\", \\"messages\\": [{\\"role\\": \\"user\\", \\"content\\": \\"Hello 0\\"}], \\"options\\": {}, \\"format\\": \\"\\", \\"extra\\": null}"}, {"role": "user", "content": "Hello 1"}], "options": {}, "format": "", "extra": null}
+"""
+    )
+    assert (
+        (session.compress(2).render())
+        == """> Hello 0
+
+{"host": null, "model": "test-model", "messages": [{"role": "user", "content": "Hello 0"}], "options": {}, "format": "", "extra": null}
+
+> Hello 1
+
+{"host": null, "model": "test-model", "messages": [{"role": "user", "content": "Hello 0"}, {"role": "assistant", "content": "{\\"host\\": null, \\"model\\": \\"test-model\\", \\"messages\\": [{\\"role\\": \\"user\\", \\"content\\": \\"Hello 0\\"}], \\"options\\": {}, \\"format\\": \\"\\", \\"extra\\": null}"}, {"role": "user", "content": "Hello 1"}], "options": {}, "format": "", "extra": null}
+"""
+    )
