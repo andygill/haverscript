@@ -37,6 +37,7 @@ from haverscript import (
     tool,
     template,
 )
+import haverscript as hs
 from haverscript.cache import INTERACTION, Cache
 from haverscript.types import Exchange, Request, ResponseMessage, ToolResult, ToolReply
 from haverscript.middleware import *
@@ -1032,6 +1033,10 @@ def test_markdown():
 
     prompt += reply_in_json(LLM)
 
+    prompt += hs.markdown("Hello")
+
+    prompt += hs.markdown(Markdown() + "World")
+
     assert (
         str(prompt)
         == """
@@ -1082,6 +1087,9 @@ Reply in JSON, using the following keys:
 - "format" (str | dict): The format
 - "extra" (str | None): Extra information
 
+Hello
+
+World
 """.strip()
     )
 
