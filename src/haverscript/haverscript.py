@@ -282,6 +282,25 @@ class Model(BaseModel):
 
         return model
 
+    def compress(self, count: int) -> Model:
+        """Remove historical chat queries, leaving only `count` prompt-response pairs."""
+        if count == 0:
+            model = self
+            while isinstance(model, Response):
+                model = model.parent
+            return model
+        if isinstance(self, Response):
+            previous = self.parent.compress(count - 1)
+            return previous.response(
+                prompt=self.contexture.context[-1].prompt,
+                reply=self.reply,
+                metrics=self.metrics,
+                value=self.value,
+                tool_calls=self.tool_calls,
+            )
+        # already at the initial model, so no more pruning to do
+        return self
+
     def __or__(self, other: Middleware) -> Model:
         """pipe to append middleware to a model"""
         assert isinstance(other, Middleware), "Can only pipe with middleware"

@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `tools` argument for `Model.chat`, that supplies function-calling callbacks.
 - `format` now supports standard types such as `list[int]` and `bool` for stuctured output.
 - `echo` middleware now takes an optional `stream` parameter, defaulting to `True`.
+- `Model.compress()` can remove older chat calls from the history, reducing context sizes.
 ### Deprecated
 - `dedent` has stubed out (has no effect). This has been replaced by Markdown support.
 ### Changed
