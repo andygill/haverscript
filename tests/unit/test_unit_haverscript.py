@@ -36,6 +36,7 @@ from haverscript import (
     reply_in_json,
     tool,
     template,
+    Agent,
 )
 import haverscript as hs
 from haverscript.cache import INTERACTION, Cache
@@ -1203,3 +1204,22 @@ def test_compress(sample_model: Model):
 {"host": null, "model": "test-model", "messages": [{"role": "user", "content": "Hello 0"}, {"role": "assistant", "content": "{\\"host\\": null, \\"model\\": \\"test-model\\", \\"messages\\": [{\\"role\\": \\"user\\", \\"content\\": \\"Hello 0\\"}], \\"options\\": {}, \\"format\\": \\"\\", \\"extra\\": null}"}, {"role": "user", "content": "Hello 1"}], "options": {}, "format": "", "extra": null}
 """
     )
+
+
+class TestAgent(Agent):
+    system: str = "I am an agent"
+
+    def zoom(self):
+        return self.ask_llm("zoom")
+
+    def beep(self):
+        return self.ask_llm("beep", format=dict)
+
+
+def test_agent(sample_model: Model):
+    agent = TestAgent(model=sample_model)
+    assert (
+        agent.zoom()
+        == """{"host": null, "model": "test-model", "messages": [{"role": "system", "content": "I am an agent"}, {"role": "user", "content": "zoom"}], "options": {}, "format": "", "extra": null}"""
+    )
+    assert agent.beep() == {"x:": "Hello"}
