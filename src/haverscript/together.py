@@ -10,7 +10,6 @@ from .types import Reply, Request, ServiceProvider, SystemMessage, ToolCall
 from .middleware import model
 
 
-@dataclass(frozen=True)
 class TogetherMetrics(Metrics):
     prompt_tokens: int
     completion_tokens: int
