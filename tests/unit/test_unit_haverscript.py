@@ -1206,7 +1206,7 @@ def test_compress(sample_model: Model):
     )
 
 
-class TestAgent(Agent):
+class _TestAgent(Agent):
     system: str = "I am an agent"
 
     def zoom(self):
@@ -1217,7 +1217,7 @@ class TestAgent(Agent):
 
 
 def test_agent(sample_model: Model):
-    agent = TestAgent(model=sample_model)
+    agent = _TestAgent(model=sample_model)
     assert (
         agent.zoom()
         == """{"host": null, "model": "test-model", "messages": [{"role": "system", "content": "I am an agent"}, {"role": "user", "content": "zoom"}], "options": {}, "format": "", "extra": null}"""

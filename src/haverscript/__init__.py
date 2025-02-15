@@ -40,6 +40,7 @@ from .middleware import (
     validate,
 )
 from .ollama import connect
+from .chatbot import connect_chatbot, ChatBot
 from .tools import Tools, tool
 from .types import LanguageModel, Reply, Request, ServiceProvider, Middleware
 
@@ -87,4 +88,6 @@ __all__ = [
     "tool",
     "template",
     "markdown",
+    "connect_chatbot",
+    "ChatBot",
 ]
