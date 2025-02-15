@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `format` now supports standard types such as `list[int]` and `bool` for stuctured output.
 - `echo` middleware now takes an optional `stream` parameter, defaulting to `True`.
 - `Model.compress()` can remove older chat calls from the history, reducing context sizes.
+- `connect_chatbot` which promotes a chatbot into a `Model`.
 ### Deprecated
 - `dedent` has stubed out (has no effect). This has been replaced by Markdown support.
 ### Changed
