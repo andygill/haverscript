@@ -88,7 +88,8 @@ class Model(BaseModel):
             else:
                 middleware = ToolMiddleware(tools.tool_schemas())
 
-        request, reply = self._ask(Prompt(content=prompt, images=images), middleware)
+        request = self.request(Prompt(content=prompt, images=images))
+        reply = self._ask(request, middleware)
 
         response = self.process(request, reply)
 
@@ -103,39 +104,62 @@ class Model(BaseModel):
                     ToolReply(id=tool.id, name=tool.name, content=str(output))
                 )
 
-            request, reply = response._ask(ToolResult(results=results), middleware)
+            request = response.request(ToolResult(results=results))
+            reply = response._ask(request, middleware)
             response = response.process(request, reply)
 
         return response
 
-    def _ask(
+    def ask(
         self,
-        prompt: RequestMessage,
+        prompt: str | Markdown,
+        images: list[str] = [],
         middleware: Middleware | None = None,
-    ) -> tuple[Request, Reply]:
+    ) -> Reply:
         """
         Take a prompt and call the LLM in a previously provided context.
 
         Args:
-            prompt (RequestMessage): the prompt in message format
+            prompt (str): the prompt
             images: (list): images to pass to the LLM
             middleware (Middleware): extra middleware specifically for this prompt
 
         Returns:
-            An internal Request/Response pair.
-        """
-        assert prompt is not None, "Can not build a response with no prompt"
+            A Reply without any context, with dynamic content.
 
-        request = self.request(prompt)
+        Notes:
+            ask does not support tool calls
+        """
+        if isinstance(prompt, Markdown):
+            prompt = str(prompt)
+
+        return self._ask(
+            self.request(Prompt(content=prompt, images=images)), middleware
+        )
+
+    def _ask(
+        self,
+        request: Request,
+        middleware: Middleware | None = None,
+    ) -> Reply:
+        """
+        Take a internal request and call the LLM using this context.
+
+        Args:
+            request (Request): the context of the LLM call
+            middleware (Middleware): extra middleware specifically for this prompt
+
+        Returns:
+            A Reply without any context, with dynamic content.
+        """
+        assert request is not None, "Can not build a response with no prompt"
 
         if middleware is not None:
             middleware = self.settings.middleware | middleware
         else:
             middleware = self.settings.middleware
 
-        response = middleware.invoke(request=request, next=self.settings.service)
-
-        return (request, response)
+        return middleware.invoke(request=request, next=self.settings.service)
 
     def process(self, request: Request, response: Reply) -> Response:
 
