@@ -255,14 +255,30 @@ class Reply:
         # we have completed, so just call completion callback.
         completion()
 
-    def __add__(self, other: "Reply"):
+    def __add__(self, other: Reply) -> Reply:
 
-        # Need to append both streams of tokens and other values.
-        # Need to correctly thread the close,
-        # because the outer close needs the inner close to be called.
+        # Append both streams of tokens.
         def streaming():
             yield from self
             yield from other
+
+        return Reply(streaming())
+
+    @staticmethod
+    def pure(value: Any) -> Reply:
+        return Reply([Value(value=value)])
+
+    def bind(self, completion: Callable[[Any], Reply]) -> Reply:
+        """monadic bind for Reply
+
+        This passes the *first* Value from the self tokens
+        to the completion function. All tokens of type Value are
+        filtered out self component, in the result.
+        """
+
+        def streaming():
+            yield from (token for token in self if not isinstance(token, Value))
+            yield from (token for token in completion(self.value))
 
         return Reply(streaming())
 
