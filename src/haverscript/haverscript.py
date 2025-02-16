@@ -22,7 +22,7 @@ from .types import (
     ToolCall,
 )
 from .exceptions import LLMInternalError
-from .middleware import Middleware, CacheMiddleware
+from .middleware import Middleware, CacheMiddleware, ToolMiddleware
 from .render import render_interaction, render_system
 from .markdown import Markdown
 from .tools import Tools
@@ -73,6 +73,7 @@ class Model(BaseModel):
             prompt (str): the prompt
             images: (list): images to pass to the LLM
             middleware (Middleware): extra middleware specifically for this prompt
+            tools (Tools): tools to handle tool calls
 
         Returns:
             A Response that contains the reply, and context for any future
@@ -81,9 +82,13 @@ class Model(BaseModel):
         if isinstance(prompt, Markdown):
             prompt = str(prompt)
 
-        request, reply = self.ask(
-            Prompt(content=prompt, images=images), middleware, tools
-        )
+        if tools:
+            if middleware:
+                middleware = middleware | ToolMiddleware(tools.tool_schemas())
+            else:
+                middleware = ToolMiddleware(tools.tool_schemas())
+
+        request, reply = self._ask(Prompt(content=prompt, images=images), middleware)
 
         response = self.process(request, reply)
 
@@ -98,18 +103,15 @@ class Model(BaseModel):
                     ToolReply(id=tool.id, name=tool.name, content=str(output))
                 )
 
-            request, reply = response.ask(
-                ToolResult(results=results), middleware, tools
-            )
+            request, reply = response._ask(ToolResult(results=results), middleware)
             response = response.process(request, reply)
 
         return response
 
-    def ask(
+    def _ask(
         self,
         prompt: RequestMessage,
         middleware: Middleware | None = None,
-        tools: Tools | None = None,
     ) -> tuple[Request, Reply]:
         """
         Take a prompt and call the LLM in a previously provided context.
@@ -124,7 +126,7 @@ class Model(BaseModel):
         """
         assert prompt is not None, "Can not build a response with no prompt"
 
-        request = self.request(prompt, tools=tools)
+        request = self.request(prompt)
 
         if middleware is not None:
             middleware = self.settings.middleware | middleware
@@ -151,10 +153,7 @@ class Model(BaseModel):
         format: str | dict = "",
         fresh: bool = False,
         stream: bool = False,
-        tools: Tools | None = None,
     ) -> Request:
-
-        tool_schemas = tools.tool_schemas() if tools else ()
 
         return Request(
             contexture=self.contexture,
@@ -162,7 +161,6 @@ class Model(BaseModel):
             format=format,
             fresh=fresh,
             stream=stream,
-            tools=tool_schemas,
         )
 
     def response(

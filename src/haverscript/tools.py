@@ -8,8 +8,8 @@ from .utils import tool_schema
 class Tools(BaseModel):
     pass
 
-    def tool_schemas(self):
-        return []
+    def tool_schemas(self) -> tuple[dict, ...]:
+        return ()
 
     def __add__(self, other: Tools) -> ToolPair:
         return ToolPair(lhs=self, rhs=other)
@@ -22,7 +22,7 @@ class ToolPair(Tools):
     lhs: Tools
     rhs: Tools
 
-    def tool_schemas(self):
+    def tool_schemas(self) -> tuple[dict, ...]:
         return self.lhs.tool_schemas() + self.rhs.tool_schemas()
 
     def __call__(self, name, arguments):
@@ -46,7 +46,7 @@ class Tool(Tools):
     debug: bool
 
     def tool_schemas(self):
-        return [self.tool_schema]
+        return (self.tool_schema,)
 
     def __call__(self, name, arguments):
         if self.name == name:
