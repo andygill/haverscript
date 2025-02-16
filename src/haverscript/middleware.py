@@ -617,3 +617,16 @@ def format(schema: None | dict | Type = None) -> Middleware:
 
 def dedent() -> Middleware:
     return EmptyMiddleware()
+
+
+@dataclass(frozen=True)
+class ToolMiddleware(Middleware):
+    """internal middleware for plumbing tools schemas"""
+
+    tool_schemas: tuple[dict, ...]
+
+    def invoke(self, request: Request, next: LanguageModel) -> Reply:
+        request = request.model_copy(
+            update=dict(tools=request.tools + self.tool_schemas)
+        )
+        return next.ask(request=request)
