@@ -617,11 +617,3 @@ def format(schema: None | dict | Type = None) -> Middleware:
 
 def dedent() -> Middleware:
     return EmptyMiddleware()
-
-
-class MetaModel(BaseModel):
-    system: str | None
-
-    @abstractmethod
-    def chat(self, prompt, next: LanguageModel) -> Reply:
-        """Promote a chat-with-prompt into a follow-on call of the next model."""
