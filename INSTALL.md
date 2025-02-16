@@ -111,3 +111,12 @@ pip install -e "."
 python examples/first_example/main.py
 python --version
 ```
+
+# Release checklist
+
+[ ] documentation self consistant
+[ ] tests all pass
+[ ] unit tests for all public APIs
+[ ] examples used for docs testing
+[ ] examples used for e2e testing
+[ ] bump version number in pyproject
