@@ -1223,3 +1223,30 @@ def test_agent(sample_model: Model):
         == """{"host": null, "model": "test-model", "messages": [{"role": "system", "content": "I am an agent"}, {"role": "user", "content": "zoom"}], "options": {}, "format": "", "extra": null}"""
     )
     assert agent.beep() == {"x:": "Hello"}
+
+
+def test_bind():
+    reply1 = Reply((f"{i}" for i in range(10)))
+    reply2 = reply1.bind(lambda v: Reply((f"{i}" for i in range(10))))
+    assert list(reply2.tokens()) == [f"{i}" for i in range(10)] * 2
+
+    reply1 = Reply(["Hello", Value(value=99), "World"])
+    reply2 = reply1.bind(lambda v: Reply([str(v + 1)]))
+    assert list(reply2.tokens()) == ["Hello", "World", "100"]
+
+    # first monad law: Left identity
+    def h(v):
+        assert "<class 'int'>" == str(type(v))
+        return Reply([str(v * 2)])
+
+    assert list(Reply.pure(99).bind(h)) == list(h(99))
+
+    # second monad law: Right identity
+    m = Reply.pure(99)
+    assert list(m.bind(Reply.pure)) == list(m)
+
+    # third monad law: Associativity
+    def g(v):
+        return Reply([str(v + 1)]) + Reply.pure(v + 1)
+
+    assert list(m.bind(g).bind(h)) == list(m.bind(lambda x: g(x).bind(h)))
