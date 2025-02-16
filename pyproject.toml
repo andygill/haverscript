@@ -1,6 +1,6 @@
 [project]
 name = "haverscript"
-version = "0.1.1"
+version = "0.2.2"
 description = "Library for managing LLM interactions."
 authors = [{ name = "Andy Gill", email = "andygillku@gmail.com" }]
 readme = "README.md"
