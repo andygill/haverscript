@@ -4,7 +4,7 @@ import threading
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Callable, Any
+from typing import Callable, Any, Generic, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -160,8 +160,16 @@ class Request(BaseModel):
     model_config = ConfigDict(frozen=True)
 
 
-class Reply:
-    """A potentially tokenized response to a large language model"""
+T = TypeVar("T")
+
+
+class Reply(Generic[T]):
+    """A tokenized response from a large language model.
+
+    T is a the internal value, for example, from using format middleware.
+
+    Reply is a monad.
+    """
 
     def __init__(self, packets: Iterable[str | Extras]):
         self._packets = iter(packets)
@@ -268,17 +276,35 @@ class Reply:
     def pure(value: Any) -> Reply:
         return Reply([Value(value=value)])
 
-    def bind(self, completion: Callable[[Any], Reply]) -> Reply:
+    def bind(self, completion: Callable[[T], Reply | None]) -> Reply:
         """monadic bind for Reply
 
         This passes the *first* Value from the self tokens
         to the completion function. All tokens of type Value are
         filtered out self component, in the result.
+
+        If the completion function returns None, this is assumed to
+        be the empty monad.
         """
 
         def streaming():
             yield from (token for token in self if not isinstance(token, Value))
-            yield from (token for token in completion(self.value))
+            if continuation := completion(self.value):
+                yield from (token for token in continuation)
+
+        return Reply(streaming())
+
+    def select(self, optional: Callable[[], Reply]) -> Reply:
+        """monadic select for Reply
+
+        If value in the first Reply is None, then the optional
+        function is called.
+        """
+
+        def streaming():
+            yield from (token for token in self)
+            if self.value is None:
+                yield from (token for token in optional())
 
         return Reply(streaming())
 
