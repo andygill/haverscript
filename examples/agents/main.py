@@ -47,7 +47,7 @@ class Author(Agent):
 
     def write(
         self, instructions: str | Markdown, feedback: EditorFeedback | None = None
-    ):
+    ) -> str:
         prompt = Markdown()
 
         if feedback is not None:
@@ -56,7 +56,7 @@ class Author(Agent):
 
         prompt += header("Instructions") + instructions
 
-        return self.ask_llm(prompt)
+        return self.chat_llm(prompt)
 
 
 class Editor(Agent):
