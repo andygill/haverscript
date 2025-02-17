@@ -1,12 +1,12 @@
 from __future__ import annotations
-from typing import Type
+from typing import Any, Type
 import copy
 from pydantic import BaseModel
 
 from haverscript.haverscript import Model
 from haverscript.markdown import Markdown
 from haverscript.middleware import EmptyMiddleware, format as format_middleware
-from haverscript.types import Middleware, EmptyMiddleware
+from haverscript.types import Middleware, EmptyMiddleware, Reply
 from haverscript.markdown import markdown
 
 
@@ -24,7 +24,6 @@ class Agent(BaseModel):
     """
 
     model: Model
-    persistence: bool = True
 
     def model_post_init(self, __context: dict | None = None) -> None:
         if self.system:
@@ -38,12 +37,16 @@ class Agent(BaseModel):
         """
         pass
 
-    def ask_llm(
+    def chat_llm(
         self,
         prompt: str | Markdown,
         format: Type | None = None,
         middleware: Middleware | None = None,
-    ) -> str | Type:
+    ) -> str | Any:
+        """ "chat with the llm and remember the conversation.
+
+        If format is set, return the value of that type.
+        """
         if middleware is None:
             middleware = EmptyMiddleware()
         if format is not None:
@@ -51,13 +54,40 @@ class Agent(BaseModel):
 
         response = self.model.chat(prompt, middleware=middleware)
 
-        if self.persistence:
-            # If this is a persistent agent, update the model with the exchange
-            self.model = response
-
         if format:
             return response.value
+
         return response.reply
+
+    def ask_llm(
+        self,
+        prompt: str | Markdown,
+        format: Type | None = None,
+        middleware: Middleware | None = None,
+        stream: bool = False,
+    ) -> str | Any | Reply:
+        """ask the llm something without recording the conversation.
+
+        If stream is set, return a Reply object. Reply is a monad.
+
+        If format is set, return the value of that type.
+
+        Otherwise, return a string.
+        """
+        if middleware is None:
+            middleware = EmptyMiddleware()
+        if format is not None:
+            middleware = format_middleware(format) | middleware
+
+        reply = self.model.ask(prompt, middleware=middleware)
+
+        if stream:
+            return reply
+
+        if format:
+            return reply.value
+
+        return str(reply)
 
     def clone(self, kwargs: dict = {}) -> Agent:
         """clone the agent.
@@ -67,4 +97,4 @@ class Agent(BaseModel):
         If the agent has additional state, it should have its own clone method,
         that calls this method with the additional state.
         """
-        return type(self)(model=self.model, persistence=self.persistence, **kwargs)
+        return type(self)(model=self.model, system=self.system, **kwargs)
