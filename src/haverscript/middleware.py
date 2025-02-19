@@ -494,16 +494,29 @@ def trace(level: int = log.DEBUG) -> Middleware:
 
 
 @dataclass(frozen=True)
-class FreshMiddleware(Middleware):
+class RequestOptionMiddleware(Middleware):
+    fresh: bool | None = None
+    stream: bool | None = None
 
     def invoke(self, request: Request, next: LanguageModel) -> Reply:
-        request = request.model_copy(update=dict(fresh=True))
+        options = {}
+        if fresh is not None:
+            options["fresh"] = self.fresh
+        if stream is not None:
+            options["stream"] = self.stream
+
+        request = request.model_copy(update=options)
         return next.ask(request=request)
 
 
 def fresh() -> Middleware:
     """require any cached reply be ignored, and a fresh reply be generated."""
-    return FreshMiddleware()
+    return RequestOptionMiddleware(fresh=True)
+
+
+def stream() -> Middleware:
+    """turn on streaming for LLM response."""
+    return RequestOptionMiddleware(stream=True)
 
 
 @dataclass(frozen=True)

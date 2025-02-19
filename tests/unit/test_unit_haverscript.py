@@ -190,10 +190,8 @@ class _TestClient:
                 "done": True,
             }
 
-            return {
-                "message": {"content": "call tool", "tool_calls": 999},
-                "done": True,
-            }
+        if messages[-1]["content"] == "am i streaming":
+            reply = f"stream: {stream}"
 
         if reply is None:
             reply = llm(self._host, model, messages, options, format, extra)
@@ -1250,3 +1248,27 @@ def test_bind():
         return Reply([str(v + 1)]) + Reply.pure(v + 1)
 
     assert list(m.bind(g).bind(h)) == list(m.bind(lambda x: g(x).bind(h)))
+
+
+def test_stream(sample_model: Model):
+    assert sample_model.chat("am i streaming").reply == "stream: False"
+    assert (
+        sample_model.chat("am i streaming", middleware=stream()).reply == "stream: True"
+    )
+
+
+def test_echo_stream(sample_model, capfd):
+    """echo effects streaming. Check that this is the case."""
+    capfd.readouterr()
+
+    resp = sample_model.chat("Hello")
+    assert (
+        sample_model.chat("am i streaming", middleware=echo()).reply == "stream: True"
+    )
+    assert capfd.readouterr().out == "\n> am i streaming\n\nstream: True\n"
+
+    assert (
+        sample_model.chat("am i streaming", middleware=echo(stream=False)).reply
+        == "stream: False"
+    )
+    assert capfd.readouterr().out == "\n> am i streaming\n\nstream: False\n"
