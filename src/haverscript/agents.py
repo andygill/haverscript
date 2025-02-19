@@ -5,7 +5,12 @@ from pydantic import BaseModel
 
 from haverscript.haverscript import Model
 from haverscript.markdown import Markdown
-from haverscript.middleware import EmptyMiddleware, format as format_middleware
+from haverscript.middleware import (
+    EmptyMiddleware,
+    format as format_middleware,
+    stream as stream_middleware,
+    echo as echo_middleware,
+)
 from haverscript.types import Middleware, EmptyMiddleware, Reply
 from haverscript.markdown import markdown
 
@@ -78,6 +83,8 @@ class Agent(BaseModel):
             middleware = EmptyMiddleware()
         if format is not None:
             middleware = format_middleware(format) | middleware
+        if stream:
+            middleware = stream_middleware() | middleware
 
         reply = self.model.ask(prompt, middleware=middleware)
 
