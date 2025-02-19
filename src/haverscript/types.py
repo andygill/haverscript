@@ -276,35 +276,66 @@ class Reply(Generic[T]):
     def pure(value: Any) -> Reply:
         return Reply([Value(value=value)])
 
-    def bind(self, completion: Callable[[T], Reply | None]) -> Reply:
+    def bind(self, completion: Callable[[T], Reply | Any]) -> Reply:
         """monadic bind for Reply
 
         This passes the *first* Value from the self tokens
         to the completion function. All tokens of type Value are
         filtered out self component, in the result.
 
-        If the completion function returns None, this is assumed to
-        be the empty monad.
+        If the completion function returns anything other than Reply,
+        this is assumed to be a pure monad with this value.
         """
 
         def streaming():
             yield from (token for token in self if not isinstance(token, Value))
-            if continuation := completion(self.value):
+            continuation = completion(self.value)
+            if isinstance(continuation, Reply):
                 yield from (token for token in continuation)
+            else:
+                yield from Reply.pure(continuation)
 
         return Reply(streaming())
 
-    def select(self, optional: Callable[[], Reply]) -> Reply:
+    def select(self, completion: Callable[[], Reply | Any]) -> Reply:
         """monadic select for Reply
 
         If value in the first Reply is None, then the optional
         function is called.
+
+        If the completion function returns anything other than Reply,
+        this is assumed to be a pure monad with this value.
         """
 
         def streaming():
-            yield from (token for token in self)
-            if self.value is None:
-                yield from (token for token in optional())
+            yield from (token for token in self if not isinstance(token, Value))
+            if self.value is not None:
+                yield from Reply.pure(self.value)
+            else:
+                continuation = completion()
+                if isinstance(continuation, Reply):
+                    yield from (token for token in continuation)
+                else:
+                    yield from Reply.pure(continuation)
+
+        return Reply(streaming())
+
+    def reify(self) -> Reply:
+        """Take the contents, and return contents as a monadic string result"""
+
+        def streaming():
+            yield from self
+            yield from Reply.pure(str(self))
+
+        return Reply(streaming())
+
+    def map(self, f: Callable[[Any], Any]):
+        def streaming():
+            for token in self:
+                if isinstance(token, Value):
+                    yield Value(value=f(token.value))
+                else:
+                    yield token
 
         return Reply(streaming())
 
