@@ -594,28 +594,30 @@ class FormatMiddleware(Middleware):
             format = "json"
         elif isinstance(schema, dict):
             format = schema
-        elif isinstance(schema, type) or get_origin(schema) in {
+        elif isinstance(schema, (type, types.GenericAlias)) or get_origin(schema) in {
             types.UnionType,
             Union,
+            list,
+            tuple,
         }:
             format = jsonref.replace_refs(
                 TypeAdapter(schema).json_schema(), proxies=False
             )
         else:
-            assert False, f"unsupported schema: {schema}"
+            assert False, f"unsupported schema: {schema}:{type(schema)}"
 
         request = request.model_copy(update=dict(format=format))
         reply = next.ask(request=request)
 
-        if isinstance(schema, type):
-            if get_origin(schema) not in {list, tuple} and issubclass(
-                schema, BaseModel
-            ):
-                return reply + Reply(
-                    [Value(value=schema.model_validate_json(str(reply)))]
-                )
+        reply = reply.reify()
+        if (
+            isinstance(schema, type)
+            and not isinstance(schema, types.GenericAlias)
+            and issubclass(schema, BaseModel)
+        ):
+            return reply.map(lambda content: schema.model_validate_json(content))
 
-        return reply + Reply([Value(value=json.loads(str(reply)))])
+        return reply.map(lambda content: json.loads(content))
 
 
 def format(schema: None | dict | Type = None) -> Middleware:
