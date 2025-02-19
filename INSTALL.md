@@ -120,3 +120,4 @@ python --version
 [ ] examples used for docs testing
 [ ] examples used for e2e testing
 [ ] bump version number in pyproject
+[ ] check python 3.10 .. 3.13
