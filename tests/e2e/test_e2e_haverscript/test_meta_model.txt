@@ -8,7 +8,7 @@ Three blind mice in French is Trois souris aveugles
 
 > Such is life
 
-Such is life in French is C'est la vie
+Such is life in French is C'est ainsi que la vie est
 
 1 translation(s) left.
 
@@ -23,7 +23,7 @@ All roads lead to Rome in French is Toutes les voies mènent à Rome
 Sorry. French lesson over.
 Your 3 translations:
 * Three blind mice => Trois souris aveugles
-* Such is life => C'est la vie
+* Such is life => C'est ainsi que la vie est
 * All roads lead to Rome => Toutes les voies mènent à Rome
 
 --[ LLM-facing conversation ]------
@@ -53,7 +53,7 @@ Your 3 translations:
 
 {
 "english": "Such is life",
-"french": "C'est la vie"
+"french": "C'est ainsi que la vie est"
 }
 
 > You are a translator, translating from English to French.
