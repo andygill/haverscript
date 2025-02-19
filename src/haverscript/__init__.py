@@ -38,6 +38,7 @@ from .middleware import (
     trace,
     transcript,
     validate,
+    stream,
 )
 from .ollama import connect
 from .chatbot import connect_chatbot, ChatBot
@@ -90,4 +91,5 @@ __all__ = [
     "markdown",
     "connect_chatbot",
     "ChatBot",
+    "stream",
 ]
