@@ -1,7 +1,7 @@
 # Markdown Prompts
 
-Haverscript provides basic support for markdown-style prompts. Both `.chat()`
-and `.system()` automatically convert `Markdown` to `str`, as needed.
+Haverscript provides basic support for markdown-style prompts. `.chat()`, 
+`.ask()` and `.system()` automatically convert `Markdown` to `str`, as needed.
 
 Here is an example of use. The idiom is you create an empty `Markdown()`,
 then append to this to create the markdown document.
@@ -34,7 +34,7 @@ Please write some text
 
 The markdown support also includes `quoted` strings, `code` blocks, and `table` support.
 
-```
+```python
 from haverscript import Markdown, table
 
 prompt = Markdown()
@@ -58,4 +58,31 @@ This will give the contents for `prompt`:
 | Paul   |  22 |
 | George |  23 |
 | Ringo  |  24 |
+```
+
+When using structured output, a simple schema can be auto-generated
+for the LLM to use.
+
+```python
+class EditorFeedback(BaseModel):
+    comments: list[str] = Field(
+        default_factory=list,
+        description="Specific concrete recommendation of improvement",
+    )
+    score: int = Field(..., description="Quality score from 1 to 10")
+
+
+prompt = Markdown()
+prompt += "please give suggestions for improvement"
+prompt += reply_in_json(EditorFeedback)
+```
+
+This will give the contents for `prompt`:
+
+```
+please give suggestions for improvement
+
+Reply in JSON, using the following keys:
+- "comments" (list of str): Specific concrete recommendation of improvement
+- "score" (int): Quality score from 1 to 10
 ```
