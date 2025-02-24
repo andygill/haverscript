@@ -189,12 +189,15 @@ class Model(BaseModel):
 
     def response(
         self,
-        prompt: RequestMessage,
+        prompt: RequestMessage | str,
         reply: str,
         metrics: Metrics | None = None,
         value: Any | None = None,
         tool_calls: tuple[ToolCall, ...] = (),
     ):
+        if isinstance(prompt, str):
+            prompt = Prompt(content=prompt)
+
         assert isinstance(prompt, RequestMessage)
         assert isinstance(metrics, (Metrics, type(None)))
         assert isinstance(tool_calls, tuple) and all(
@@ -298,7 +301,7 @@ class Model(BaseModel):
             if complete and reply in ("", "..."):
                 model = model.chat(prompt)
             else:
-                model = model.response(Prompt(content=prompt), reply)
+                model = model.response(prompt, reply)
 
             result = result[2:]
 
