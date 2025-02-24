@@ -374,7 +374,7 @@ class CacheMiddleware(Middleware):
                 if self.mode == "a+":
                     cache.blacklist(key)
                 # just return the (cached) reply
-                return Reply(cached[key][2])
+                return Reply([cached[key][2]])
 
         response = next.ask(request=request)
         if self.mode == "r":
