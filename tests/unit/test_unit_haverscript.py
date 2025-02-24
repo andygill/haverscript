@@ -28,6 +28,7 @@ from haverscript import (
     Markdown,
     bullets,
     header,
+    xml_element,
     text,
     quoted,
     rule,
@@ -1036,6 +1037,14 @@ def test_markdown():
 
     prompt += hs.markdown(Markdown() + "World")
 
+    prompt += xml_element("foo", Markdown())
+
+    prompt += xml_element("foo", "Hello")
+
+    prompt += xml_element("foo", hs.markdown("Hello"))
+
+    prompt += xml_element("foo", hs.markdown("Hello") + hs.markdown("World"))
+
     assert (
         str(prompt)
         == """
@@ -1089,6 +1098,22 @@ Reply in JSON, using the following keys:
 Hello
 
 World
+
+<foo/>
+
+<foo>
+Hello
+</foo>
+
+<foo>
+Hello
+</foo>
+
+<foo>
+Hello
+
+World
+</foo>
 """.strip()
     )
 
