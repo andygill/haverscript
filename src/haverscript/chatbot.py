@@ -14,19 +14,33 @@ from copy import deepcopy
 
 
 class ChatBot(Protocol):
+    """A protocol for building chatbots.
+
+    The assumption is that a chatbot looks after its own state.
+    """
+
     def chat(self, text: str) -> Reply:
         """take a string, update the object, and return a Reply."""
         ...
 
 
-def connect_chatbot(chatbot: ChatBot | Callable[[str], ChatBot]) -> Model:
+def connect_chatbot(
+    chatbot: ChatBot | Callable[[str | None], ChatBot], name: str = "chatbot"
+) -> Model:
+    """promote a ChatBot into a model.
+
+    The argument can also be a function that takes an (optional) system prompt,
+    then returns the ChatBot.
+
+    connect_chatbot handles state by cloing the ChatBot automatically.
+    """
 
     class ChatBotServiceProvider(ServiceProvider):
         def __init__(self):
             self._model_cache: dict[tuple[str, tuple[Exchange, ...]], ChatBot] = {}
 
         def list(self) -> list[str]:
-            return ["chatbot"]
+            return [name]
 
         def ask(self, request: Request) -> Reply:
             assert isinstance(request, Request)
@@ -43,6 +57,7 @@ def connect_chatbot(chatbot: ChatBot | Callable[[str], ChatBot]) -> Model:
                     if callable(chatbot):
                         model = chatbot(system)
                     else:
+                        assert system is None, "chatbot does not support system prompts"
                         model = deepcopy(chatbot)
                     self._model_cache[system, ()] = model
                 else:
@@ -65,4 +80,4 @@ def connect_chatbot(chatbot: ChatBot | Callable[[str], ChatBot]) -> Model:
             response.after(after)
             return response
 
-    return Service(ChatBotServiceProvider()) | model("chatbot")
+    return Service(ChatBotServiceProvider()) | model(name)
