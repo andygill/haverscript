@@ -14,7 +14,7 @@ Such is life in French is C'est ainsi que la vie est
 
 > All roads lead to Rome
 
-All roads lead to Rome in French is Toutes les voies mènent à Rome
+All roads lead to Rome in French is Toutes les routes mènent à Rome
 
 0 translation(s) left.
 
@@ -24,7 +24,7 @@ Sorry. French lesson over.
 Your 3 translations:
 * Three blind mice => Trois souris aveugles
 * Such is life => C'est ainsi que la vie est
-* All roads lead to Rome => Toutes les voies mènent à Rome
+* All roads lead to Rome => Toutes les routes mènent à Rome
 
 --[ LLM-facing conversation ]------
 
@@ -67,5 +67,5 @@ Your 3 translations:
 
 {
 "english": "All roads lead to Rome",
-"french": "Toutes les voies mènent à Rome"
+"french": "Toutes les routes mènent à Rome"
 }

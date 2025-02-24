@@ -19,28 +19,23 @@ class Agent(BaseModel):
     """An Agent is a python class that has access to an LLM.
 
     The subclass must provide a system prompt, called system,
-    that describes the agent's role.
-
-    The subclass may provide a prepare method that sets up
-    the agent's state and other considerations.
-
-    The model itself is immutable, so can be copied and used
-    without side effects to the original.
+    that describes the agent's role, or an implementation of
+    prepare, which sets up the agent's state and other considerations.
     """
 
     model: Model
 
     def model_post_init(self, __context: dict | None = None) -> None:
-        if self.system:
-            self.model = self.model.system(markdown(self.system))
         self.prepare()
 
     def prepare(self):
         """Prepare the agent for a new conversation.
 
         This method is called before the agent is asked to chat.
+        This default adds self.system as a system command.
+        self.system can be anything that can be str()ed.
         """
-        pass
+        self.model = self.model.system(str(self.system))
 
     def chat_llm(
         self,
