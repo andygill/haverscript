@@ -276,6 +276,10 @@ class Reply(Generic[T]):
     def pure(value: Any) -> Reply:
         return Reply([Value(value=value)])
 
+    @staticmethod
+    def informational(message: str) -> Reply:
+        return Reply([Informational(message=message)])
+
     def bind(self, completion: Callable[[T], Reply | Any]) -> Reply:
         """monadic bind for Reply
 
