@@ -67,6 +67,24 @@ def header(txt, level: int = 1) -> Markdown:
     return Markdown([f"{'#' * level} {txt}"])
 
 
+def xml_element(tag: str, contents: str | Markdown | None = None):
+    singleton = Markdown([f"<{tag}/>"])
+
+    if contents is None:
+        return singleton
+
+    inner: Markdown = markdown(contents)
+
+    if len(inner.blocks) == 0:
+        return singleton
+
+    blocks = inner.blocks
+    blocks = [f"<{tag}>\n{blocks[0]}"] + blocks[1:]
+    blocks = blocks[:-1] + [f"{blocks[-1]}\n</{tag}>"]
+
+    return Markdown(content=blocks, args=inner.args)
+
+
 def bullets(items, ordered: bool = False) -> Markdown:
     """Return a markdown bullet list."""
     if ordered:

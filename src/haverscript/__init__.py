@@ -23,6 +23,7 @@ from .markdown import (
     quoted,
     reply_in_json,
     template,
+    xml_element,
     markdown,
 )
 from .middleware import (
@@ -92,4 +93,5 @@ __all__ = [
     "connect_chatbot",
     "ChatBot",
     "stream",
+    "xml_element",
 ]
