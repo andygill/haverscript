@@ -497,16 +497,35 @@ def trace(level: int = log.DEBUG) -> Middleware:
 class RequestOptionMiddleware(Middleware):
     fresh: bool | None = None
     stream: bool | None = None
+    speed: int | None = None
 
     def invoke(self, request: Request, next: LanguageModel) -> Reply:
         options = {}
-        if fresh is not None:
+        if self.fresh is not None:
             options["fresh"] = self.fresh
-        if stream is not None:
+        if self.stream is not None:
             options["stream"] = self.stream
 
         request = request.model_copy(update=options)
-        return next.ask(request=request)
+        reply = next.ask(request=request)
+        if self.speed is None:
+            return reply
+
+        def streaming():
+            ts0 = time.monotonic()
+            for block in reply:
+                if isinstance(block, str):
+                    for token in re.findall(r"\S+|\s+", block):
+                        ts1 = time.monotonic()
+                        remaining = (1 / self.speed) - (ts1 - ts0)
+                        ts0 = ts1
+                        if remaining > 0:
+                            time.sleep(remaining)
+                        yield token
+                else:
+                    yield block
+
+        return Reply(streaming())
 
 
 def fresh() -> Middleware:
@@ -514,9 +533,16 @@ def fresh() -> Middleware:
     return RequestOptionMiddleware(fresh=True)
 
 
-def stream() -> Middleware:
-    """turn on streaming for LLM response."""
-    return RequestOptionMiddleware(stream=True)
+def stream(speed: int | None = None) -> Middleware:
+    """turn on streaming for LLM response.
+
+    The speed is the frequency of tokens, per second,
+    defaulting to as-fast-as-possible.
+
+    speed can be used to simulate slower models,
+    and slow down cache hits to simulate model token speed.
+    """
+    return RequestOptionMiddleware(stream=True, speed=speed)
 
 
 @dataclass(frozen=True)
