@@ -1,3 +1,4 @@
+from enum import IntEnum, Enum
 import json
 import os
 import re
@@ -1000,6 +1001,22 @@ def test_transcript(sample_model: Model, tmp_path: str):
             assert content == transcript_content
 
 
+class ExampleIntEnum(IntEnum):
+    X = 1
+    Y = 2
+
+
+class ExampleStrEnum(Enum):
+    X = "X"
+    Y = "Y"
+
+
+class ExampleModel(BaseModel):
+    host: str | None = Field(..., description="The host of the LLM")
+    num: ExampleIntEnum = Field(..., description="core count")
+    style: ExampleStrEnum = Field(..., description="core name")
+
+
 def test_markdown():
     prompt = Markdown()
 
@@ -1031,7 +1048,7 @@ def test_markdown():
 
     prompt += quoted("Hello World with more text.\nanother line of text.")
 
-    prompt += reply_in_json(LLM)
+    prompt += reply_in_json(ExampleModel)
 
     prompt += hs.markdown("Hello")
 
@@ -1088,12 +1105,9 @@ another line of text.
 
 Reply in JSON, using the following keys:
 
-- "host" (str | None): The host of the LLM
-- "model" (str | None): The model name
-- "messages" (list | None): The conversation
-- "options" (dict | None): The options
-- "format" (str | dict): The format
-- "extra" (str | None): Extra information
+- "host" (str or None): The host of the LLM
+- "num" (1 or 2): core count
+- "style" ("X" or "Y"): core name
 
 Hello
 
