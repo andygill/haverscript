@@ -1,3 +1,6 @@
+from enum import Enum
+import inspect
+import json
 from typing import Type, Callable, Any, get_type_hints, get_args, get_origin
 import string
 import re
@@ -164,10 +167,15 @@ def reply_in_json(
             type_name = ""
         elif get_origin(annotation) is list and get_args(annotation):
             type_name = f" (list of {get_args(annotation)[0].__name__})"
+        elif inspect.isclass(annotation) and issubclass(annotation, Enum):
+            enum_values = " or ".join(json.dumps(item.value) for item in annotation)
+            type_name = f" ({enum_values})"
         elif isinstance(annotation, type):
             type_name = f" ({annotation.__name__})"
         else:
-            type_name = f" ({repr(annotation).replace('typing.', '')})"
+            type_name = (
+                f" ({repr(annotation).replace('typing.', '').replace('|', 'or')})"
+            )
         items.append(f'"{str(key)}"{type_name}: {value.description}')
     prompt += bullets(items)
     return prompt
