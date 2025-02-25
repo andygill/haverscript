@@ -11,7 +11,7 @@ from haverscript import (
     stats,
 )
 
-from typing import Any, Iterable, Iterator, List
+from typing import Iterable, Iterator
 from pydantic import BaseModel, Field
 
 
@@ -75,21 +75,25 @@ class Editor(Agent):
 
         prompt += header("Instructions")
 
-        prompt += f"""
-        Read the above Text, and consider the following criteria:
+        prompt += "Read the above Text, and consider the following criteria:"
+        prompt += bullets(
+            [
+                "Does the text follow the original instructions?",
+                "Is the text engaging and informative?",
+                "Does the text have a clear structure?",
+                "Are the sentences well-constructed?",
+                "Are there any factual inaccuracies?",
+                "Are there any spelling or grammar mistakes?",
+                "Are there any areas that could be improved?",
+            ]
+        )
 
-            - Does the text follow the original instructions?
-            - Is the text engaging and informative?
-            - Does the text have a clear structure?
-            - Are the sentences well-constructed?
-            - Are there any factual inaccuracies?
-            - Are there any spelling or grammar mistakes?
-            - Are there any areas that could be improved?
-
-        Given these criteria, and the original instructions,
-        assess the text and provide specific feedback on how it could be improved.
-        Also give a numerical score from 1 to 10, where 1 is the worst and 10 is the best,
-        regarding quality and suitability for a travel book."""
+        prompt += """
+            Given these criteria, and the original instructions,
+            assess the text and provide specific feedback on how it could be improved.
+            Also give a numerical score from 1 to 10, where 1 is the worst and 10 is the best,
+            regarding quality and suitability for a travel book.
+        """
 
         prompt += reply_in_json(EditorFeedback)
 
