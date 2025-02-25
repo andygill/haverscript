@@ -10,6 +10,7 @@ Examples with README files.
 * [Vision Models](images/README.md)
 * [Enabling the cache](cache/README.md)
 * [LLM options and middleware](options/README.md)
+* [Agents](agents/README.md)
 
 Other examples:
 
