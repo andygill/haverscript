@@ -62,7 +62,7 @@ def test_readme():
     readme("examples/first_example/main.py", 20, 8)
     readme("tests/e2e/test_e2e_haverscript/test_first_example.txt", 33, 20, skip=1)
     assert (
-        Content("docs/MIDDLEWARE.md")[50 : 50 + 15]
-        == Content("README.md")[285 : 285 + 15]
+        Content("docs/MIDDLEWARE.md")[50 : 50 + 14]
+        == Content("README.md")[287 : 287 + 14]
     )
-    readme("examples/together/main.py", 333, 8)
+    readme("examples/together/main.py", 349, 8)

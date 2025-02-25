@@ -16,7 +16,7 @@ Other examples:
 
 * [Using together.ai](together/main.py)
 * [Custom Service Provider](custom_service/main.py)
-* [Meta Model](meta_model/main.py)
+* [ChatBot Model](chatbot/main.py) and an example of an `Agent`, used to build the `ChatBot`.
 * [An example command line shell using haverscript](havershell/main.py)
 * [Proof readings the README](others/proof_reading.py)
 * [Reworking a sentence](others/sentence_iterations.py)

@@ -61,7 +61,6 @@ Haverscript provides following middleware
 | validation | Fail under given condition                  | reliablity |
 | cache      | Store and/or query prompt-reply pairs in DB | efficency | 
 | fresh      | Request a fresh reply (not cached)          | efficency |
-| meta       | Support for generalized prompt and response transformations | generalization |
 
 ## Configuration Middleware
 
@@ -128,21 +127,3 @@ def cache(filename: str, mode: str | None = "a+") -> Middleware:
 def fresh() -> Middleware:
     """require any cached reply be ignored, and a fresh reply be generated."""
 ```
-## Generalized Middleware
-
-
-```python
-class MetaModel(BaseModel):
-    system: str | None
-
-    @abstractmethod
-    def chat(self, prompt, next: LanguageModel) -> Reply:
-        """Promote a chat-with-prompt into a follow-on call of the next model."""
-
-def meta(model: MetaModel) -> Middleware:
-    """provide a meta model as middleware"""
-```
-
-See [meta model](examples/meta_model/README.md) for a full example. The `meta` 
-middleware is really powerful and general, and can be used to build
-models that use compute to generate useful answers.
