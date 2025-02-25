@@ -215,8 +215,8 @@ def test_format(tmp_path, file_regression):
     run_examples(tmp_path, file_regression, "examples/format/main.py")
 
 
-def test_meta_model(tmp_path, file_regression):
-    run_examples(tmp_path, file_regression, "examples/meta_model/main.py")
+def test_chatbot(tmp_path, file_regression):
+    run_examples(tmp_path, file_regression, "examples/chatbot/main.py")
 
 
 def test_custom_service(tmp_path, file_regression):
