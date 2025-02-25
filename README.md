@@ -7,9 +7,9 @@ the emerging field of LLM-powered agents. Haverscript uses
 [Ollama](https://ollama.com) by default but can use any OpenAI-style LLM API
 with a simple adapter.
 
-This is version 0.2 of Haverscript. The big change from 0.1 is the introduction
-of middleware which cleans up various ad-hoc concepts from 0.1, and gives a
-more principled basis for future tooling.
+This is version 0.3 of Haverscript. The big change from 0.2 is the introduction
+of simple agents, as well as a new API for constructing structured prompts,
+and a monadic-based way of chaining LLM calls.
 
 ## First Example
 
@@ -59,6 +59,8 @@ The [examples](examples/README.md) directory contains several examples of Havers
 The [DSL Design](docs/DSL_DESIGN.md) page compares Haverscript to other LLM APIs,
 and gives rationale behind the design.
 
+The [Markdown](docs/MARKDOWN.md) explains how to generate structured prompts.
+
 ## Installing Haverscript
 
 Haverscript is available on GitHub: <https://github.com/andygill/haverscript>.
@@ -86,14 +88,14 @@ source venv/bin/activate  # On Windows: .\venv\Scripts\activate
 2. Install Haverscript directly from the GitHub repository:
 
 ```bash
-pip install "haverscript @ git+https://github.com/andygill/haverscript.git@v0.2.1"
+pip install "haverscript @ git+https://github.com/andygill/haverscript.git@v0.3.0"
 ```
 
 By default, Haverscript comes with only Ollama support.
 If you want to also install the `together.ai` API support, you need to use
 
 ```bash
-pip install "haverscript[together] @ git+https://github.com/andygill/haverscript.git@v0.2.1"
+pip install "haverscript[together] @ git+https://github.com/andygill/haverscript.git@v0.3.0"
 ```
 
 In the future, if there’s enough interest, I plan to push Haverscript to PyPI
@@ -296,7 +298,6 @@ Haverscript provides following middleware:
 | validation | Fail under given condition                  | reliablity |
 | cache      | Store and/or query prompt-reply pairs in DB | efficency | 
 | fresh      | Request a fresh reply (not cached)          | efficency |
-| meta       | Support for generalized prompt and response transformations | generalization |
 
 For a comprehensive overview of middleware,
 please refer to the [Middleware Docs](docs/MIDDLEWARE.md) documentation.
@@ -307,7 +308,7 @@ For examples of middleware in used, see
 * [JSON output](examples/check/README.md) in checking output, and
 * [setting ollama options](examples/options/README.md).
 
-### Chat Options
+### Chat and Ask Options
 
 The `.chat()` method has additional parameters that are specific
 to each chat call.
@@ -315,7 +316,7 @@ to each chat call.
 ```python
     def chat(
         self,
-        prompt: str,
+        rompt: str | Markdown,
         images: list = [],
         middleware: Middleware | None = None,
     ) -> Response:
@@ -323,6 +324,21 @@ to each chat call.
 
 Specifically, `chat` takes things that are added to any context (prompt and
 images), and additionally, any extra middleware.
+
+There is also an `.ask()` method.
+
+```python
+    def ask(
+        self,
+        prompt: str | Markdown,
+        images: list[str] = [],
+        middleware: Middleware | None = None,
+    ) -> Reply:
+```
+This returns a `Reply` object, which is a composable stream of tokens,
+as well as values from structured output, information packets, and
+performance metrics. `Response` is build from the `Reply`, while `Reply`
+has not context - it can be thought of as just the LLM's reply.
 
 ### Other APIs
 
@@ -350,12 +366,31 @@ python example.py
 You also need to include the together option when installing.
 
 ```shell
-pip install "haverscript[together] @ git+https://github.com/andygill/haverscript.git@v0.2.1"
+pip install "haverscript[together] @ git+https://github.com/andygill/haverscript.git@v0.3.0"
 ```
 
 PRs supporting other API are welcome! There are two examples in the source,
 the together API is in [together.py](src/haverscript/together.py),
 and it should be straightforward to add more.
+
+
+# Reply as a Monad
+
+The `Reply` object is a [monad](https://en.wikipedia.org/wiki/Monad_%28functional_programming%29).
+That is you can inject a value, using `Reply.pure(...)`, 
+and pass the value forward using `Reply.bind(...)`.
+You can also extract the value using `Reply.value`.
+
+You can extract the contents of a Reply using `yield from`
+
+```python
+yield from Reply(....)
+```
+
+and you can take a yield-based `Iterator`, and pass it as an argument to `Reply`
+to make a new `Reply` object.
+
+Careful use of `Reply` allows agents that can explain what they are doing in real time.
 
 ## FAQ
 
@@ -386,20 +421,27 @@ class Foo(BaseModel):
 foo : Foo = model.chat("...", middleware=format(Foo)).value
 ```
 
-Again, remember to request JSON in the prompt. Furthermore, it might
-be useful to ask the LLM to use the schema explictly:
+Again, remember to request JSON in the prompt. `reply_in_json` is a good
+way of doing this.
 
 ```python
-prompt = f"""
-...
+prompt = Markdown()
 
-Reply using JSON, and conform to the following JSON schema:
----
-{schema.model_json_schema()}
-"""
+prompt += ...
+
+prompt += reply_in_json(model)
+
+...
 ```
 
-A: Can I write my own middleware?
+Q: Can I write my own agent?
+
+A: Yes! There are many examples in the sourcecode. `Agent` is a simple
+wrapper around a `Model`, and provide plumbing for agent-based `ask_llm`
+and `chat_llm`. The `Agent` class also provides support for stuctured 
+output.
+
+Q: Can I write my own middleware?
 
 A: Yes! There are many examples in the sourcecode. Middleware operate
 at one level down from prompts and chat, and instead operate with `Request`
@@ -407,10 +449,12 @@ and `Reply`. The design pattern is (1) modify the `Request`, if needed,
 (2) call the rest of the middleware, and (3) process the `Reply`.
 
 
+
+
 Q: What is "haver"?
 
 A: It's a Scottish term that means to talk aimlessly or without necessarily
-making sense.
+making sense. Sort of like an LLM.
 
 
 ## Generative AI Usage
