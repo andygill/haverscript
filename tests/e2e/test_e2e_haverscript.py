@@ -49,7 +49,7 @@ def open_for_together(filename, tmp_path):
         "import haverscript as hs\nimport haverscript.together as together\n" + content
     )
     changes = {
-        'connect("mistral")': '(together.connect("meta-llama/Meta-Llama-3-8B-Instruct-Lite") | hs.options(seed=12345))',
+        'connect("mistral")': '(together.connect("meta-llama/Meta-Llama-3-8B-Instruct-Lite", timeout=30, max_retries=2) | hs.options(seed=12345))',
         'cache("cache.db")': f'cache("{tmp_path}/cache.together.db")',
         "connect(model)": "(connect(model) |  hs.options(seed=12345))",
     }
@@ -121,9 +121,9 @@ article 2 : {s2}
 """
 
     response = connect("meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo").chat(
-        prompt, middleware=haverscript.format(Similarity)
+        prompt,
+        middleware=haverscript.format(Similarity),
     )
-
     similarity = Similarity.model_validate(response.value)
 
     if similarity.similarity < 0.5:
@@ -145,14 +145,13 @@ def run_examples(
         suffix = f".{arg}.txt"
         args = [arg]
     # Check the given example actually compiles and runs
-    example = run_example(
-        src,
-        tmp_path,
-        open_as_is,
-        args=args,
-    )
-
     if as_is:
+        example = run_example(
+            src,
+            tmp_path,
+            open_as_is,
+            args=args,
+        )
         file_regression.check(
             example,
             extension=f".as_is{suffix}",

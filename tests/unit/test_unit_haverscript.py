@@ -13,7 +13,6 @@ from collections import namedtuple
 
 import pytest
 from pydantic import BaseModel, Field
-from tenacity import stop_after_attempt
 
 from haverscript import (
     LanguageModel,
@@ -44,7 +43,7 @@ import haverscript as hs
 from haverscript.cache import INTERACTION, Cache
 from haverscript.types import Exchange, Request, ResponseMessage, ToolResult, ToolReply
 from haverscript.middleware import *
-from haverscript.utils import tool_schema
+from haverscript.tools import tool_schema
 from tests.test_utils import remove_spinner
 
 # Note that these tests break the haverscript API at points specifically
@@ -583,9 +582,7 @@ def test_check(sample_model):
     # failing check
     with pytest.raises(LLMResultError):
         (
-            sample_model
-            | validate(lambda reply: "Squirrel" not in reply)
-            | retry(stop=stop_after_attempt(5))
+            sample_model | validate(lambda reply: "Squirrel" not in reply) | retry(5)
         ).chat("Squirrel")
 
     # chaining checks
@@ -671,7 +668,7 @@ def test_retry(sample_model):
         sample_model.chat("FAIL(0)")
 
     extra = sample_model.chat("###", middleware=format()).value["extra"]
-    model = sample_model | retry(stop=stop_after_attempt(5))
+    model = sample_model | retry(5)
     model.chat(f"FAIL({extra+4})")
 
 
@@ -687,15 +684,13 @@ def test_validate(sample_model: Model):
         (
             sample_model
             | validate(lambda txt: f'"extra": {extra + 10}' in txt)
-            | (retry(stop=stop_after_attempt(5)))
+            | retry(5)
         ).chat("###")
 
     extra = sample_model.chat("###", middleware=format()).value["extra"]
 
     (
-        sample_model
-        | validate(lambda txt: f'"extra": {extra + 3}' in txt)
-        | (retry(stop=stop_after_attempt(5)))
+        sample_model | validate(lambda txt: f'"extra": {extra + 3}' in txt) | retry(5)
     ).chat("###")
 
     extra = sample_model.chat("###", middleware=format()).value["extra"]
@@ -704,7 +699,7 @@ def test_validate(sample_model: Model):
         # wrong order; retry is bellow validate.
         (
             sample_model
-            | retry(stop=stop_after_attempt(5))
+            | retry(5)
             | validate(lambda txt: f'"extra": {extra + 3}' in txt)
         ).chat("###")
 
@@ -777,7 +772,7 @@ def test_middleware(sample_model: Model):
 
     session = sample_model | UpperCase()
     reply1 = session.chat("Hello")
-    reply2 = (session | retry(stop=stop_after_attempt(5))).chat("Hello")
+    reply2 = (session | retry(5)).chat("Hello")
 
     assert reply0.reply.upper() == reply1.reply
     assert reply0.reply.upper() == reply2.reply
