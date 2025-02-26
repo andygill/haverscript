@@ -1,9 +1,9 @@
 # Haverscript
 
 Haverscript is a Python library for interacting with Large Language Models
-(LLMs). Haverscript's concise syntax and powerful middleware allows for rapid
-prototyping with new use cases for LLMs, prompt engineering, and experimenting in
-the emerging field of LLM-powered agents. Haverscript uses
+(LLMs) and writing Agents. Haverscript's concise syntax and powerful middleware
+allows for rapid prototyping with new use cases for LLMs, prompt engineering,
+and experimenting in the emerging field of LLM-powered agents. Haverscript uses
 [Ollama](https://ollama.com) by default but can use any OpenAI-style LLM API
 with a simple adapter.
 
@@ -316,7 +316,7 @@ to each chat call.
 ```python
     def chat(
         self,
-        rompt: str | Markdown,
+        prompt: str | Markdown,
         images: list = [],
         middleware: Middleware | None = None,
     ) -> Response:
