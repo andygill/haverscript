@@ -294,7 +294,7 @@ Haverscript provides following middleware:
 | stats      | Print basic stats about LLM                 | observation |
 | trace      | Log requests and responses                  | observation |
 | transcript | Store a complete transcript of every call   | observation |
-| retry      | retry on failure (using tenacity)           | reliablity |
+| retry      | retry on failure                            | reliablity |
 | validation | Fail under given condition                  | reliablity |
 | cache      | Store and/or query prompt-reply pairs in DB | efficency | 
 | fresh      | Request a fresh reply (not cached)          | efficency |

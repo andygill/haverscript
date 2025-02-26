@@ -1,5 +1,6 @@
 import os
 from dataclasses import dataclass
+import time
 from types import GeneratorType
 import json
 
@@ -20,12 +21,19 @@ class Together(ServiceProvider):
     client: together.Together | None = None
     hostname = ""
 
-    def __init__(self, api_key: str | None = None) -> None:
+    def __init__(
+        self,
+        api_key: str | None = None,
+        timeout: int | None = None,
+        max_retries: int | None = None,
+    ) -> None:
         if api_key is None:
             api_key = os.getenv("TOGETHER_API_KEY")
         assert api_key is not None, "need TOGETHER_API_KEY"
         if self.client is None:
-            self.client: Together = together.Together(api_key=api_key)
+            self.client: Together = together.Together(
+                api_key=api_key, timeout=timeout, max_retries=max_retries
+            )
 
     def list(self) -> list[str]:
         models = self.client.models.list()
@@ -154,11 +162,16 @@ class Together(ServiceProvider):
 
 
 def connect(
-    model_name: str | None = None, api_key: str | None = None
+    model_name: str | None = None,
+    api_key: str | None = None,
+    timeout: int | None = None,
+    max_retries: int | None = None,
 ) -> Model | Service:
     """return a model or service that uses the given model name."""
 
-    service = Service(Together(api_key=api_key))
+    service = Service(
+        Together(api_key=api_key, timeout=timeout, max_retries=max_retries)
+    )
     if model_name:
         service = service | model(model_name)
     return service

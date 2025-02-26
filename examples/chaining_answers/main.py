@@ -1,4 +1,4 @@
-from haverscript import connect, stop_after_attempt, echo, validate, retry
+from haverscript import connect, echo, validate, retry
 
 
 def small(reply):
@@ -10,7 +10,7 @@ model = connect("mistral") | echo()
 
 best = model.chat(
     "Name the best basketball player. Only name one player and do not give commentary.",
-    middleware=validate(small) | retry(stop=stop_after_attempt(10)),
+    middleware=validate(small) | retry(5),
 )
 model.chat(
     f"Someone told me that {best} is the best basketball player. Do you agree, and why?"

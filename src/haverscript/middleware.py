@@ -18,7 +18,6 @@ import types
 import jsonref
 
 from pydantic import BaseModel, TypeAdapter
-from tenacity import RetryError, Retrying
 from yaspin import yaspin
 
 from .cache import Cache
@@ -44,7 +43,7 @@ logger = log.getLogger("haverscript")
 
 @dataclass(frozen=True)
 class RetryMiddleware(Middleware):
-    """Retry the lower chat if it fails, using options as argument(s) to tenacity retry.
+    """Retry the lower chat if it fails.
 
     There is a cavet here. If the lower chat returns an in-progress and working streaming,
     then this will be accepted by this retry. We wait for the first token, though.
@@ -52,39 +51,39 @@ class RetryMiddleware(Middleware):
     We need to increment the seed, if any, each time.
     """
 
-    options: dict
+    count: dict
 
     def invoke(self, request: Request, next: LanguageModel):
-        try:
-            seed = None
-            for attempt in Retrying(**self.options):
-
-                if seed:
-                    request.model_copy(
-                        update=dict(
-                            contexture=self.contexture.model_copy(
-                                update=dict(
-                                    options=request.contexture.options | dict(seed=seed)
-                                )
+        seed = None
+        for _ in range(self.count):
+            if seed:
+                request.model_copy(
+                    update=dict(
+                        contexture=self.contexture.model_copy(
+                            update=dict(
+                                options=request.contexture.options | dict(seed=seed)
                             )
                         )
                     )
-                with attempt:
-                    try:
-                        return next.ask(request=request)
-                    finally:
-                        seed = (
-                            request.contexture.options["seed"] + 1
-                            if "seed" in request.contexture.options
-                            else None
-                        )
-        except RetryError as e:
-            raise LLMResultError()
+                )
+            try:
+                return next.ask(request=request)
+            except Exception as e:
+                # we caught the exception, and now retry after 1 second
+                time.sleep(1)
+            finally:
+                seed = (
+                    request.contexture.options["seed"] + 1
+                    if "seed" in request.contexture.options
+                    else None
+                )
+
+        raise LLMResultError()
 
 
-def retry(**options) -> Middleware:
-    """retry uses tenacity to wrap the LLM request-response action in retry options."""
-    return RetryMiddleware(options)
+def retry(count: int) -> Middleware:
+    """retry allows multiple attempts at a specfic LLM call."""
+    return RetryMiddleware(count=count)
 
 
 @dataclass(frozen=True)

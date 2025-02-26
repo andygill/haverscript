@@ -57,7 +57,7 @@ Haverscript provides following middleware
 | stats      | Print basic stats about LLM                 | observation |
 | trace      | Log requests and responses                  | observation |
 | transcript | Store a complete transcript of every call   | observation |
-| retry      | retry on failure (using tenacity)           | reliablity |
+| retry      | retry on failure                            | reliablity |
 | validation | Fail under given condition                  | reliablity |
 | cache      | Store and/or query prompt-reply pairs in DB | efficency | 
 | fresh      | Request a fresh reply (not cached)          | efficency |
@@ -113,8 +113,8 @@ used when waiting for a response from the LLM.
 ## Reliablity Middleware
 
 ```python
-def retry(**options) -> Middleware:
-    """retry uses tenacity to wrap the LLM request-response action in retry options."""
+def retry(count : int) -> Middleware:
+    """retry the LLM call a number of times."""
 def validate(predicate: Callable[[str], bool]) -> Middleware:
     """validate the response as middleware. Can raise as LLMResultError"""
 ```
