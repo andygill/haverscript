@@ -82,9 +82,9 @@ class EditorFeedback(BaseModel):
     score: int = Field(..., description="Quality score from 1 to 10")
 ```
 
-Now, we call `ask_llm` this time - ask is for calls without history,
-chat is for sessions with history - and we want the editor to consider
-what is written in isolation.
+Now, we call `ask` this time - ask is for calls without history, chat is for
+sessions with history - and we want the editor to consider what is written in
+isolation.
 
 Thats it! We've written two agents.
 
@@ -118,8 +118,8 @@ but using agents to do the plumbing.
 
 # Notes
 
-- There is a way, by providing an `Agent.prepare()` method, to have
-dynamic system prompts. This is an advanced topic.
+- There is a way, by providing an `Agent.prepare()` method, to have dynamic
+system prompts. This is an advanced topic.
 
-- The ask_llm can return a `Reply`, and allow agents to do work in 
-a way to get dynamic output as LLMs are called.
+- The `ask` can return a `Reply`, and allow agents to do work in a way to get
+dynamic output as LLMs are called.

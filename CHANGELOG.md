@@ -7,7 +7,7 @@ documents notable changes to the Haverscript project.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.2.2] - 2025-??-??
+## [0.3.0] - 2025-02-26
 ### Added
 - Initial agentic support. An `Agent` is a python class that has access to an LLM.
 - `Markdown`, a simple DSL for building markdown-style prompts.
@@ -18,9 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `connect_chatbot` which promotes a chatbot into a `Model`.
 - `Model.ask()` which is a one-shot `Model.chat()` that returns dynamic content.
 - `Reply.informational` and `Reply.pure` generate specific Reply objects.
+- `ChatBot` class for wrapping up pseudo LLMs (or agents acting like LLMs).
 ### Deprecated
 - `dedent` has stubed out (has no effect). This has been replaced by Markdown support.
-- `meta` middleware. This has been replaced by chatbots.
+- `meta` middleware is removed, and has been replaced by `ChatBot`.
 ### Changed
 - Internally, resolve refs from JSON schemas in format (this works around an ollama bug)
 - `Model` and `Response` are now pydantic classes.
