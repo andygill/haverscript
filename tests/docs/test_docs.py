@@ -19,6 +19,15 @@ def test_docs_first_example():
     readme("tests/e2e/test_e2e_haverscript/test_first_example.txt", 17, 20, skip=1)
 
 
+def test_docs_first_agent():
+    readme = README("examples/first_agent/README.md")
+    readme("examples/first_agent/main.py", 4, 19)
+    assert (
+        Content("examples/first_agent/README.md")[28 : 28 + 7]
+        == Content("tests/e2e/test_e2e_haverscript/test_first_agent.txt")[1:8]
+    )
+
+
 def test_docs_chaining_answers():
     readme = README("examples/chaining_answers/README.md")
     readme("examples/chaining_answers/main.py", 5, 17)
@@ -60,9 +69,11 @@ def test_readme():
     readme = README("README.md")
 
     readme("examples/first_example/main.py", 20, 8)
+    readme("examples/first_agent/main.py", 63, 19)
+
     readme("tests/e2e/test_e2e_haverscript/test_first_example.txt", 33, 20, skip=1)
     assert (
         Content("docs/MIDDLEWARE.md")[50 : 50 + 14]
-        == Content("README.md")[287 : 287 + 14]
+        == Content("README.md")[328 : 328 + 14]
     )
-    readme("examples/together/main.py", 349, 8)
+    readme("examples/together/main.py", 390, 8)

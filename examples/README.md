@@ -5,6 +5,7 @@ This directory contains various examples of using Haverscript.
 Examples with README files.
 
 * [First example and chat session](first_example/README.md) 
+* [First Agent example](first_agent/README.md)
 * [Chaining answers together](chaining_answers/README.md)
 * [Tree of calls and use of system](tree_of_calls/README.md)
 * [Vision Models](images/README.md)
@@ -15,7 +16,6 @@ Examples with README files.
 Other examples:
 
 * [Using together.ai](together/main.py)
-* [First Agent example](first_agent/main.py)
 * [ChatBot Model](chatbot/main.py) and an example of an `Agent`, used to build the `ChatBot`.
 * [Custom Service Provider](custom_service/main.py)
 * [An example command line shell using haverscript](havershell/main.py)
