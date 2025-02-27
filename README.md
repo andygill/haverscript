@@ -1,15 +1,15 @@
 # Haverscript
 
-Haverscript is a Python library for interacting with Large Language Models
-(LLMs) and writing Agents. Haverscript's concise syntax and powerful middleware
-allows for rapid prototyping with new use cases for LLMs, prompt engineering,
+Haverscript is a Python library for writing agents and interacting with Large
+Language Models (LLMs). Haverscript's concise syntax and powerful middleware
+allow for rapid prototyping with new use cases for LLMs, prompt engineering,
 and experimenting in the emerging field of LLM-powered agents. Haverscript uses
 [Ollama](https://ollama.com) by default but can use any OpenAI-style LLM API
 with a simple adapter.
 
 This is version 0.3 of Haverscript. The big change from 0.2 is the introduction
-of simple agents, as well as a new API for constructing structured prompts,
-and a monadic-based way of chaining LLM calls.
+of simple agents, as well as a new API for constructing markdown-based prompts,
+and a monadic way of chaining LLM calls.
 
 ## First Example
 
@@ -52,12 +52,13 @@ due to their atmospheres composed largely of methane, which absorbs red light
 and scatters blue light.
 ```
 
-Haverscript used markdown as its output format, allowing for easy rendering of any chat session.
+Haverscript uses markdown as its output format, allowing for easy rendering of
+any chat session.
 
 ## First Agent Example
 
 Haverscript provides basic agent capabilities, that is calls to an LLM
-wrapped in a python object. Here is a basic example.
+wrapped in a Python object. Here is a basic example.
 
 ```python
 from haverscript import connect, Agent
@@ -65,8 +66,8 @@ from haverscript import connect, Agent
 
 class FirstAgent(Agent):
     system: str = """
-    You are a helpful AI assistant who answers questions in the style of Neil
-    Degrasse Tyson.
+    You are a helpful AI assistant who answers questions in the style of
+    Neil deGrasse Tyson.
 
     Answer any questions in 2-3 sentences, without preambles.
     """
@@ -75,10 +76,10 @@ class FirstAgent(Agent):
         return self.ask(f"what color is the sky on {planet} and why?")
 
 
-first = FirstAgent(model=connect("mistral"))
+firstAgent = FirstAgent(model=connect("mistral"))
 
 for planet in ["Earth", "Mars", "Venus", "Jupiter"]:
-    print(f"{planet}: {first.sky(planet)}\n")
+    print(f"{planet}: {firstAgent.sky(planet)}\n")
 ```
 
 Running this will output the following:
@@ -144,14 +145,14 @@ In the future, if there’s enough interest, I plan to push Haverscript to PyPI
 for easier installation.
 
 See [INSTALL.md](INSTALL.md) for additional details about installing, testing and
-extended Haverscript.
+building Haverscript.
 
 ## Documentation
 
 ### The `chat` Method
 
 The `chat` method invokes the LLM, and is the principal method in HaveScript.
-Everything else in Haverscripe is about setting up for `chat`, or using the
+Everything else in Haverscript is about setting up for `chat`, or using the
 output from `chat`. The `chat` method is available in both the `Model` class and
 its subclass `Response`:
 
@@ -303,7 +304,7 @@ for an example.
 ### Middleware
 
 Middleware is a mechanism to have fine control over everything between calling
-`.chat` and Haverscript calling the LLM. As a example, consider the creation of
+`.chat` and Haverscript calling the LLM. As an example, consider the creation of
 a session.
 
 ```python
@@ -478,10 +479,9 @@ prompt += reply_in_json(model)
 
 Q: Can I write my own agent?
 
-A: Yes! There are many examples in the sourcecode. `Agent` is a simple
-wrapper around a `Model`, and provide plumbing for agent-based `ask_llm`
-and `chat`. The `Agent` class also provides support for stuctured 
-output.
+A: Yes! There are a number of examples in the source code. `Agent` is a simple
+wrapper around a `Model`, and provides plumbing for agent-based `ask` and
+`chat`. The `Agent` class also provides support for stuctured output.
 
 Q: Can I write my own middleware?
 
