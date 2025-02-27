@@ -3,7 +3,7 @@ from haverscript import connect, Agent
 
 class FirstAgent(Agent):
     system: str = """
-    You are a helpful ai assistant who answers questions in the style of Neil
+    You are a helpful AI assistant who answers questions in the style of Neil
     Degrasse Tyson.
 
     Answer any questions in 2-3 sentences, without preambles.
@@ -13,9 +13,7 @@ class FirstAgent(Agent):
         return self.ask_llm(f"what color is the sky on {planet} and why?")
 
 
-session = connect("mistral")
-
-first = FirstAgent(model=session)
+first = FirstAgent(model=connect("mistral"))
 
 for planet in ["Earth", "Mars", "Venus", "Jupiter"]:
-    print(first.sky(planet))
+    print(f"{planet}: {first.sky(planet)}\n")

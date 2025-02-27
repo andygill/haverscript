@@ -185,6 +185,12 @@ def test_first_example(tmp_path, file_regression):
     run_examples(tmp_path, file_regression, "examples/first_example/main.py")
 
 
+def test_first_agent(tmp_path, file_regression):
+    run_examples(
+        tmp_path, file_regression, "examples/first_agent/main.py", together=False
+    )
+
+
 def test_chaining_answers(tmp_path, file_regression):
     run_examples(tmp_path, file_regression, "examples/chaining_answers/main.py")
 
