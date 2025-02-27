@@ -72,7 +72,7 @@ class FirstAgent(Agent):
     """
 
     def sky(self, planet: str) -> str:
-        return self.ask_llm(f"what color is the sky on {planet} and why?")
+        return self.ask(f"what color is the sky on {planet} and why?")
 
 
 first = FirstAgent(model=connect("mistral"))
@@ -480,7 +480,7 @@ Q: Can I write my own agent?
 
 A: Yes! There are many examples in the sourcecode. `Agent` is a simple
 wrapper around a `Model`, and provide plumbing for agent-based `ask_llm`
-and `chat_llm`. The `Agent` class also provides support for stuctured 
+and `chat`. The `Agent` class also provides support for stuctured 
 output.
 
 Q: Can I write my own middleware?
@@ -490,14 +490,20 @@ at one level down from prompts and chat, and instead operate with `Request`
 and `Reply`. The design pattern is (1) modify the `Request`, if needed,
 (2) call the rest of the middleware, and (3) process the `Reply`.
 
-
-
-
 Q: What is "haver"?
 
 A: It's a Scottish term that means to talk aimlessly or without necessarily
 making sense. Sort of like an LLM.
 
+
+## Terminology
+
+- Model: a LLM model that can be queried.
+- Response: a model that also has a chat context including at least one response.
+- Reply: a lazy list of tokens from an LLM; is also a monad.
+- reply: a textual reply.
+- chat: a question, remember the prompt-reply pair.
+- ask: a question, only for the reply.
 
 ## Generative AI Usage
 

@@ -37,7 +37,7 @@ Further, an agent should have a capability, in this case writing.
 
         prompt += header("Instructions") + instructions
 
-        return self.chat_llm(prompt)
+        return self.chat(prompt)
 ```
 
 
@@ -68,7 +68,7 @@ This time, we have the capability for proofing text.
 
         prompt += reply_in_json(EditorFeedback)
 
-        return self.ask_llm(prompt, format=EditorFeedback)
+        return self.ask(prompt, format=EditorFeedback)
 ```
 
 We reqire the output use the `EditorFeedback` class.

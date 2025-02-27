@@ -1242,10 +1242,10 @@ class _TestAgent(Agent):
     system: str = "I am an agent"
 
     def zoom(self):
-        return self.ask_llm("zoom")
+        return self.ask("zoom")
 
     def beep(self):
-        return self.ask_llm("beep", format=dict)
+        return self.ask("beep", format=dict)
 
 
 def test_agent(sample_model: Model):

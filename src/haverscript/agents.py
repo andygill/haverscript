@@ -11,6 +11,7 @@ from haverscript.middleware import (
     stream as stream_middleware,
     echo as echo_middleware,
 )
+from haverscript.tools import Tools
 from haverscript.types import Middleware, EmptyMiddleware, Reply
 from haverscript.markdown import markdown
 
@@ -37,11 +38,12 @@ class Agent(BaseModel):
         """
         self.model = self.model.system(str(self.system))
 
-    def chat_llm(
+    def chat(
         self,
         prompt: str | Markdown,
         format: Type | None = None,
         middleware: Middleware | None = None,
+        tools: Tools | None = None,
     ) -> str | Any:
         """ "chat with the llm and remember the conversation.
 
@@ -52,14 +54,14 @@ class Agent(BaseModel):
         if format is not None:
             middleware = format_middleware(format) | middleware
 
-        response = self.model.chat(prompt, middleware=middleware)
+        response = self.model.chat(prompt, middleware=middleware, tools=tools)
 
         if format:
             return response.value
 
         return response.reply
 
-    def ask_llm(
+    def ask(
         self,
         prompt: str | Markdown,
         format: Type | None = None,

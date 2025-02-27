@@ -19,7 +19,7 @@ class FrenchAgent(Agent):
     system: str = "You are a translator, translating from English to French. "
     previous: list[Translate] = Field(default_factory=list)
 
-    def chat(self, prompt: str) -> Reply:
+    def chat_to_bot(self, prompt: str) -> Reply:
         return Reply(self._stream(prompt))
 
     def _stream(self, prompt) -> Iterator:
@@ -35,7 +35,7 @@ class FrenchAgent(Agent):
             down_prompt += f"English Text: {prompt}"
             down_prompt += reply_in_json(Translate)
 
-            translated: Translate = self.ask_llm(down_prompt, format=Translate)
+            translated: Translate = self.ask(down_prompt, format=Translate)
 
             self.previous.append(translated)
             remaining = max_traslations - len(self.previous)

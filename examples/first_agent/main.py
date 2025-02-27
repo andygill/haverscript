@@ -10,7 +10,7 @@ class FirstAgent(Agent):
     """
 
     def sky(self, planet: str) -> str:
-        return self.ask_llm(f"what color is the sky on {planet} and why?")
+        return self.ask(f"what color is the sky on {planet} and why?")
 
 
 first = FirstAgent(model=connect("mistral"))
