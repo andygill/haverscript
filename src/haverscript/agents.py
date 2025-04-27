@@ -95,6 +95,22 @@ class Agent(BaseModel):
 
         return str(reply)
 
+    def remember(
+        self,
+        prompt: str | Markdown,
+        reply: str | Reply,
+    ) -> None:
+        """remember a conversation exchange.
+
+        This is used to add a conversation to the agent's memory.
+        This is useful for advanced prompt techniques, such as
+        chaining or tree of calls.
+        """
+        if isinstance(reply, str):
+            reply = Reply([reply])
+
+        self.model = self.model.process(prompt, reply)
+
     def clone(self, kwargs: dict = {}) -> Agent:
         """clone the agent.
 
