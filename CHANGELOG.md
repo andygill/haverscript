@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `str` and `Markdown` as request options to `Model.process`.
 ## Changed
 - `Agent.chat` now updates the `Agent` when called (the originally intended behaviour)
+- `Agent.remember` adds a prompt-reply pair to the internal context of an agent.
 
 ## [0.3.0] - 2025-02-26
 ### Added
