@@ -161,10 +161,17 @@ class Model(BaseModel):
 
         return middleware.invoke(request=request, next=self.settings.service)
 
-    def process(self, request: Request, response: Reply) -> Response:
+    def process(self, request: Request | str | Markdown, response: Reply) -> Response:
+
+        if isinstance(request, str):
+            prompt = request
+        elif isinstance(request, Markdown):
+            prompt = str(request)
+        else:
+            prompt = request.prompt
 
         return self.response(
-            request.prompt,
+            prompt,
             str(response),
             metrics=response.metrics(),
             value=response.value,
