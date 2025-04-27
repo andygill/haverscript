@@ -25,11 +25,11 @@ for planet in ["Earth", "Mars", "Venus", "Jupiter"]:
 Running this will output the following:
 
 ```
-Earth:  The sky appears blue during a clear day on Earth due to a process called Rayleigh scattering, where shorter wavelengths of light, such as blue and violet, are scattered more by the molecules in our atmosphere. However, we perceive the sky as blue rather than violet because our eyes are more sensitive to blue light, and sunlight reaches us with less violet due to scattering events.
+Earth:  The sky appears blue to our eyes during a clear day due to a phenomenon called Rayleigh scattering, where shorter wavelengths of light, such as blue and violet, are scattered more effectively by the atmosphere's molecules than longer ones like red or yellow. However, we perceive the sky as blue rather than violet because our eyes are more sensitive to blue light and because sunlight reaches us with less violet light filtered out by the ozone layer.
 
 Mars:  The sky on Mars appears to be a reddish hue, primarily due to suspended iron oxide (rust) particles in its atmosphere. This gives Mars its characteristic reddish color as sunlight interacts with these particles.
 
-Venus:  On Venus, the sky appears a dazzling white due to its thick clouds composed mainly of sulfuric acid. The reflection of sunlight off these clouds is responsible for this striking appearance.
+Venus:  The sky on Venus is not visible like it is on Earth because of a dense layer of clouds composed mostly of sulfuric acid. This thick veil prevents light from the Sun from reaching our line of sight, making the sky appear perpetually dark.
 
-Jupiter:  The sky on Jupiter isn't blue like Earth's; it's predominantly brownish due to the presence of ammonia crystals in its thick atmosphere. The reason for this difference lies in the unique composition and temperature conditions on Jupiter compared to our planet.
+Jupiter:  The sky on Jupiter isn't blue like Earth's; instead, it appears white or off-white due to the reflection of sunlight from thick layers of ammonia crystals in its atmosphere. This peculiarity stems from Jupiter's composition and atmospheric conditions that are quite different from ours.
 ```

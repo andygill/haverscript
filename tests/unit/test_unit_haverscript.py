@@ -139,7 +139,10 @@ class _TestClient:
                 reply = json.dumps(["A", "B", "C"])
             elif format == {"anyOf": [{"type": "integer"}, {"type": "null"}]}:
                 reply = json.dumps(101)
-            elif format == {"type": "object"}:
+            elif format == {"type": "object"} or format == {
+                "additionalProperties": True,
+                "type": "object",
+            }:
                 reply = json.dumps({"x:": "Hello"})
             elif format == {
                 "$defs": {
