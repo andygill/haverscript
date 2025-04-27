@@ -56,6 +56,8 @@ class Agent(BaseModel):
 
         response = self.model.chat(prompt, middleware=middleware, tools=tools)
 
+        self.model = response
+
         if format:
             return response.value
 
@@ -83,7 +85,7 @@ class Agent(BaseModel):
         if stream:
             middleware = stream_middleware() | middleware
 
-        reply = self.model.ask(prompt, middleware=middleware)
+        reply: Reply = self.model.ask(prompt, middleware=middleware)
 
         if stream:
             return reply
