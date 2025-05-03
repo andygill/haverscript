@@ -24,6 +24,7 @@ from .cache import Cache
 from .exceptions import LLMError, LLMResultError
 from .types import (
     Exchange,
+    Extras,
     Informational,
     LanguageModel,
     Reply,
@@ -341,6 +342,30 @@ class StatsMiddleware(Middleware):
 def stats() -> Middleware:
     """print stats to stdout."""
     return StatsMiddleware()
+
+
+@dataclass(frozen=True)
+class RealtimeMiddleware(Middleware):
+    callback: Callable[[str], None]
+
+    def invoke(self, request: Request, next: LanguageModel) -> Reply:
+        request = request.model_copy(update=dict(stream=True))
+
+        response = next.ask(request=request)
+
+        for token in response:
+            self.callback(token)
+
+        return response
+
+
+def realtime(echo: Callable[[str | Extras], None]) -> Middleware:
+    """callback is a middleware that allows you to pass a callback function to the model.
+
+    This callback will be called for every token received from the model.
+    """
+
+    return RealtimeMiddleware(echo)
 
 
 @dataclass(frozen=True)

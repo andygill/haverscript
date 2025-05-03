@@ -424,6 +424,19 @@ def test_stats(sample_model, capfd):
     assert txt == "- prompt : 7b, LLMError Exception raised\n"
 
 
+def test_realtime(sample_model):
+    message = []
+
+    def callback(n):
+        message.append(n)
+
+    resp = (sample_model | realtime(callback)).chat("Hello")
+
+    message = "".join(message)
+
+    assert message == reply_to_hello_no_prompt.replace("\n", " ").strip()
+
+
 def test_options(sample_model):
     reply = (sample_model | options(seed=12345)).chat("")
     context = [{"role": "user", "content": ""}]
