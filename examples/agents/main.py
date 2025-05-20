@@ -6,7 +6,7 @@ from haverscript import (
     bullets,
     header,
     quoted,
-    reply_in_json,
+    reply_in_json_interface,
     template,
     stats,
 )
@@ -95,7 +95,7 @@ class Editor(Agent):
             regarding quality and suitability for a travel book.
         """
 
-        prompt += reply_in_json(EditorFeedback)
+        prompt += reply_in_json_interface(EditorFeedback)
 
         return self.ask(prompt, format=EditorFeedback)
 
