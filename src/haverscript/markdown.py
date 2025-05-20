@@ -6,6 +6,8 @@ import string
 import re
 from pydantic import BaseModel
 
+from haverscript.json_utils import json_interface_string
+
 
 class Markdown:
     def __init__(
@@ -151,6 +153,21 @@ def table(headers: dict, rows: list[dict]) -> Markdown:
         for row in rows
     ]
     return "\n".join([header_row, separator] + data_rows)
+
+
+def reply_in_json_interface(model: Type[BaseModel]) -> str:
+    """
+    Instructions to reply in JSON using a specific interface.
+
+    Args:
+        model: The Pydantic model class.
+    Returns:
+        A string representing the prompt with the JSON interface.
+    """
+    prompt: str = (
+        f"Reply with the following JSON interface:\n```\n{json_interface_string(model)}\n```"
+    )
+    return prompt
 
 
 def reply_in_json(
